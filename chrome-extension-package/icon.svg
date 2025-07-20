@@ -1,0 +1,27 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F7CAC;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a1f36;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#grad)" stroke="#fff" stroke-width="2"/>
+  
+  <!-- Document icon -->
+  <rect x="35" y="30" width="40" height="50" rx="3" fill="#fff" opacity="0.9"/>
+  <rect x="35" y="85" width="40" height="15" rx="3" fill="#fff" opacity="0.7"/>
+  
+  <!-- Text lines -->
+  <line x1="42" y1="40" x2="68" y2="40" stroke="#4F7CAC" stroke-width="2" stroke-linecap="round"/>
+  <line x1="42" y1="48" x2="65" y2="48" stroke="#4F7CAC" stroke-width="2" stroke-linecap="round"/>
+  <line x1="42" y1="56" x2="70" y2="56" stroke="#4F7CAC" stroke-width="2" stroke-linecap="round"/>
+  <line x1="42" y1="64" x2="62" y2="64" stroke="#4F7CAC" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Google Sheets arrow -->
+  <path d="M80 45 L95 60 L80 75 M85 60 L75 60" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Highlight effect -->
+  <rect x="35" y="52" width="40" height="8" fill="#4F7CAC" opacity="0.3" rx="1"/>
+</svg>
