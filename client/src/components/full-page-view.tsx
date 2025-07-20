@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Filter, Calendar, Bookmark, Tags, Globe, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import Masonry from "react-masonry-css";
 import type { ContentItem } from "@shared/schema";
 
 export default function FullPageView() {
@@ -189,10 +190,18 @@ export default function FullPageView() {
         </div>
       )}
 
-      {/* Content Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Content Masonry Grid */}
+      <Masonry
+        breakpointCols={{
+          default: 3,
+          1024: 2,
+          640: 1
+        }}
+        className="flex -ml-6 w-auto"
+        columnClassName="pl-6 bg-clip-padding"
+      >
         {items.map((item) => (
-          <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+          <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow mb-6">
             {item.imageUrl && (
               <div className="aspect-video">
                 <img
@@ -203,15 +212,20 @@ export default function FullPageView() {
               </div>
             )}
             <CardContent className="p-4">
-              {/* Quote/Content - now larger */}
-              <p className="text-lg text-gray-600 mb-3 line-clamp-3 font-medium">
+              {/* Quote/Content - now larger, no truncation if short */}
+              <p className={`text-lg text-gray-600 mb-3 font-medium ${item.content && item.content.split('\n').length <= 8 ? '' : 'line-clamp-3'}`}>
                 {item.content}
               </p>
               
-              {/* Title - now smaller and below quote */}
-              <h3 className="text-sm text-gray-900 line-clamp-2 mb-3">
+              {/* Title - now smaller and below quote, clickable link to source */}
+              <a 
+                href={item.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-gray-900 line-clamp-2 mb-3 block hover:text-primary transition-colors hover:underline"
+              >
                 {item.title}
-              </h3>
+              </a>
               
               {/* Tags - now clickable */}
               <div className="flex flex-wrap gap-1 mb-3">
@@ -234,7 +248,14 @@ export default function FullPageView() {
               
               {/* Date and Trash - moved together */}
               <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>{getHostname(item.url)}</span>
+                <a 
+                  href={`https://${getHostname(item.url)}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:text-primary transition-colors hover:underline"
+                >
+                  {getHostname(item.url)}
+                </a>
                 <div className="flex items-center gap-2">
                   <span>{formatDate(item.createdAt)}</span>
                   <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-500 h-6 w-6 p-0">
@@ -245,7 +266,7 @@ export default function FullPageView() {
             </CardContent>
           </Card>
         ))}
-      </div>
+      </Masonry>
 
       {/* Load More Button */}
       <div className="text-center mt-8">
