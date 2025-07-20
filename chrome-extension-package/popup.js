@@ -14,22 +14,28 @@ class WebCapturePopup {
   }
 
   async checkAuthStatus() {
-    try {
-      // Check if user is already authenticated
-      const result = await chrome.storage.local.get(['accessToken', 'spreadsheetId']);
-      
-      if (result.accessToken) {
-        this.isAuthenticated = true;
-        this.accessToken = result.accessToken;
-        this.spreadsheetId = result.spreadsheetId;
-        this.showMainScreen();
-      } else {
-        this.showAuthScreen();
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      this.showAuthScreen();
+    // Show demo mode immediately for testing
+    this.showDemoMode();
+  }
+
+  showDemoMode() {
+    // Add demo notice
+    const authScreen = document.getElementById('auth-screen');
+    const existingNotice = authScreen.querySelector('.demo-notice');
+    if (!existingNotice) {
+      const demoNotice = document.createElement('div');
+      demoNotice.className = 'demo-notice';
+      demoNotice.style.cssText = `
+        background: #fff3cd; color: #856404; padding: 8px 12px;
+        border: 1px solid #ffeaa7; border-radius: 4px; margin-bottom: 12px;
+        font-size: 12px; text-align: center;
+      `;
+      demoNotice.innerHTML = '⚠️ Demo Mode Active - Click "Sign in with Google" to test authentication or proceed to save locally';
+      authScreen.insertBefore(demoNotice, authScreen.firstChild);
     }
+    
+    // Show auth screen with enhanced demo functionality
+    this.showAuthScreen();
   }
 
   showAuthScreen() {
@@ -48,12 +54,30 @@ class WebCapturePopup {
       this.authenticateWithGoogle();
     });
 
+    // Add demo mode bypass button
+    const authScreen = document.getElementById('auth-screen');
+    let skipButton = authScreen.querySelector('.skip-auth-btn');
+    if (!skipButton) {
+      skipButton = document.createElement('button');
+      skipButton.className = 'skip-auth-btn';
+      skipButton.style.cssText = `
+        width: 100%; padding: 12px; margin-top: 10px;
+        background: #6c757d; color: white; border: none; border-radius: 6px;
+        cursor: pointer; font-size: 14px;
+      `;
+      skipButton.textContent = 'Continue in Demo Mode (Save Locally)';
+      skipButton.addEventListener('click', () => {
+        this.enterDemoMode();
+      });
+      authScreen.appendChild(skipButton);
+    }
+
     // Save button
     document.getElementById('save-btn').addEventListener('click', () => {
       this.saveToSheets();
     });
 
-    // View sheets button
+    // View sheets button  
     document.getElementById('view-sheets-btn').addEventListener('click', () => {
       this.openGoogleSheets();
     });
@@ -62,6 +86,12 @@ class WebCapturePopup {
     document.getElementById('settings-btn').addEventListener('click', () => {
       chrome.runtime.openOptionsPage();
     });
+  }
+
+  enterDemoMode() {
+    this.isAuthenticated = false; // Keep as demo mode
+    this.showMainScreen();
+    this.showStatus('Demo mode active - content will save locally', 'info');
   }
 
   async authenticateWithGoogle() {
