@@ -26,9 +26,12 @@ class WebCapturePopup {
         
         // Test if token is valid
         try {
+          console.log('Validating existing Chrome token...');
           const testResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
             headers: { 'Authorization': `Bearer ${chromeToken}` }
           });
+          
+          console.log('Chrome token validation status:', testResponse.status);
           
           if (testResponse.ok) {
             console.log('Token is valid, setting up authenticated state...');
@@ -127,14 +130,33 @@ class WebCapturePopup {
       console.log('Received token, validating...');
       this.accessToken = newToken;
 
-      // Test the token by making a simple API call
-      const testResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
+      // Test the token by trying to access Google Sheets API directly
+      console.log('Testing token with Google Sheets API...');
+      const testResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets?pageSize=1', {
         headers: { 'Authorization': `Bearer ${this.accessToken}` }
       });
 
+      console.log('Token test response status:', testResponse.status);
+      
       if (!testResponse.ok) {
-        throw new Error('Token validation failed');
-      }
+        const errorText = await testResponse.text();
+        console.log('Token validation error details:', errorText);
+        
+        // If Sheets API fails, try userinfo as fallback
+        console.log('Sheets API failed, trying userinfo API...');
+        const userinfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { 'Authorization': `Bearer ${this.accessToken}` }
+        });
+        
+        if (!userinfoResponse.ok) {
+          const userinfoError = await userinfoResponse.text();
+          console.log('Userinfo API also failed:', userinfoError);
+          throw new Error(`Token validation failed: Sheets API ${testResponse.status}, Userinfo API ${userinfoResponse.status}`);
+        }
+        
+        console.log('Userinfo API succeeded, continuing...');
+      } else {
+        console.log('Sheets API test successful');
 
       console.log('Token validated, setting up spreadsheet...');
       
@@ -163,13 +185,17 @@ class WebCapturePopup {
         console.log('No token to clear');
       }
       
-      // Show specific error messages
+      // Show specific error messages with more detail
       if (error.message.includes('OAuth') || error.message.includes('bad client id')) {
-        this.showStatus('Authentication setup incomplete. This extension needs proper Google Cloud configuration to work.', 'error');
+        this.showStatus('OAuth configuration issue. Check Google Cloud Console setup.', 'error');
       } else if (error.message.includes('Token validation failed')) {
-        this.showStatus('Authentication token expired. Please sign in again.', 'error');
+        this.showStatus(`Token validation failed: ${error.message}`, 'error');
+      } else if (error.message.includes('403')) {
+        this.showStatus('Permission denied. Check OAuth scopes in Google Cloud Console.', 'error');
+      } else if (error.message.includes('401')) {
+        this.showStatus('Authentication failed. Token may be invalid or expired.', 'error');
       } else {
-        this.showStatus('Failed to connect to Google: ' + error.message, 'error');
+        this.showStatus(`Authentication error: ${error.message}`, 'error');
       }
     }
   }
