@@ -18,7 +18,7 @@
   ],
 
   "oauth2": {
-    "client_id": "184152653641-psrm9uohlnuh2kbq1278k2g575j5qi2g.apps.googleusercontent.com",
+    "client_id": "PLACEHOLDER_CLIENT_ID.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/spreadsheets",
       "https://www.googleapis.com/auth/drive.file"
@@ -55,7 +55,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["popup.html", "options.html"],
+      "resources": ["popup.html"],
       "matches": ["<all_urls>"]
     }
   ]

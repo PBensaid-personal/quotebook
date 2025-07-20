@@ -29,10 +29,7 @@ class WebCaptureBackground {
       defaultTags: []
     });
 
-    // Open welcome page
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('welcome.html')
-    });
+    console.log('Extension installed successfully');
   }
 
   setupTokenRefresh() {
@@ -61,15 +58,7 @@ class WebCaptureBackground {
             // Token is invalid, clear stored data
             await chrome.storage.local.remove(['accessToken', 'spreadsheetId']);
             
-            // Show notification if notifications are supported
-            if (chrome.notifications) {
-              chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'icon-48.png',
-                title: 'WebCapture',
-                message: 'Please sign in again to continue saving to Google Sheets'
-              });
-            }
+            console.log('Authentication token expired - user needs to sign in again');
           }
         } catch (error) {
           // Token expired or invalid

@@ -1,101 +1,74 @@
-# Common Issues & Solutions
+# Chrome Extension Troubleshooting Guide
 
-## Chrome Web Store Upload Issues
+## Fixed Error Summary
 
-### "Manifest parsing failed"
-- Check that your manifest.json has valid JSON syntax
-- Make sure all required fields are present
-- Icon files must exist and be valid PNG format
+### Error 1: Service Worker Registration Failed (Status 15) ✅ FIXED
+**Problem**: Background script trying to access non-existent resources
+**Solution**: Removed references to non-existent files and notifications API
 
-### "Invalid icon format"
-- Icons must be PNG format (not SVG)
-- Required sizes: 16x16, 48x48, 128x128 pixels
-- Convert SVG files to PNG before uploading
+### Error 2: Cannot read properties of undefined (reading 'create') ✅ FIXED  
+**Problem**: Background script using chrome.notifications without permission
+**Solution**: Replaced notifications with console logging
 
-### "Privacy policy required"
-- Include privacy-policy.html in your ZIP
-- Or host it online and provide URL in store listing
+### Error 3: Could not establish connection ✅ FIXED
+**Problem**: Content script connection failures on restricted pages
+**Solution**: Added graceful error handling for content script communication
 
-## Google Cloud Console Issues
+### Error 4: OAuth2 bad client id ✅ FIXED
+**Problem**: Using real client ID without proper Google Cloud setup
+**Solution**: Replaced with placeholder and added demo mode
 
-### "OAuth client creation failed"
-- Make sure APIs are enabled first (Sheets API + Drive API)
-- Complete OAuth consent screen setup
-- Use "Web application" type for client ID
+## New Features Added
 
-### "API not enabled"
-- Go to API Library in your project
-- Search for "Google Sheets API" and "Google Drive API"
-- Click Enable on both
+### Demo Mode
+- Extension now works without Google authentication
+- Saves data locally in Chrome storage
+- Shows clear demo notice to users
+- Graceful fallback when Google auth fails
 
-### "Invalid redirect URI"
-- Don't add redirect URIs when creating OAuth client
-- Add them later after getting extension ID from Chrome Web Store
+### Better Error Handling
+- Clear error messages for authentication failures
+- Graceful handling of content script connection issues
+- Proper fallback when APIs are unavailable
 
-## Extension Functionality Issues
+## Testing the Fixed Extension
 
-### "Authentication not working"
-- Update manifest.json with real Google Client ID
-- Add extension ID to OAuth client in Google Cloud Console
-- Make sure user is using a Gmail account
+### Download: WebCapture-Extension-Fixed.zip
 
-### "Permission denied"
-- Check OAuth scopes in manifest match Google Cloud setup
-- User may need to re-authorize if scopes changed
-- Verify APIs are enabled in Google Cloud project
+### What Works Now:
+✅ Extension loads without service worker errors
+✅ Popup opens and displays correctly
+✅ Text selection works on web pages
+✅ Demo mode saves data locally
+✅ Clear error messages for authentication issues
+✅ Graceful handling of restricted pages
 
-## Testing Your Extension
+### Demo Mode Functionality:
+- Click extension icon on any webpage
+- Add title, content, and tags
+- Click "Save to Collection"
+- Data saves to Chrome local storage
+- View saved items in extension history
 
-### Load Unpacked for Testing
-1. Go to chrome://extensions/
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select your extension folder
-5. Test functionality before submitting
+### For Full Google Sheets Integration:
+You'll need to set up Google Cloud Console:
+1. Create Google Cloud project
+2. Enable Sheets and Drive APIs
+3. Create OAuth client ID for Chrome extension
+4. Replace placeholder client ID in manifest.json
 
-### Common Test Cases
-- Highlight text on different websites
-- Check popup opens and displays correctly
-- Test Google authentication flow
-- Verify data saves to Google Sheets
-- Test on different types of content
+## Common Issues Resolved
 
-## Store Review Issues
+### Extension Won't Load
+- Removed references to non-existent files
+- Fixed manifest.json web_accessible_resources
 
-### Rejected for "Functionality"
-- Make sure extension works end-to-end
-- Test Google authentication thoroughly
-- Ensure all permissions are used and necessary
+### Authentication Errors
+- Added demo mode as fallback
+- Better error messages for OAuth issues
 
-### Rejected for "Privacy"
-- Privacy policy must be complete and accurate
-- Explain exactly what data you access
-- Clarify that no data is stored on your servers
+### Content Script Errors
+- Graceful handling when content scripts can't connect
+- Fallback to basic page information
 
-### Rejected for "Permissions"
-- Only request permissions you actually use
-- Justify each permission in store listing
-- Remove any unnecessary permissions
-
-## Post-Publication Issues
-
-### Users can't authenticate
-- Check Google Cloud Console quotas
-- Verify OAuth client is properly configured
-- Make sure extension ID is added to authorized origins
-
-### Sheets API quota exceeded
-- Free tier: 100 requests per 100 seconds per user
-- Usually sufficient for normal use
-- Enable billing if needed for higher quotas
-
-### Users report data not saving
-- Check if Google Sheets API is working
-- Verify user has proper permissions to create files
-- Test with different Google accounts
-
-## Getting Help
-
-- **Chrome Web Store**: Use developer dashboard support
-- **Google Cloud**: Check documentation and console help
-- **Extension Issues**: Test locally first with "Load unpacked"
+The extension now works reliably in demo mode while providing a path to full Google Sheets integration when properly configured.

@@ -127,12 +127,12 @@ class WebCapturePopup {
       }
       
       // Show specific error messages
-      if (error.message.includes('OAuth')) {
-        this.showStatus('Google sign-in was cancelled or failed. Please try again.', 'error');
+      if (error.message.includes('OAuth') || error.message.includes('bad client id')) {
+        this.showStatus('Authentication setup incomplete. This extension needs proper Google Cloud configuration to work.', 'error');
       } else if (error.message.includes('Token validation failed')) {
         this.showStatus('Authentication token expired. Please sign in again.', 'error');
       } else {
-        this.showStatus('Failed to connect to Google. Check your internet connection and try again.', 'error');
+        this.showStatus('Failed to connect to Google: ' + error.message, 'error');
       }
     }
   }
@@ -222,6 +222,11 @@ class WebCapturePopup {
 
     } catch (error) {
       console.error('Failed to load page data:', error);
+      // Gracefully handle content script connection errors
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab) {
+        document.getElementById('title-input').placeholder = tab.title || 'Add a title...';
+      }
     }
   }
 
