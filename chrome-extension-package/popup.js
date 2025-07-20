@@ -48,30 +48,12 @@ class WebCapturePopup {
       this.authenticateWithGoogle();
     });
 
-    // Add demo mode bypass button
-    const authScreen = document.getElementById('auth-screen');
-    let skipButton = authScreen.querySelector('.skip-auth-btn');
-    if (!skipButton) {
-      skipButton = document.createElement('button');
-      skipButton.className = 'skip-auth-btn';
-      skipButton.style.cssText = `
-        width: 100%; padding: 12px; margin-top: 10px;
-        background: #6c757d; color: white; border: none; border-radius: 6px;
-        cursor: pointer; font-size: 14px;
-      `;
-      skipButton.textContent = 'Continue in Demo Mode (Save Locally)';
-      skipButton.addEventListener('click', () => {
-        this.enterDemoMode();
-      });
-      authScreen.appendChild(skipButton);
-    }
-
     // Save button
     document.getElementById('save-btn').addEventListener('click', () => {
       this.saveToSheets();
     });
 
-    // View sheets button  
+    // View sheets button
     document.getElementById('view-sheets-btn').addEventListener('click', () => {
       this.openGoogleSheets();
     });
@@ -80,12 +62,6 @@ class WebCapturePopup {
     document.getElementById('settings-btn').addEventListener('click', () => {
       chrome.runtime.openOptionsPage();
     });
-  }
-
-  enterDemoMode() {
-    this.isAuthenticated = false; // Keep as demo mode
-    this.showMainScreen();
-    this.showStatus('Demo mode active - content will save locally', 'info');
   }
 
   async authenticateWithGoogle() {
