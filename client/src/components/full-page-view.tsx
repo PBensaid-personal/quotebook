@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,30 @@ import type { ContentItem } from "@shared/schema";
 
 export default function FullPageView() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [dateFilter, setDateFilter] = useState("");
 
-  // Fetch content items
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch content items with search and tag parameters
   const { data: items = [], isLoading } = useQuery<ContentItem[]>({
-    queryKey: ["/api/content", searchQuery, selectedTag],
+    queryKey: ["/api/content", debouncedSearchQuery, selectedTag],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (debouncedSearchQuery) params.set('search', debouncedSearchQuery);
+      if (selectedTag && selectedTag !== 'all') params.set('tags', selectedTag);
+      
+      const url = `/api/content${params.toString() ? '?' + params.toString() : ''}`;
+      return fetch(url).then(res => res.json());
+    },
   });
 
   // Fetch statistics
@@ -24,7 +42,9 @@ export default function FullPageView() {
   });
 
   // Get unique tags for filter dropdown
-  const allTags = [...new Set(items.flatMap(item => item.tags || []))];
+  const allTags = useMemo(() => {
+    return Array.from(new Set(items.flatMap(item => item.tags || [])));
+  }, [items]);
 
   const formatDate = (date: string | Date | null) => {
     if (!date) return "Unknown";
