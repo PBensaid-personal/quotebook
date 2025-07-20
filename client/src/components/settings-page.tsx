@@ -74,15 +74,15 @@ export default function SettingsPage() {
       <Card className="mb-8">
         <CardHeader>
           <CardTitle className="flex items-center">
-            <FaGoogle className="text-blue-600 mr-3 h-5 w-5" />
+            <FaGoogle className="text-primary mr-3 h-5 w-5" />
             Google Account Integration
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Account Status */}
-          <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-accent border border-gray-200 rounded-lg">
             <div className="flex items-center">
-              <CheckCircle className="text-green-600 mr-3 h-5 w-5" />
+              <CheckCircle className="text-primary mr-3 h-5 w-5" />
               <div>
                 <p className="font-medium text-gray-900">
                   {user?.googleEmail || "john.doe@gmail.com"}
@@ -100,15 +100,15 @@ export default function SettingsPage() {
             <h3 className="text-lg font-medium text-gray-900 mb-3">Granted Permissions</h3>
             <div className="space-y-2">
               <div className="flex items-center text-sm">
-                <CheckCircle className="text-green-600 mr-3 h-4 w-4" />
+                <CheckCircle className="text-primary mr-3 h-4 w-4" />
                 <span>Access Google Sheets</span>
               </div>
               <div className="flex items-center text-sm">
-                <CheckCircle className="text-green-600 mr-3 h-4 w-4" />
+                <CheckCircle className="text-primary mr-3 h-4 w-4" />
                 <span>Create and modify spreadsheets</span>
               </div>
               <div className="flex items-center text-sm">
-                <CheckCircle className="text-green-600 mr-3 h-4 w-4" />
+                <CheckCircle className="text-primary mr-3 h-4 w-4" />
                 <span>View your Google Drive files</span>
               </div>
             </div>
@@ -132,7 +132,7 @@ export default function SettingsPage() {
             </Label>
             <div className="flex items-center justify-between p-4 border border-gray-300 rounded-lg">
               <div className="flex items-center">
-                <Database className="text-green-600 mr-3 h-5 w-5" />
+                <Database className="text-primary mr-3 h-5 w-5" />
                 <div>
                   <p className="font-medium text-gray-900">My Web Collection</p>
                   <p className="text-sm text-gray-600">Last synced: 2 minutes ago</p>
@@ -161,7 +161,7 @@ export default function SettingsPage() {
                 onChange={(e) => setNewSheetName(e.target.value)}
                 className="flex-1"
               />
-              <Button onClick={handleCreateSheet} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleCreateSheet}>
                 Create Sheet
               </Button>
             </div>
@@ -268,14 +268,15 @@ export default function SettingsPage() {
             <div className="flex space-x-3">
               <Button 
                 onClick={() => handleExport('csv')}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-primary hover:bg-primary/90"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export as CSV
               </Button>
               <Button 
                 onClick={() => handleExport('json')}
-                className="bg-blue-600 hover:bg-blue-700"
+                variant="outline"
+                className="border-primary text-primary hover:bg-accent"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export as JSON

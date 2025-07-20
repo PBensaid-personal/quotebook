@@ -163,11 +163,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = new Date();
       const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       
+      const allTags = new Set(items.flatMap(item => item.tags || []));
+      const allWebsites = new Set(items.map(item => new URL(item.url).hostname));
+      
       const stats = {
         totalItems: items.length,
-        totalTags: [...new Set(items.flatMap(item => item.tags || []))].length,
+        totalTags: Array.from(allTags).length,
         thisMonth: items.filter(item => item.createdAt && item.createdAt >= thisMonth).length,
-        uniqueWebsites: [...new Set(items.map(item => new URL(item.url).hostname))].length,
+        uniqueWebsites: Array.from(allWebsites).length,
       };
 
       res.json(stats);

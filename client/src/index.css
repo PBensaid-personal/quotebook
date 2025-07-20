@@ -13,22 +13,22 @@
   --card-foreground: hsl(20, 14.3%, 4.1%);
   --border: hsl(20, 5.9%, 90%);
   --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(207, 90%, 54%);
-  --primary-foreground: hsl(211, 100%, 99%);
+  --primary: hsl(220, 30%, 18%);
+  --primary-foreground: hsl(0, 0%, 100%);
   --secondary: hsl(60, 4.8%, 95.9%);
-  --secondary-foreground: hsl(24, 9.8%, 10%);
-  --accent: hsl(60, 4.8%, 95.9%);
-  --accent-foreground: hsl(24, 9.8%, 10%);
+  --secondary-foreground: hsl(220, 30%, 18%);
+  --accent: hsl(220, 30%, 92%);
+  --accent-foreground: hsl(220, 30%, 18%);
   --destructive: hsl(0, 84.2%, 60.2%);
   --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
+  --ring: hsl(220, 30%, 18%);
   --radius: 0.5rem;
 
-  /* Google-inspired colors */
-  --google-blue: hsl(207, 90%, 54%);
-  --google-green: hsl(122, 39%, 49%);
-  --google-red: hsl(4, 90%, 58%);
-  --google-orange: hsl(14, 100%, 57%);
+  /* Blue-black theme colors */
+  --blue-black: hsl(220, 30%, 18%);
+  --blue-black-light: hsl(220, 25%, 25%);
+  --blue-accent: hsl(220, 50%, 40%);
+  --blue-accent-light: hsl(220, 50%, 85%);
 }
 
 .dark {

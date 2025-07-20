@@ -91,10 +91,10 @@ export default function ExtensionPopup() {
     <div className="max-w-sm mx-auto mt-8 p-4">
       <Card className="bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Header */}
-        <div className="bg-blue-600 text-white p-4">
+        <div className="bg-primary text-primary-foreground p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-medium">WebCapture</h2>
-            <Bookmark className="h-5 w-5 text-white/80" />
+            <Bookmark className="h-5 w-5 text-primary-foreground/80" />
           </div>
         </div>
 
@@ -138,7 +138,7 @@ export default function ExtensionPopup() {
           {/* Suggested Tags */}
           <div className="flex flex-wrap gap-2 mb-3">
             {selectedContent.suggestedTags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="bg-blue-100 text-blue-800">
+              <Badge key={tag} variant="secondary" className="bg-blue-accent-light text-blue-accent">
                 <Sparkles className="w-3 h-3 mr-1" />
                 {tag}
               </Badge>
@@ -176,7 +176,7 @@ export default function ExtensionPopup() {
           <Button 
             onClick={handleSave}
             disabled={saveContentMutation.isPending}
-            className="w-full bg-blue-600 hover:bg-blue-700"
+            className="w-full"
           >
             <Save className="w-4 h-4 mr-2" />
             {saveContentMutation.isPending ? "Saving..." : "Save to Collection"}

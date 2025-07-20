@@ -155,6 +155,9 @@ export class MemStorage implements IStorage {
       id,
       createdAt: new Date(),
       sheetsRowId: null,
+      tags: insertItem.tags || null,
+      siteName: insertItem.siteName || null,
+      imageUrl: insertItem.imageUrl || null,
     };
     this.contentItems.set(id, item);
     return item;

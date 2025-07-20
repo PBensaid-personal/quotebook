@@ -93,12 +93,12 @@ export default function FullPageView() {
           </div>
           
           {/* Filter Dropdown */}
-          <Select value={selectedTag} onValueChange={setSelectedTag}>
+          <Select value={selectedTag || "all"} onValueChange={(value) => setSelectedTag(value === "all" ? "" : value)}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="All Tags" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Tags</SelectItem>
+              <SelectItem value="all">All Tags</SelectItem>
               {allTags.map((tag) => (
                 <SelectItem key={tag} value={tag}>{tag}</SelectItem>
               ))}
@@ -121,7 +121,7 @@ export default function FullPageView() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <Bookmark className="h-8 w-8 text-blue-600 mr-4" />
+                <Bookmark className="h-8 w-8 text-primary mr-4" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Total Items</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.totalItems}</p>
@@ -133,7 +133,7 @@ export default function FullPageView() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <Tags className="h-8 w-8 text-green-600 mr-4" />
+                <Tags className="h-8 w-8 text-primary mr-4" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Tags Used</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.totalTags}</p>
@@ -145,7 +145,7 @@ export default function FullPageView() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <Calendar className="h-8 w-8 text-orange-600 mr-4" />
+                <Calendar className="h-8 w-8 text-primary mr-4" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">This Month</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.thisMonth}</p>
@@ -157,7 +157,7 @@ export default function FullPageView() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <Globe className="h-8 w-8 text-purple-600 mr-4" />
+                <Globe className="h-8 w-8 text-primary mr-4" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Websites</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.uniqueWebsites}</p>
@@ -219,7 +219,7 @@ export default function FullPageView() {
 
       {/* Load More Button */}
       <div className="text-center mt-8">
-        <Button variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+        <Button variant="outline" className="border-primary text-primary hover:bg-accent">
           Load More Items
         </Button>
       </div>

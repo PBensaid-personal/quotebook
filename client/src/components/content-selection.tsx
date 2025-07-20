@@ -33,7 +33,7 @@ export default function ContentSelection() {
             https://techblog.example.com/future-of-web-development
           </div>
           <div className="flex items-center space-x-2">
-            <div className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+            <div className="bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-medium">
               <Bookmark className="w-3 h-3 mr-1 inline" />
               WebCapture
             </div>
@@ -43,7 +43,7 @@ export default function ContentSelection() {
         {/* Mock Article Content */}
         <CardContent className="p-8 relative">
           {/* Selection Tooltip */}
-          <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-2 rounded-lg shadow-lg text-sm font-medium z-10 animate-pulse">
+          <div className="absolute top-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg text-sm font-medium z-10 animate-pulse">
             <MousePointer className="w-4 h-4 mr-2 inline" />
             Select text to capture
           </div>
@@ -76,10 +76,10 @@ export default function ContentSelection() {
             </p>
 
             <p className="text-gray-700 mb-6">
-              <span className="bg-blue-100 px-1 rounded relative cursor-pointer border-2 border-blue-300">
+              <span className="bg-accent px-1 rounded relative cursor-pointer border-2 border-primary">
                 {selectedText}
                 {/* Selection Indicator */}
-                <div className="absolute -top-8 left-0 bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium whitespace-nowrap">
+                <div className="absolute -top-8 left-0 bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-medium whitespace-nowrap">
                   <CheckCircle className="w-3 h-3 mr-1 inline" />
                   Selected for capture
                 </div>
@@ -121,7 +121,7 @@ export default function ContentSelection() {
                 <div className="flex space-x-2">
                   <Button
                     onClick={handleCapture}
-                    className="bg-blue-600 hover:bg-blue-700 flex-1"
+                    className="flex-1"
                   >
                     <Bookmark className="w-4 h-4 mr-1" />
                     Capture
@@ -143,12 +143,12 @@ export default function ContentSelection() {
       <Card className="bg-blue-50 border-blue-200">
         <CardContent className="p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-            <Lightbulb className="text-blue-600 mr-2 h-5 w-5" />
+            <Lightbulb className="text-primary mr-2 h-5 w-5" />
             How Content Selection Works
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
-              <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-3">
                 1
               </div>
               <h4 className="font-medium text-gray-900 mb-2">Select Text</h4>
@@ -157,7 +157,7 @@ export default function ContentSelection() {
               </p>
             </div>
             <div className="text-center">
-              <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-3">
                 2
               </div>
               <h4 className="font-medium text-gray-900 mb-2">Click Extension</h4>
@@ -166,7 +166,7 @@ export default function ContentSelection() {
               </p>
             </div>
             <div className="text-center">
-              <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-3">
                 3
               </div>
               <h4 className="font-medium text-gray-900 mb-2">Save & Tag</h4>
