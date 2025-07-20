@@ -1,5 +1,5 @@
 // Simple Chrome extension popup for saving to Google Sheets
-class WebCapturePopup {
+class QuoteCollectorPopup {
   constructor() {
     this.isAuthenticated = false;
     this.accessToken = null;
@@ -24,14 +24,14 @@ class WebCapturePopup {
         console.log('Found Chrome token, validating...');
         this.accessToken = chromeToken;
         
-        // Test if token is valid
+        // Test if token is valid with Google Sheets API
         try {
-          console.log('Validating existing Chrome token...');
-          const testResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
+          console.log('Validating token with Google Sheets API...');
+          const testResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets?pageSize=1', {
             headers: { 'Authorization': `Bearer ${chromeToken}` }
           });
           
-          console.log('Chrome token validation status:', testResponse.status);
+          console.log('Token validation status:', testResponse.status);
           
           if (testResponse.ok) {
             console.log('Token is valid, setting up authenticated state...');
@@ -140,23 +140,9 @@ class WebCapturePopup {
       
       if (!testResponse.ok) {
         const errorText = await testResponse.text();
-        console.log('Token validation error details:', errorText);
-        
-        // If Sheets API fails, try userinfo as fallback
-        console.log('Sheets API failed, trying userinfo API...');
-        const userinfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: { 'Authorization': `Bearer ${this.accessToken}` }
-        });
-        
-        if (!userinfoResponse.ok) {
-          const userinfoError = await userinfoResponse.text();
-          console.log('Userinfo API also failed:', userinfoError);
-          throw new Error(`Token validation failed: Sheets API ${testResponse.status}, Userinfo API ${userinfoResponse.status}`);
-        }
-        
-        console.log('Userinfo API succeeded, continuing...');
-      } else {
-        console.log('Sheets API test successful');
+        console.log('Sheets API test failed:', errorText);
+        throw new Error(`Token validation failed: ${testResponse.status} - ${errorText}`);
+      }
 
       console.log('Token validated, setting up spreadsheet...');
       
@@ -202,7 +188,7 @@ class WebCapturePopup {
 
   async setupSpreadsheet() {
     try {
-      // Check if user already has a WebCapture spreadsheet
+      // Check if user already has a Quote Collector spreadsheet
       const existingSheet = await chrome.storage.local.get(['spreadsheetId']);
       
       if (existingSheet.spreadsheetId) {
@@ -228,6 +214,10 @@ class WebCapturePopup {
           }]
         })
       });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create spreadsheet: ${response.status}`);
+      }
 
       const data = await response.json();
       this.spreadsheetId = data.spreadsheetId;
@@ -326,55 +316,38 @@ class WebCapturePopup {
       const tagEl = document.createElement('span');
       tagEl.className = 'tag';
       tagEl.textContent = tag;
-      tagEl.style.cursor = 'pointer';
-      tagEl.onclick = () => this.addTag(tag);
       container.appendChild(tagEl);
     });
   }
 
-  addTag(tag) {
-    const input = document.getElementById('tags-input');
-    const currentTags = input.value.split(',').map(t => t.trim()).filter(t => t);
-    
-    if (!currentTags.includes(tag)) {
-      currentTags.push(tag);
-      input.value = currentTags.join(', ');
-    }
-  }
-
   async saveToSheets() {
-    if (!this.isAuthenticated) {
-      this.showStatus('Please sign in first', 'error');
-      return;
-    }
-
     try {
       const saveBtn = document.getElementById('save-btn');
       saveBtn.textContent = 'Saving...';
       saveBtn.disabled = true;
 
-      // Get current tab
+      // Get current tab info
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      // Get form data
-      const selectedText = document.getElementById('selected-text').textContent || '';
+      // Collect form data
       const title = document.getElementById('title-input').value || tab.title;
-      const tags = document.getElementById('tags-input').value;
       const notes = document.getElementById('notes-input').value;
+      const selectedText = document.getElementById('selected-text').textContent || '';
+      const tags = document.getElementById('tags-input').value;
       
       // Prepare row data
       const rowData = [
-        new Date().toLocaleString(),
+        new Date().toISOString().split('T')[0], // Date
         title,
         selectedText,
         tab.url,
         tags,
         notes,
-        new URL(tab.url).hostname.replace('www.', '')
+        new URL(tab.url).hostname
       ];
 
       // Append to spreadsheet
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -385,12 +358,11 @@ class WebCapturePopup {
         })
       });
 
-      this.showStatus('Saved to Google Sheets!', 'success');
-      
-      // Clear form
-      document.getElementById('title-input').value = '';
-      document.getElementById('tags-input').value = '';
-      document.getElementById('notes-input').value = '';
+      if (response.ok) {
+        this.showStatus('Saved to Google Sheets!', 'success');
+      } else {
+        throw new Error(`Failed to save: ${response.status}`);
+      }
 
     } catch (error) {
       console.error('Failed to save:', error);
@@ -424,5 +396,5 @@ class WebCapturePopup {
 
 // Initialize popup when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-  new WebCapturePopup();
+  new QuoteCollectorPopup();
 });
