@@ -54,9 +54,14 @@ export default function FullPageView() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     if (diffDays === 1) return "1 day ago";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    return `${Math.floor(diffDays / 30)} months ago`;
+    if (diffDays <= 7) return `${diffDays} days ago`;
+    
+    // Format as "Jan 16, 2024"
+    return d.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
   };
 
   const getHostname = (url: string) => {
@@ -91,11 +96,7 @@ export default function FullPageView() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">My Web Collection</h1>
-        <p className="text-gray-600">Organize and search through your saved web content</p>
-      </div>
+
 
       {/* Search and Filters */}
       <Card className="p-6 mb-8">
@@ -202,22 +203,25 @@ export default function FullPageView() {
               </div>
             )}
             <CardContent className="p-4">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="text-lg font-medium text-gray-900 line-clamp-2 flex-1">
-                  {item.title}
-                </h3>
-                <Button variant="ghost" size="sm" className="ml-2 text-gray-400 hover:text-red-500">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <p className="text-sm text-gray-600 mb-3 line-clamp-3">
+              {/* Quote/Content - now larger */}
+              <p className="text-lg text-gray-600 mb-3 line-clamp-3 font-medium">
                 {item.content}
               </p>
               
+              {/* Title - now smaller and below quote */}
+              <h3 className="text-sm text-gray-900 line-clamp-2 mb-3">
+                {item.title}
+              </h3>
+              
+              {/* Tags - now clickable */}
               <div className="flex flex-wrap gap-1 mb-3">
                 {item.tags?.slice(0, 3).map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-xs">
+                  <Badge 
+                    key={tag} 
+                    variant="secondary" 
+                    className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                    onClick={() => setSelectedTag(tag)}
+                  >
                     {tag}
                   </Badge>
                 ))}
@@ -228,9 +232,15 @@ export default function FullPageView() {
                 )}
               </div>
               
+              {/* Date and Trash - moved together */}
               <div className="flex items-center justify-between text-xs text-gray-500">
                 <span>{getHostname(item.url)}</span>
-                <span>{formatDate(item.createdAt)}</span>
+                <div className="flex items-center gap-2">
+                  <span>{formatDate(item.createdAt)}</span>
+                  <Button variant="ghost" size="sm" className="text-gray-400 hover:text-red-500 h-6 w-6 p-0">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
