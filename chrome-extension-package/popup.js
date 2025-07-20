@@ -20,7 +20,7 @@ class QuoteCollectorPopup {
       // First try to get a token from Chrome identity API
       const chromeToken = await chrome.identity.getAuthToken({ interactive: false });
       
-      if (chromeToken) {
+      if (chromeToken && typeof chromeToken === 'string') {
         console.log('Found Chrome token, validating...');
         this.accessToken = chromeToken;
         
@@ -102,7 +102,7 @@ class QuoteCollectorPopup {
         interactive: true
       });
       
-      if (!newToken) {
+      if (!newToken || typeof newToken !== 'string') {
         throw new Error('OAuth2 not granted or revoked');
       }
 
@@ -162,6 +162,11 @@ class QuoteCollectorPopup {
         return;
       }
 
+      // Validate token
+      if (!this.accessToken || typeof this.accessToken !== 'string') {
+        throw new Error('Invalid access token - not a string');
+      }
+      
       // Create new spreadsheet
       console.log('Creating spreadsheet with token:', this.accessToken.substring(0, 20) + '...');
       const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
