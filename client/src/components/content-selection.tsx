@@ -75,7 +75,7 @@ export default function ContentSelection() {
               Web development continues to evolve at a rapid pace, with new technologies and methodologies emerging regularly. As we move through 2024, several key trends are shaping the future of how we build and interact with web applications.
             </p>
 
-            <p className="text-gray-700 mb-6">
+            <div className="text-gray-700 mb-6">
               <span className="bg-accent px-1 rounded relative cursor-pointer border-2 border-primary">
                 {selectedText}
                 {/* Selection Indicator */}
@@ -84,7 +84,7 @@ export default function ContentSelection() {
                   Selected for capture
                 </div>
               </span>
-            </p>
+            </div>
 
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Key Trends Shaping Development</h2>
 
