@@ -1,5 +1,5 @@
-// Background service worker for WebCapture extension
-class WebCaptureBackground {
+// Background service worker for Quote Collector extension
+class QuoteCollectorBackground {
   constructor() {
     this.init();
   }
@@ -72,4 +72,4 @@ class WebCaptureBackground {
 }
 
 // Initialize background script
-new WebCaptureBackground();
+new QuoteCollectorBackground();
