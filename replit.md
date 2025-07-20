@@ -107,3 +107,16 @@ Preferred communication style: Simple, everyday language.
 - Environment variable `DATABASE_URL` for database connection
 
 The application is designed as a monorepo with shared TypeScript types and schemas between frontend and backend, ensuring type safety across the full stack.
+
+## Recent Changes
+
+### Google Sheets Integration (January 2025)
+- Implemented comprehensive OAuth 2.0 authentication using Google Identity Services (GIS)
+- Created GoogleAuthService class for modern client-side authentication 
+- Built GoogleSheetsService for full CRUD operations on user's own spreadsheets
+- Added GoogleAuth component with step-by-step setup flow
+- Integrated authentication into Settings page with modal dialog
+- Supports creating new spreadsheets or connecting to existing ones
+- Users own their data - no managed database required
+- Full masonry grid layout implemented for responsive content display
+- Enhanced search and filtering with debounced input and clickable tags

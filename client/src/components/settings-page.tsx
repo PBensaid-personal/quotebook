@@ -7,16 +7,21 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, ExternalLink, Settings, Database, Download, Trash } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle, ExternalLink, Settings, Database, Download, Trash, Plus, Link } from "lucide-react";
 import { FaGoogle } from "react-icons/fa";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import GoogleAuth from "@/components/google-auth";
 import type { User, UserSettings } from "@shared/schema";
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [newSheetName, setNewSheetName] = useState("");
+  const [showGoogleAuth, setShowGoogleAuth] = useState(false);
+  const [authError, setAuthError] = useState("");
 
   // Fetch user data
   const { data: user } = useQuery<User>({
@@ -44,6 +49,46 @@ export default function SettingsPage() {
 
   const handleSettingChange = (key: keyof UserSettings, value: any) => {
     updateSettingsMutation.mutate({ [key]: value });
+  };
+
+  // Update user's Google integration
+  const updateGoogleMutation = useMutation({
+    mutationFn: async (data: { googleEmail?: string; activeSheetId?: string }) => {
+      return apiRequest("PATCH", "/api/user/google", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: "Google Integration Updated",
+        description: "Your Google Sheets connection has been updated.",
+      });
+    },
+  });
+
+  const handleGoogleAuthSuccess = (accessToken: string, spreadsheetId?: string) => {
+    // Store access token in localStorage for this demo
+    localStorage.setItem('google_access_token', accessToken);
+    if (spreadsheetId) {
+      localStorage.setItem('google_spreadsheet_id', spreadsheetId);
+    }
+    
+    // Update user record with Google info (mock email for demo)
+    updateGoogleMutation.mutate({
+      googleEmail: "user@gmail.com",
+      activeSheetId: spreadsheetId
+    });
+    
+    setShowGoogleAuth(false);
+    setAuthError("");
+  };
+
+  const handleGoogleAuthError = (error: string) => {
+    setAuthError(error);
+    toast({
+      title: "Authentication Error",
+      description: error,
+      variant: "destructive",
+    });
   };
 
   const handleCreateSheet = () => {
@@ -82,17 +127,33 @@ export default function SettingsPage() {
           {/* Account Status */}
           <div className="flex items-center justify-between p-4 bg-accent border border-gray-200 rounded-lg">
             <div className="flex items-center">
-              <CheckCircle className="text-primary mr-3 h-5 w-5" />
-              <div>
-                <p className="font-medium text-gray-900">
-                  {user?.googleEmail || "john.doe@gmail.com"}
-                </p>
-                <p className="text-sm text-gray-600">Connected and authorized</p>
-              </div>
+              {user?.googleEmail ? (
+                <>
+                  <CheckCircle className="text-primary mr-3 h-5 w-5" />
+                  <div>
+                    <p className="font-medium text-gray-900">{user.googleEmail}</p>
+                    <p className="text-sm text-gray-600">Connected and authorized</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Settings className="text-gray-400 mr-3 h-5 w-5" />
+                  <div>
+                    <p className="font-medium text-gray-900">Not connected</p>
+                    <p className="text-sm text-gray-600">Connect your Google account to get started</p>
+                  </div>
+                </>
+              )}
             </div>
-            <Button variant="destructive" size="sm">
-              Disconnect
-            </Button>
+            {user?.googleEmail ? (
+              <Button variant="destructive" size="sm">
+                Disconnect
+              </Button>
+            ) : (
+              <Button onClick={() => setShowGoogleAuth(true)}>
+                Connect Google
+              </Button>
+            )}
           </div>
 
           {/* Permissions */}
@@ -143,7 +204,12 @@ export default function SettingsPage() {
                   <ExternalLink className="w-4 h-4 mr-1" />
                   Open Sheet
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowGoogleAuth(true)}
+                  disabled={!user?.googleEmail}
+                >
                   Change
                 </Button>
               </div>
@@ -161,8 +227,12 @@ export default function SettingsPage() {
                 onChange={(e) => setNewSheetName(e.target.value)}
                 className="flex-1"
               />
-              <Button onClick={handleCreateSheet}>
-                Create Sheet
+              <Button 
+                onClick={() => setShowGoogleAuth(true)}
+                disabled={!user?.googleEmail}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create New Sheet
               </Button>
             </div>
           </div>
@@ -297,6 +367,26 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Google Authentication Modal */}
+      <Dialog open={showGoogleAuth} onOpenChange={setShowGoogleAuth}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Connect to Google Sheets</DialogTitle>
+          </DialogHeader>
+          
+          {authError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{authError}</AlertDescription>
+            </Alert>
+          )}
+
+          <GoogleAuth 
+            onAuthSuccess={handleGoogleAuthSuccess}
+            onAuthError={handleGoogleAuthError}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
