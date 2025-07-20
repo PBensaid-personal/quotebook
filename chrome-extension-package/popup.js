@@ -66,35 +66,73 @@ class WebCapturePopup {
 
   async authenticateWithGoogle() {
     try {
-      // Use Chrome's identity API for OAuth - proper Chrome extension method
-      const accessToken = await chrome.identity.getAuthToken({
-        interactive: true,
-        scopes: chrome.runtime.getManifest().oauth2.scopes
+      console.log('Starting authentication...');
+      
+      // First, try to get cached token
+      const cachedToken = await chrome.identity.getAuthToken({
+        interactive: false
+      });
+      
+      if (cachedToken) {
+        console.log('Using cached token');
+        this.accessToken = cachedToken;
+      } else {
+        console.log('Requesting new token...');
+        // Request new token with user interaction
+        const newToken = await chrome.identity.getAuthToken({
+          interactive: true
+        });
+        
+        if (newToken) {
+          console.log('Received new token');
+          this.accessToken = newToken;
+        } else {
+          throw new Error('No token received');
+        }
+      }
+
+      // Test the token by making a simple API call
+      console.log('Testing token...');
+      const testResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }
       });
 
-      if (accessToken) {
-        this.accessToken = accessToken;
-        
-        // Create or get spreadsheet
-        await this.setupSpreadsheet();
-        
-        // Store authentication
-        await chrome.storage.local.set({
-          accessToken: this.accessToken,
-          spreadsheetId: this.spreadsheetId
-        });
-
-        this.isAuthenticated = true;
-        this.showMainScreen();
-        this.showStatus('Connected to Google Sheets!', 'success');
+      if (!testResponse.ok) {
+        throw new Error('Token validation failed');
       }
+
+      console.log('Token validated successfully');
+      
+      // Create or get spreadsheet
+      await this.setupSpreadsheet();
+      
+      // Store authentication
+      await chrome.storage.local.set({
+        accessToken: this.accessToken,
+        spreadsheetId: this.spreadsheetId
+      });
+
+      this.isAuthenticated = true;
+      this.showMainScreen();
+      this.showStatus('Connected to Google Sheets!', 'success');
+      
     } catch (error) {
       console.error('Authentication failed:', error);
-      // Show more specific error message
-      if (error.message && error.message.includes('OAuth2')) {
-        this.showStatus('Google authentication not configured properly. Please check extension setup.', 'error');
+      
+      // Clear any bad tokens
+      try {
+        await chrome.identity.removeCachedAuthToken({ token: this.accessToken });
+      } catch (e) {
+        console.log('No token to clear');
+      }
+      
+      // Show specific error messages
+      if (error.message.includes('OAuth')) {
+        this.showStatus('Google sign-in was cancelled or failed. Please try again.', 'error');
+      } else if (error.message.includes('Token validation failed')) {
+        this.showStatus('Authentication token expired. Please sign in again.', 'error');
       } else {
-        this.showStatus('Failed to connect to Google: ' + (error.message || 'Unknown error'), 'error');
+        this.showStatus('Failed to connect to Google. Check your internet connection and try again.', 'error');
       }
     }
   }

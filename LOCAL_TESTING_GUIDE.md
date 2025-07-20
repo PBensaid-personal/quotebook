@@ -1,110 +1,74 @@
-# Test Your Extension Locally
+# Local Chrome Extension Testing Guide
 
-## Install Extension for Testing (2 minutes)
+## Current Status Check
 
-### 1. Prepare Extension Folder
-1. **Extract your WebCapture-Extension.zip** to a folder on your computer
-2. **Replace the empty PNG icon files** with real ones (or use the SVG files temporarily)
+### Step 1: Check Chrome Web Store Approval
+1. Go to: https://chrome.google.com/webstore/developer/dashboard
+2. Sign in with your developer account
+3. Find "WebCapture" extension
+4. Check status:
+   - **Published** = Live on Chrome Web Store
+   - **Pending** = Still under review (normal, can take 1-7 days)
+   - **Rejected** = Check email for required fixes
+   - **Staged** = Approved but not published (you have 30 days to publish)
 
-### 2. Load in Chrome
-1. **Open Chrome** and go to `chrome://extensions/`
-2. **Turn on "Developer mode"** (toggle in top-right corner)
-3. **Click "Load unpacked"**
-4. **Select the extracted extension folder**
-5. **Your extension appears** in the extensions list
+### Step 2: Find Your Extension on Chrome Web Store (If Published)
+If status shows "Published":
+1. Go to: https://chrome.google.com/webstore/category/extensions
+2. Search for "WebCapture Save to Google Sheets"
+3. Or search for your developer name
+4. Install directly from store
 
-### 3. Test the Extension
-1. **Go to any website** (like Wikipedia, news sites)
-2. **Highlight some text** on the page
-3. **Click the extension icon** in Chrome toolbar
-4. **Try the popup interface** - it should open but won't connect to Google yet
+## Local Testing (Works Immediately)
 
-## What Works Without Google Setup
-✅ **Extension popup** opens and displays correctly  
-✅ **Text selection** detection works  
-✅ **Interface elements** function properly  
-✅ **Form inputs** accept data  
-❌ **Google authentication** won't work yet (needs real Client ID)  
-❌ **Saving to Sheets** won't work yet  
+Since Chrome Web Store approval can take time, here's how to test locally:
 
-## Testing Google Integration
+### Current Authentication Issue
+The OAuth authentication fails locally because:
+- Extension ID changes each reload without a fixed "key"
+- Google OAuth requires consistent redirect URLs
+- Chrome's identity API needs proper setup
 
-### Option 1: Update with Real Credentials
-1. **Get your Google Client ID** from Cloud Console
-2. **Edit manifest.json** in the extracted folder
-3. **Replace** the placeholder Client ID with your real one
-4. **Click "Reload" button** on the extension in chrome://extensions/
-5. **Test full functionality** including Google sign-in
+### Fixed Version Coming
+I'm creating a version with:
+- Fixed extension ID (using "key" field in manifest)
+- Proper OAuth setup for local testing
+- Better error messages
+- Fallback authentication methods
 
-### Option 2: Test Core Functionality First
-- Verify popup interface works correctly
-- Check text selection detection
-- Test form validation and UI elements
-- Ensure no JavaScript errors in console
+### What You'll Be Able to Test Locally:
+✅ Extension popup interface
+✅ Text selection on webpages
+✅ Google authentication dialog
+✅ Creating new Google Sheets
+✅ Saving highlighted text to sheets
+✅ Adding tags and metadata
 
-## Debug Tools
+### OAuth Setup for Local Testing:
+1. Extension will have consistent ID
+2. Google Cloud Console OAuth client configured
+3. Chrome's native identity API properly implemented
+4. Error handling for authentication failures
 
-### Chrome Extension Developer Tools
-1. **Right-click extension icon** → "Inspect popup"
-2. **Check console** for JavaScript errors
-3. **Test all buttons and inputs**
+## Production vs Local Testing
 
-### Check Content Script
-1. **Go to any webpage**
-2. **Right-click** → "Inspect"
-3. **Go to Console tab**
-4. **Highlight text** and check for messages
+### Local Testing:
+- Uses development OAuth client
+- Works in Chrome developer mode
+- Full functionality available
+- No Chrome Web Store approval needed
 
-### Background Script Debugging
-1. **Go to** `chrome://extensions/`
-2. **Click "Inspect views: background page"** under your extension
-3. **Check console** for background script errors
+### Production (Chrome Web Store):
+- Uses production OAuth client  
+- Available to all Chrome users
+- Automatic updates
+- Better security and trust indicators
 
-## Common Test Scenarios
+## Next Steps
 
-### Basic Functionality
-- Extension icon appears in toolbar
-- Popup opens when clicked
-- Text selection triggers feedback
-- Form accepts input without errors
+1. **Check your Chrome Web Store status** using the dashboard link above
+2. **Test the fixed local version** I'm preparing
+3. **Use local version** while waiting for store approval
+4. **Switch to store version** once published
 
-### Google Integration (with real Client ID)
-- Google sign-in button works
-- Authentication popup appears
-- User can grant permissions
-- Access token is received and stored
-
-### End-to-End (full setup)
-- Select text on webpage
-- Open extension popup
-- Sign in to Google (one time)
-- Fill out save form
-- Data appears in Google Sheets
-
-## Fix Common Issues
-
-### Extension Won't Load
-- Check manifest.json syntax
-- Ensure all files are present
-- Look for console errors
-
-### Popup Won't Open
-- Check popup.html file exists
-- Verify popup.js loads without errors
-- Check permissions in manifest
-
-### Text Selection Not Working
-- Verify content.js is injected
-- Check for JavaScript errors
-- Test on different websites
-
-## Ready for Production
-
-Once local testing works:
-1. **Icons converted** to proper PNG format
-2. **Google Client ID** updated in manifest
-3. **All functionality** tested and working
-4. **No console errors**
-5. **Ready to submit** updated ZIP to Chrome Web Store
-
-Testing locally helps catch issues before users see them!
+The local testing version will work exactly like the published version, just loaded manually instead of from the Chrome Web Store.
