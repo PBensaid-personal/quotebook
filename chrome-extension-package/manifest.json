@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "WebCapture - Save to Google Sheets",
+  "name": "Quote Collector - Save to Google Sheets",
   "version": "1.0.0",
-  "description": "Highlight text on any webpage and save it directly to your own Google Sheets",
+  "description": "Highlight quotes and text on any webpage and save them directly to your own Google Sheets",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqslDuQgkzU04EOb77YVTQ6L/QFDnEvsEUHaFr+Z9Mn8qAYsXicKsttAn2yCvnta3TzFcBe/EjRLxhxkkv+nK/02Xm0ZUda+BN9pk7QV5eCn1R2yBgkeG9dWoQ4oGjpYdWJlyk89q19yUooeJLEx83Ok14FtNLOQPoRC9qPikQ1ilSLRMp3AOL44yLuprcCuMSItE8Lr9EVo4dqn/SChW7GfN9pKQcPNZKyEuLhjfWWjdZFwHFpFjOn4cLrp1+ecbVoe1TgJ54jgyBSMQRDKroXFF9rEJbwP/yXW6KNxcqTljIHULqNjdPhQW0OU8OsXTlprU5m+yRN6ZUcGlEYacIwIDAQAB",
 
   "permissions": [
@@ -18,7 +18,7 @@
   ],
 
   "oauth2": {
-    "client_id": "184152653641-psrm9uohlnuh2kbq1278k2g575j5qi2g.apps.googleusercontent.com",
+    "client_id": "184152653641-u4ahnvq5he0gvbef5nevo03j7rf0hkrk.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/spreadsheets",
       "https://www.googleapis.com/auth/drive.file"

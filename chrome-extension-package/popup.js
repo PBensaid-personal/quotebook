@@ -156,7 +156,7 @@ class WebCapturePopup {
         },
         body: JSON.stringify({
           properties: {
-            title: 'WebCapture Collection'
+            title: 'Quote Collector Collection'
           },
           sheets: [{
             properties: {
