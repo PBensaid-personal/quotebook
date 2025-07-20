@@ -25,10 +25,10 @@ export default function GoogleAuth({ onAuthSuccess, onAuthError }: GoogleAuthPro
   const [showAdvanced, setShowAdvanced] = useState(false);
   const { toast } = useToast();
 
-  // Configuration - in production these would come from environment variables
+  // Demo configuration - in production these would be real Google API credentials
   const googleConfig = {
-    clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || 'your-client-id.apps.googleusercontent.com',
-    apiKey: import.meta.env.VITE_GOOGLE_API_KEY || 'your-api-key',
+    clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || 'demo-client-id.apps.googleusercontent.com',
+    apiKey: import.meta.env.VITE_GOOGLE_API_KEY || 'demo-api-key',
     scopes: [
       'https://www.googleapis.com/auth/spreadsheets',
       'https://www.googleapis.com/auth/drive.file'
@@ -85,6 +85,21 @@ export default function GoogleAuth({ onAuthSuccess, onAuthError }: GoogleAuthPro
 
     setIsCreatingSheet(true);
     try {
+      // In demo mode, simulate spreadsheet creation
+      if (googleConfig.clientId.includes('demo-client-id')) {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API delay
+        const mockSpreadsheetId = `demo_sheet_${Date.now()}`;
+        
+        toast({
+          title: "Demo Spreadsheet Created",
+          description: `"${sheetTitle}" would be created in your Google Drive with real credentials.`,
+        });
+
+        onAuthSuccess(accessToken, mockSpreadsheetId);
+        return;
+      }
+
+      // Real implementation for production
       const sheetsService = new GoogleSheetsService({
         spreadsheetId: '',
         accessToken
@@ -118,7 +133,20 @@ export default function GoogleAuth({ onAuthSuccess, onAuthError }: GoogleAuthPro
 
     setIsConnectingSheet(true);
     try {
-      // Test connection by attempting to read from the sheet
+      // In demo mode, simulate connection test
+      if (googleConfig.clientId.includes('demo-client-id')) {
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API delay
+        
+        toast({
+          title: "Demo Connection Success",
+          description: "Would connect to your existing spreadsheet with real credentials.",
+        });
+
+        onAuthSuccess(accessToken, existingSheetId);
+        return;
+      }
+
+      // Real implementation for production
       const sheetsService = new GoogleSheetsService({
         spreadsheetId: existingSheetId,
         accessToken
@@ -198,12 +226,29 @@ export default function GoogleAuth({ onAuthSuccess, onAuthError }: GoogleAuthPro
                   )}
                 </Button>
               ) : (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Google API credentials are not configured. Please set VITE_GOOGLE_CLIENT_ID and VITE_GOOGLE_API_KEY environment variables.
-                  </AlertDescription>
-                </Alert>
+                <div className="space-y-4">
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Demo Mode:</strong> Google API credentials are not configured. In production, you would set up your own Google Cloud project with proper credentials.
+                    </AlertDescription>
+                  </Alert>
+                  <Button 
+                    onClick={() => {
+                      // Simulate successful authentication for demo
+                      setAccessToken('demo-access-token-' + Date.now());
+                      toast({
+                        title: "Demo Authentication",
+                        description: "Simulating successful Google authentication for demo purposes.",
+                      });
+                    }}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Simulate Google Authentication (Demo)
+                  </Button>
+                </div>
               )}
             </div>
           ) : (
