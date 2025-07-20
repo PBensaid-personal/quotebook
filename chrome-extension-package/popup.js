@@ -24,42 +24,21 @@ class QuoteCollectorPopup {
         console.log('Found Chrome token, validating...');
         this.accessToken = chromeToken;
         
-        // Test if token is valid with Google Sheets API
-        try {
-          console.log('Validating token with Google Sheets API...');
-          const testResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
-            headers: { 'Authorization': `Bearer ${chromeToken}` }
-          });
-          
-          console.log('Token validation status:', testResponse.status);
-          
-          if (testResponse.ok) {
-            console.log('Token is valid, setting up authenticated state...');
-            this.isAuthenticated = true;
-            
-            // Get or create spreadsheet
-            await this.setupSpreadsheet();
-            
-            // Store authentication
-            await chrome.storage.local.set({
-              accessToken: this.accessToken,
-              spreadsheetId: this.spreadsheetId
-            });
-            
-            this.showMainScreen();
-            return;
-          } else {
-            console.log('Token is invalid, clearing...');
-            if (typeof chromeToken === 'string') {
-              await chrome.identity.removeCachedAuthToken({ token: chromeToken });
-            }
-          }
-        } catch (tokenError) {
-          console.log('Token validation failed:', tokenError);
-          if (typeof chromeToken === 'string') {
-            await chrome.identity.removeCachedAuthToken({ token: chromeToken });
-          }
-        }
+        // Token found, proceed with setup
+        console.log('Token found, setting up authenticated state...');
+        this.isAuthenticated = true;
+        
+        // Get or create spreadsheet
+        await this.setupSpreadsheet();
+        
+        // Store authentication
+        await chrome.storage.local.set({
+          accessToken: this.accessToken,
+          spreadsheetId: this.spreadsheetId
+        });
+        
+        this.showMainScreen();
+        return;
       }
       
       // Check stored authentication as fallback
@@ -130,21 +109,8 @@ class QuoteCollectorPopup {
       console.log('Received token, validating...');
       this.accessToken = newToken;
 
-      // Test the token by trying to access Google Sheets API directly
-      console.log('Testing token with Google Sheets API...');
-      const testResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }
-      });
-
-      console.log('Token test response status:', testResponse.status);
-      
-      if (!testResponse.ok) {
-        const errorText = await testResponse.text();
-        console.log('Sheets API test failed:', errorText);
-        throw new Error(`Token validation failed: ${testResponse.status} - ${errorText}`);
-      }
-
-      console.log('Token validated, setting up spreadsheet...');
+      // Token received, proceed with setup
+      console.log('Token received, setting up spreadsheet...');
       
       // Create or get spreadsheet
       await this.setupSpreadsheet();
