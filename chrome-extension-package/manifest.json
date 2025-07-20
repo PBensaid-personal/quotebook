@@ -9,8 +9,7 @@
     "activeTab", 
     "storage", 
     "identity",
-    "identity.email",
-    "alarms"
+    "identity.email"
   ],
 
   "host_permissions": [
