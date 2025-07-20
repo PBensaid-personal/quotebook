@@ -97,6 +97,13 @@ class QuoteCollectorPopup {
       console.log('Starting interactive authentication...');
       this.showStatus('Authenticating with Google...', 'info');
       
+      // Clear any cached tokens first
+      try {
+        await chrome.identity.clearAllCachedAuthTokens();
+      } catch (e) {
+        console.log('No cached tokens to clear');
+      }
+
       // Request token with user interaction
       const newToken = await chrome.identity.getAuthToken({
         interactive: true
