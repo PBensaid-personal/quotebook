@@ -1,8 +1,8 @@
-# WebCapture - Content Saving Application
+# Quote Collector - Content Saving Application
 
 ## Overview
 
-This is a full-stack web application that simulates a Chrome extension for capturing and organizing web content. It provides a comprehensive interface for saving, managing, and syncing content items with Google Sheets integration.
+This is a full-stack web application that simulates a Chrome extension for capturing and organizing web content. Quote Collector provides a comprehensive interface for saving, managing, and syncing content items with Google Sheets integration.
 
 ## User Preferences
 
@@ -126,3 +126,9 @@ The application is designed as a monorepo with shared TypeScript types and schem
 - Contains complete extension with real Google Client ID
 - Ready for unpacked testing and Chrome Web Store submission
 - All user-provided PNG icons properly integrated
+
+### Project Rebranding to Quote Collector (January 2025)
+- Updated project name from WebCapture to Quote Collector
+- Created proper Chrome Extension OAuth client in Google Cloud Console
+- Generated stable extension key for consistent Extension ID: igokaadmgmnmbmclnbanjalaakhmghgb
+- Ready for OAuth authentication testing with Google Sheets integration
