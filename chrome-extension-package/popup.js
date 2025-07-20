@@ -14,28 +14,22 @@ class WebCapturePopup {
   }
 
   async checkAuthStatus() {
-    // Show demo mode immediately for testing
-    this.showDemoMode();
-  }
-
-  showDemoMode() {
-    // Add demo notice
-    const authScreen = document.getElementById('auth-screen');
-    const existingNotice = authScreen.querySelector('.demo-notice');
-    if (!existingNotice) {
-      const demoNotice = document.createElement('div');
-      demoNotice.className = 'demo-notice';
-      demoNotice.style.cssText = `
-        background: #fff3cd; color: #856404; padding: 8px 12px;
-        border: 1px solid #ffeaa7; border-radius: 4px; margin-bottom: 12px;
-        font-size: 12px; text-align: center;
-      `;
-      demoNotice.innerHTML = '⚠️ Demo Mode Active - Click "Sign in with Google" to test authentication or proceed to save locally';
-      authScreen.insertBefore(demoNotice, authScreen.firstChild);
+    try {
+      // Check if user is already authenticated
+      const result = await chrome.storage.local.get(['accessToken', 'spreadsheetId']);
+      
+      if (result.accessToken) {
+        this.isAuthenticated = true;
+        this.accessToken = result.accessToken;
+        this.spreadsheetId = result.spreadsheetId;
+        this.showMainScreen();
+      } else {
+        this.showAuthScreen();
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      this.showAuthScreen();
     }
-    
-    // Show auth screen with enhanced demo functionality
-    this.showAuthScreen();
   }
 
   showAuthScreen() {
