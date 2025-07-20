@@ -110,13 +110,12 @@ The application is designed as a monorepo with shared TypeScript types and schem
 
 ## Recent Changes
 
-### Google Sheets Integration (January 2025)
-- Implemented comprehensive OAuth 2.0 authentication using Google Identity Services (GIS)
-- Created GoogleAuthService class for modern client-side authentication 
-- Built GoogleSheetsService for full CRUD operations on user's own spreadsheets
-- Added GoogleAuth component with step-by-step setup flow
-- Integrated authentication into Settings page with modal dialog
-- Supports creating new spreadsheets or connecting to existing ones
-- Users own their data - no managed database required
-- Full masonry grid layout implemented for responsive content display
-- Enhanced search and filtering with debounced input and clickable tags
+### Chrome Extension Simplification (January 2025)
+- Simplified from complex web app to straightforward Chrome extension
+- Direct Google Sheets integration using chrome.identity API
+- No backend server required - pure client-side operation
+- Users authenticate once and data saves directly to their own Google Sheets
+- Text selection on any webpage with visual feedback
+- Auto-generates spreadsheet with proper headers
+- Simple popup interface for quick saving
+- User owns all data in their Google Drive
