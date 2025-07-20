@@ -17,14 +17,13 @@ This updated ZIP contains:
 
 ## Testing Instructions
 
-1. **Download the new ZIP**: `WebCapture-Extension-Fixed.zip`
-2. **Extract it** to a folder
-3. **Convert icons** from SVG to PNG (or temporarily ignore icon errors)
-4. **Load in Chrome**:
+1. **Use the extension folder**: `chrome-extension-package/`
+2. **Load in Chrome**:
    - Go to `chrome://extensions/`
    - Enable "Developer mode"
    - Click "Load unpacked"
-   - Select your extracted folder
+   - Select the chrome-extension-package folder
+3. **Or use ZIP**: Extract WebCapture-Extension-Updated.zip and load that folder
 
 ## What Should Work Now
 

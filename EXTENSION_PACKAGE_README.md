@@ -8,33 +8,32 @@
 - **icon-128.png** - Chrome Web Store listing (128x128 pixels)
 
 ### Core Extension Files:
-- **manifest.json** - Extension configuration with proper icon references
+- **manifest.json** - Extension configuration with real Google Client ID
 - **popup.html** - Main extension interface
-- **popup.js** - Extension functionality with demo mode
+- **popup.js** - Extension functionality with Google OAuth
 - **content.js** - Web page text selection
 - **content.css** - Styling for text selection feedback
 - **background.js** - Service worker for extension management
 - **demo-mode.js** - Local storage fallback functionality
 - **privacy-policy.html** - Required for Chrome Web Store
 
-## Current Download: WebCapture-Extension-Final.zip
+## Current Package: chrome-extension-package/
 
-This package includes:
-- All user-provided PNG icons properly referenced
-- Fixed authentication with demo mode fallback
-- Resolved service worker errors  
-- Graceful content script handling
-- Local storage for immediate testing
+This folder contains:
+- Real Google Client ID: 184152653641-psrm9uohlnuh2kbq1278k2g575j5qi2g.apps.googleusercontent.com
+- All user-provided PNG icons properly integrated
+- Complete extension files ready for testing
+- WebCapture-Extension-Updated.zip available for download
 
 ## Installation Instructions:
 
-1. Download WebCapture-Extension-Final.zip
-2. Extract to folder on computer
+1. Use the chrome-extension-package folder directly, OR
+2. Extract WebCapture-Extension-Updated.zip
 3. Open chrome://extensions/
 4. Enable "Developer mode"
 5. Click "Load unpacked"
-6. Select extracted folder
-7. Extension appears with your custom icons
+6. Select the chrome-extension-package folder
+7. Extension loads with real Google OAuth ready for testing
 
 ## Features Working:
 - Custom PNG icons display properly

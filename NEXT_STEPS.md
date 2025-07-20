@@ -2,18 +2,14 @@
 
 You now have **WebCapture-Extension.zip** downloaded. Here's exactly what to do:
 
-## Step 1: Fix the Icons (5 minutes)
+## Step 1: Extension Ready ✅
 
-Your ZIP has empty icon files. Fix them:
+Your extension package is complete:
 
-1. **Go to**: https://convertio.co/svg-png/
-2. **Upload these 3 files** from your project:
-   - `extension/icon-16.svg`
-   - `extension/icon-48.svg` 
-   - `extension/icon-128.svg`
-3. **Convert each to PNG**
-4. **Download the PNG files**
-5. **Replace the empty PNG files in your ZIP**
+1. **Extension folder**: chrome-extension-package/ contains all files
+2. **Icons**: User-provided PNG files already integrated
+3. **Google Client ID**: Real Client ID already configured
+4. **ZIP file**: WebCapture-Extension-Updated.zip ready for upload
 
 ## Step 2: Upload to Chrome Web Store (10 minutes)
 

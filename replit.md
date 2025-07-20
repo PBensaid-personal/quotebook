@@ -119,3 +119,10 @@ The application is designed as a monorepo with shared TypeScript types and schem
 - Auto-generates spreadsheet with proper headers
 - Simple popup interface for quick saving
 - User owns all data in their Google Drive
+
+### Extension Package Cleanup (January 2025)
+- Removed incomplete extension/ folder (missing manifest.json)
+- Consolidated to single chrome-extension-package/ folder
+- Contains complete extension with real Google Client ID
+- Ready for unpacked testing and Chrome Web Store submission
+- All user-provided PNG icons properly integrated
