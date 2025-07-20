@@ -28,8 +28,6 @@ class QuoteCollectorBackground {
 
     console.log('Extension installed successfully');
   }
-
-
 }
 
 // Initialize background script
