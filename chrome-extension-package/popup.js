@@ -15,17 +15,59 @@ class WebCapturePopup {
 
   async checkAuthStatus() {
     try {
-      // Check if user is already authenticated
-      const result = await chrome.storage.local.get(['accessToken', 'spreadsheetId']);
+      console.log('Checking authentication status...');
       
+      // First try to get a token from Chrome identity API
+      const chromeToken = await chrome.identity.getAuthToken({ interactive: false });
+      
+      if (chromeToken) {
+        console.log('Found Chrome token, validating...');
+        this.accessToken = chromeToken;
+        
+        // Test if token is valid
+        try {
+          const testResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
+            headers: { 'Authorization': `Bearer ${chromeToken}` }
+          });
+          
+          if (testResponse.ok) {
+            console.log('Token is valid, setting up authenticated state...');
+            this.isAuthenticated = true;
+            
+            // Get or create spreadsheet
+            await this.setupSpreadsheet();
+            
+            // Store authentication
+            await chrome.storage.local.set({
+              accessToken: this.accessToken,
+              spreadsheetId: this.spreadsheetId
+            });
+            
+            this.showMainScreen();
+            return;
+          } else {
+            console.log('Token is invalid, clearing...');
+            await chrome.identity.removeCachedAuthToken({ token: chromeToken });
+          }
+        } catch (tokenError) {
+          console.log('Token validation failed:', tokenError);
+          await chrome.identity.removeCachedAuthToken({ token: chromeToken });
+        }
+      }
+      
+      // Check stored authentication as fallback
+      const result = await chrome.storage.local.get(['accessToken', 'spreadsheetId']);
       if (result.accessToken) {
+        console.log('Found stored token, using it...');
         this.isAuthenticated = true;
         this.accessToken = result.accessToken;
         this.spreadsheetId = result.spreadsheetId;
         this.showMainScreen();
       } else {
+        console.log('No valid authentication found, showing auth screen');
         this.showAuthScreen();
       }
+      
     } catch (error) {
       console.error('Auth check failed:', error);
       this.showAuthScreen();
@@ -66,34 +108,22 @@ class WebCapturePopup {
 
   async authenticateWithGoogle() {
     try {
-      console.log('Starting authentication...');
+      console.log('Starting interactive authentication...');
+      this.showStatus('Authenticating with Google...', 'info');
       
-      // Clear any cached tokens first to ensure fresh authentication
-      try {
-        const cachedToken = await chrome.identity.getAuthToken({ interactive: false });
-        if (cachedToken) {
-          await chrome.identity.removeCachedAuthToken({ token: cachedToken });
-          console.log('Cleared cached token');
-        }
-      } catch (e) {
-        // No cached token to clear
-      }
-      
-      console.log('Requesting fresh token...');
-      // Request new token with user interaction
+      // Request token with user interaction
       const newToken = await chrome.identity.getAuthToken({
         interactive: true
       });
       
-      if (newToken) {
-        console.log('Received new token');
-        this.accessToken = newToken;
-      } else {
+      if (!newToken) {
         throw new Error('OAuth2 not granted or revoked');
       }
 
+      console.log('Received token, validating...');
+      this.accessToken = newToken;
+
       // Test the token by making a simple API call
-      console.log('Testing token...');
       const testResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
         headers: { 'Authorization': `Bearer ${this.accessToken}` }
       });
@@ -102,7 +132,7 @@ class WebCapturePopup {
         throw new Error('Token validation failed');
       }
 
-      console.log('Token validated successfully');
+      console.log('Token validated, setting up spreadsheet...');
       
       // Create or get spreadsheet
       await this.setupSpreadsheet();
