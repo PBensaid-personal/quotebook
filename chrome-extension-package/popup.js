@@ -68,27 +68,28 @@ class WebCapturePopup {
     try {
       console.log('Starting authentication...');
       
-      // First, try to get cached token
-      const cachedToken = await chrome.identity.getAuthToken({
-        interactive: false
+      // Clear any cached tokens first to ensure fresh authentication
+      try {
+        const cachedToken = await chrome.identity.getAuthToken({ interactive: false });
+        if (cachedToken) {
+          await chrome.identity.removeCachedAuthToken({ token: cachedToken });
+          console.log('Cleared cached token');
+        }
+      } catch (e) {
+        // No cached token to clear
+      }
+      
+      console.log('Requesting fresh token...');
+      // Request new token with user interaction
+      const newToken = await chrome.identity.getAuthToken({
+        interactive: true
       });
       
-      if (cachedToken) {
-        console.log('Using cached token');
-        this.accessToken = cachedToken;
+      if (newToken) {
+        console.log('Received new token');
+        this.accessToken = newToken;
       } else {
-        console.log('Requesting new token...');
-        // Request new token with user interaction
-        const newToken = await chrome.identity.getAuthToken({
-          interactive: true
-        });
-        
-        if (newToken) {
-          console.log('Received new token');
-          this.accessToken = newToken;
-        } else {
-          throw new Error('No token received');
-        }
+        throw new Error('OAuth2 not granted or revoked');
       }
 
       // Test the token by making a simple API call
@@ -206,23 +207,31 @@ class WebCapturePopup {
       // Get current tab info
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      // Get selected text from content script
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSelectedText' });
-      
-      if (response?.selectedText) {
-        document.getElementById('selected-text').style.display = 'block';
-        document.getElementById('selected-text').textContent = response.selectedText;
-      }
-
       // Auto-fill title from page title
-      document.getElementById('title-input').placeholder = tab.title;
+      document.getElementById('title-input').placeholder = tab.title || 'Add a title...';
 
-      // Generate suggested tags from URL
+      // Generate suggested tags from URL  
       this.generateSuggestedTags(tab.url);
+
+      // Try to get selected text from content script (with timeout)
+      try {
+        const response = await Promise.race([
+          chrome.tabs.sendMessage(tab.id, { action: 'getSelectedText' }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1000))
+        ]);
+        
+        if (response?.selectedText) {
+          document.getElementById('selected-text').style.display = 'block';
+          document.getElementById('selected-text').textContent = response.selectedText;
+        }
+      } catch (contentError) {
+        console.log('Content script not ready or no selected text:', contentError.message);
+        // This is normal - content script may not be loaded yet
+      }
 
     } catch (error) {
       console.error('Failed to load page data:', error);
-      // Gracefully handle content script connection errors
+      // Gracefully handle all errors
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab) {
         document.getElementById('title-input').placeholder = tab.title || 'Add a title...';

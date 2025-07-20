@@ -15,6 +15,7 @@ class WebCaptureContent {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.action === 'getSelectedText') {
         sendResponse({ selectedText: this.selectedText });
+        return true; // Keep message channel open for async response
       }
     });
   }
