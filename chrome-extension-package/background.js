@@ -51,20 +51,29 @@ class WebCaptureBackground {
       const result = await chrome.storage.local.get(['accessToken']);
       
       if (result.accessToken) {
-        // Test token with a simple API call
-        const response = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + result.accessToken);
-        
-        if (!response.ok) {
-          // Token is invalid, clear it
-          await chrome.storage.local.remove(['accessToken', 'spreadsheetId']);
-          
-          // Show notification
-          chrome.notifications.create({
-            type: 'basic',
-            iconUrl: 'icon-48.png',
-            title: 'WebCapture',
-            message: 'Please sign in again to continue saving to Google Sheets'
+        try {
+          // Use Chrome identity API to check token validity
+          const token = await chrome.identity.getAuthToken({
+            interactive: false
           });
+          
+          if (!token) {
+            // Token is invalid, clear stored data
+            await chrome.storage.local.remove(['accessToken', 'spreadsheetId']);
+            
+            // Show notification if notifications are supported
+            if (chrome.notifications) {
+              chrome.notifications.create({
+                type: 'basic',
+                iconUrl: 'icon-48.png',
+                title: 'WebCapture',
+                message: 'Please sign in again to continue saving to Google Sheets'
+              });
+            }
+          }
+        } catch (error) {
+          // Token expired or invalid
+          await chrome.storage.local.remove(['accessToken', 'spreadsheetId']);
         }
       }
     } catch (error) {

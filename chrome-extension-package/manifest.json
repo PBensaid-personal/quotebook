@@ -4,7 +4,12 @@
   "version": "1.0.0",
   "description": "Highlight text on any webpage and save it directly to your own Google Sheets",
 
-  "permissions": ["activeTab", "storage", "identity"],
+  "permissions": [
+    "activeTab", 
+    "storage", 
+    "identity",
+    "identity.email"
+  ],
 
   "host_permissions": [
     "https://sheets.googleapis.com/*",

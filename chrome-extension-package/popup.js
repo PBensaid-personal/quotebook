@@ -66,21 +66,11 @@ class WebCapturePopup {
 
   async authenticateWithGoogle() {
     try {
-      // Use Chrome's identity API for OAuth
-      const authUrl = `https://accounts.google.com/oauth/authorize?` +
-        `client_id=${chrome.runtime.getManifest().oauth2.client_id}&` +
-        `response_type=token&` +
-        `scope=${encodeURIComponent(chrome.runtime.getManifest().oauth2.scopes.join(' '))}&` +
-        `redirect_uri=${encodeURIComponent(chrome.identity.getRedirectURL())}`;
-
-      const redirectUrl = await chrome.identity.launchWebAuthFlow({
-        url: authUrl,
-        interactive: true
+      // Use Chrome's identity API for OAuth - proper Chrome extension method
+      const accessToken = await chrome.identity.getAuthToken({
+        interactive: true,
+        scopes: chrome.runtime.getManifest().oauth2.scopes
       });
-
-      // Extract access token from redirect URL
-      const urlParams = new URLSearchParams(redirectUrl.split('#')[1]);
-      const accessToken = urlParams.get('access_token');
 
       if (accessToken) {
         this.accessToken = accessToken;
@@ -100,7 +90,12 @@ class WebCapturePopup {
       }
     } catch (error) {
       console.error('Authentication failed:', error);
-      this.showStatus('Failed to connect to Google', 'error');
+      // Show more specific error message
+      if (error.message && error.message.includes('OAuth2')) {
+        this.showStatus('Google authentication not configured properly. Please check extension setup.', 'error');
+      } else {
+        this.showStatus('Failed to connect to Google: ' + (error.message || 'Unknown error'), 'error');
+      }
     }
   }
 
