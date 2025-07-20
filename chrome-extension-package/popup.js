@@ -47,11 +47,15 @@ class WebCapturePopup {
             return;
           } else {
             console.log('Token is invalid, clearing...');
-            await chrome.identity.removeCachedAuthToken({ token: chromeToken });
+            if (typeof chromeToken === 'string') {
+              await chrome.identity.removeCachedAuthToken({ token: chromeToken });
+            }
           }
         } catch (tokenError) {
           console.log('Token validation failed:', tokenError);
-          await chrome.identity.removeCachedAuthToken({ token: chromeToken });
+          if (typeof chromeToken === 'string') {
+            await chrome.identity.removeCachedAuthToken({ token: chromeToken });
+          }
         }
       }
       
@@ -152,7 +156,9 @@ class WebCapturePopup {
       
       // Clear any bad tokens
       try {
-        await chrome.identity.removeCachedAuthToken({ token: this.accessToken });
+        if (this.accessToken && typeof this.accessToken === 'string') {
+          await chrome.identity.removeCachedAuthToken({ token: this.accessToken });
+        }
       } catch (e) {
         console.log('No token to clear');
       }
