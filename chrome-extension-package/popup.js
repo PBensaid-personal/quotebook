@@ -27,7 +27,7 @@ class QuoteCollectorPopup {
         // Test if token is valid with Google Sheets API
         try {
           console.log('Validating token with Google Sheets API...');
-          const testResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets?pageSize=1', {
+          const testResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
             headers: { 'Authorization': `Bearer ${chromeToken}` }
           });
           
@@ -132,7 +132,7 @@ class QuoteCollectorPopup {
 
       // Test the token by trying to access Google Sheets API directly
       console.log('Testing token with Google Sheets API...');
-      const testResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets?pageSize=1', {
+      const testResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
         headers: { 'Authorization': `Bearer ${this.accessToken}` }
       });
 
