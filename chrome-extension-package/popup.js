@@ -163,6 +163,7 @@ class QuoteCollectorPopup {
       }
 
       // Create new spreadsheet
+      console.log('Creating spreadsheet with token:', this.accessToken.substring(0, 20) + '...');
       const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
         method: 'POST',
         headers: {
@@ -180,6 +181,13 @@ class QuoteCollectorPopup {
           }]
         })
       });
+      
+      console.log('Spreadsheet creation response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('Spreadsheet creation error:', errorText);
+      }
 
       if (!response.ok) {
         throw new Error(`Failed to create spreadsheet: ${response.status}`);
