@@ -14,30 +14,41 @@ class FullPageCollector {
     
     // Check for existing auth and validate spreadsheet still exists
     const result = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
+    console.log('Fullpage cached data:', { 
+      hasSpreadsheetId: !!result.googleSpreadsheetId, 
+      hasAccessToken: !!result.googleAccessToken 
+    });
     
     if (result.googleAccessToken && result.googleSpreadsheetId) {
+      console.log('Testing cached spreadsheet in fullpage:', result.googleSpreadsheetId);
       // Verify the spreadsheet still exists before proceeding
       try {
         const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}`, {
           headers: { 'Authorization': `Bearer ${result.googleAccessToken}` }
         });
         
+        console.log('Fullpage spreadsheet test response:', testResponse.status);
+        
         if (testResponse.ok) {
           // Spreadsheet exists and is accessible
+          console.log('Fullpage spreadsheet verified, loading content');
           this.accessToken = result.googleAccessToken;
           this.spreadsheetId = result.googleSpreadsheetId;
           await this.loadContent();
         } else {
           // Spreadsheet was deleted, clear cache and show auth
+          console.log('Fullpage spreadsheet not accessible, clearing cache');
           await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
           this.showAuthRequired();
         }
       } catch (error) {
         // Error accessing spreadsheet, clear cache and show auth
+        console.log('Fullpage error testing spreadsheet:', error);
         await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
         this.showAuthRequired();
       }
     } else {
+      console.log('No cached data, showing auth required');
       this.showAuthRequired();
     }
 

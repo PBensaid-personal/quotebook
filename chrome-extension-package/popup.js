@@ -104,26 +104,36 @@ class EnhancedQuoteCollector {
     try {
       // First check if we have cached spreadsheet data
       const stored = await chrome.storage.local.get(['googleSpreadsheetId', 'googleAccessToken']);
+      console.log('Cached data found:', { 
+        hasSpreadsheetId: !!stored.googleSpreadsheetId, 
+        hasAccessToken: !!stored.googleAccessToken 
+      });
       
       if (stored.googleSpreadsheetId && stored.googleAccessToken) {
+        console.log('Testing cached spreadsheet:', stored.googleSpreadsheetId);
         // We have cached data, but let's verify the spreadsheet still exists
         try {
           const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
             headers: { 'Authorization': `Bearer ${stored.googleAccessToken}` }
           });
           
+          console.log('Spreadsheet test response:', testResponse.status);
+          
           if (testResponse.ok) {
             // Spreadsheet exists and is accessible
+            console.log('Spreadsheet verified, showing main interface');
             this.accessToken = stored.googleAccessToken;
             this.spreadsheetId = stored.googleSpreadsheetId;
             this.showMainInterface();
             return;
           } else {
             // Spreadsheet was deleted or token expired, clear cache
+            console.log('Spreadsheet not accessible, clearing cache');
             await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
           }
         } catch (error) {
           // Error accessing spreadsheet, clear cache
+          console.log('Error testing spreadsheet:', error);
           await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
         }
       }
