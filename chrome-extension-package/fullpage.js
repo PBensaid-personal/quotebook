@@ -18,22 +18,28 @@ class FullPageCollector {
     if (result.googleAccessToken && result.googleSpreadsheetId) {
       // Verify the spreadsheet still exists before proceeding
       try {
+        console.log(`[FULLPAGE DELETION CHECK] Testing cached spreadsheet: ${result.googleSpreadsheetId}`);
         const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}`, {
           headers: { 'Authorization': `Bearer ${result.googleAccessToken}` }
         });
         
+        console.log(`[FULLPAGE DELETION CHECK] Response status: ${testResponse.status}`);
+        
         if (testResponse.ok) {
           // Spreadsheet exists and is accessible
+          console.log('[FULLPAGE DELETION CHECK] ✅ Spreadsheet still exists - loading content');
           this.accessToken = result.googleAccessToken;
           this.spreadsheetId = result.googleSpreadsheetId;
           await this.loadContent();
         } else {
           // Spreadsheet was deleted, clear cache and show auth
+          console.log(`[FULLPAGE DELETION CHECK] ❌ Spreadsheet deleted/inaccessible (${testResponse.status}) - clearing cache`);
           await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
           this.showAuthRequired();
         }
       } catch (error) {
         // Error accessing spreadsheet, clear cache and show auth
+        console.log(`[FULLPAGE DELETION CHECK] ❌ Network error accessing spreadsheet: ${error.message} - clearing cache`);
         await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
         this.showAuthRequired();
       }
