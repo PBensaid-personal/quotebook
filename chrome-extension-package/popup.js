@@ -203,9 +203,9 @@ class EnhancedQuoteCollector {
   async setupSpreadsheetIfNeeded() {
     try {
       // Check for existing spreadsheet
-      const stored = await chrome.storage.local.get(['spreadsheetId']);
-      if (stored.spreadsheetId) {
-        this.spreadsheetId = stored.spreadsheetId;
+      const stored = await chrome.storage.local.get(['googleSpreadsheetId']);
+      if (stored.googleSpreadsheetId) {
+        this.spreadsheetId = stored.googleSpreadsheetId;
         this.showStatus('Connected to existing spreadsheet', 'success');
         return;
       }
@@ -237,7 +237,8 @@ class EnhancedQuoteCollector {
 
         // Store credentials
         await chrome.storage.local.set({
-          spreadsheetId: this.spreadsheetId
+          googleAccessToken: this.accessToken,
+          googleSpreadsheetId: this.spreadsheetId
         });
 
         // Add headers
