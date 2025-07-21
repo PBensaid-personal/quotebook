@@ -63,7 +63,7 @@ export default function ExtensionPopup() {
       ...customTags.split(",").map(tag => tag.trim()).filter(Boolean),
     ];
     
-    const uniqueTags = [...new Set(allTags)];
+    const uniqueTags = Array.from(new Set(allTags));
 
     saveContentMutation.mutate({
       title: selectedContent.title,
