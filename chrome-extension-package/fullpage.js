@@ -170,13 +170,6 @@ class FullPageCollector {
       });
 
       if (!response.ok) {
-        if (response.status === 404) {
-          // Spreadsheet was deleted, clear stored ID and show auth required
-          await chrome.storage.local.remove(['googleSpreadsheetId']);
-          this.spreadsheetId = null;
-          this.showAuthRequired();
-          return;
-        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -204,10 +197,6 @@ class FullPageCollector {
       console.error('Failed to load content:', error);
       this.showLoading(false);
       if (error.message.includes('401')) {
-        this.showAuthRequired();
-      } else if (error.message.includes('404')) {
-        // Spreadsheet deleted - clear data and require re-auth
-        await chrome.storage.local.clear();
         this.showAuthRequired();
       }
     }
@@ -423,17 +412,6 @@ class FullPageCollector {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-  }
-
-  async clearAllData() {
-    if (confirm('This will clear all stored data and require re-authentication. Continue?')) {
-      await chrome.storage.local.clear();
-      this.contentData = [];
-      this.filteredData = [];
-      this.accessToken = null;
-      this.spreadsheetId = null;
-      this.showAuthRequired();
-    }
   }
 
   showLoading(show) {
