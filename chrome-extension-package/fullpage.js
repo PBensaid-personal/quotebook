@@ -7,7 +7,7 @@ class FullPageCollector {
     this.contentData = [];
     this.filteredData = [];
     this.displayedItems = [];
-    this.itemsPerPage = 20;
+    this.itemsPerPage = 30;
     this.currentPage = 1;
     this.init();
   }
@@ -153,7 +153,10 @@ class FullPageCollector {
       spreadsheetLink.addEventListener("click", (e) => {
         e.preventDefault();
         if (this.spreadsheetId) {
-          window.open(`https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit`, '_blank');
+          window.open(
+            `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit`,
+            "_blank",
+          );
         }
       });
     }
@@ -716,12 +719,12 @@ class FullPageCollector {
   }
 
   updateSpreadsheetLink() {
-    const spreadsheetLink = document.getElementById('spreadsheet-link');
+    const spreadsheetLink = document.getElementById("spreadsheet-link");
     if (spreadsheetLink && this.spreadsheetId) {
       spreadsheetLink.href = `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit`;
-      spreadsheetLink.style.display = 'flex';
+      spreadsheetLink.style.display = "flex";
     } else if (spreadsheetLink) {
-      spreadsheetLink.style.display = 'none';
+      spreadsheetLink.style.display = "none";
     }
   }
 
@@ -731,26 +734,26 @@ class FullPageCollector {
   }
 
   updateLoadMoreButton() {
-    const loadMoreContainer = document.getElementById('load-more-container');
+    const loadMoreContainer = document.getElementById("load-more-container");
     const totalItems = this.filteredData.length;
     const displayedItems = this.currentPage * this.itemsPerPage;
 
     if (loadMoreContainer) {
       if (displayedItems < totalItems) {
-        loadMoreContainer.style.display = 'block';
+        loadMoreContainer.style.display = "block";
         const remaining = totalItems - displayedItems;
-        const loadMoreBtn = document.getElementById('load-more-btn');
+        const loadMoreBtn = document.getElementById("load-more-btn");
         loadMoreBtn.textContent = `Load More (${remaining} remaining)`;
       } else {
-        loadMoreContainer.style.display = 'none';
+        loadMoreContainer.style.display = "none";
       }
     }
   }
 
   hideLoadMoreButton() {
-    const loadMoreContainer = document.getElementById('load-more-container');
+    const loadMoreContainer = document.getElementById("load-more-container");
     if (loadMoreContainer) {
-      loadMoreContainer.style.display = 'none';
+      loadMoreContainer.style.display = "none";
     }
   }
 }

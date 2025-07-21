@@ -33,6 +33,11 @@ class EnhancedQuoteCollector {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
 
+    // Bookmark icon in header also opens full page view
+    document.querySelector('.bookmark-icon').addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
+    });
+
     // Remove Enter key handler - tags will be processed on Save
   }
 
