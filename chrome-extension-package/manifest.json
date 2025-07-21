@@ -5,11 +5,7 @@
   "description": "Save quotes to Google Sheets using web OAuth flow",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqslDuQgkzU04EOb77YVTQ6L/QFDnEvsEUHaFr+Z9Mn8qAYsXicKsttAn2yCvnta3TzFcBe/EjRLxhxkkv+nK/02Xm0ZUda+BN9pk7QV5eCn1R2yBgkeG9dWoQ4oGjpYdWJlyk89q19yUooeJLEx83Ok14FtNLOQPoRC9qPikQ1ilSLRMp3AOL44yLuprcCuMSItE8Lr9EVo4dqn/SChW7GfN9pKQcPNZKyEuLhjfWWjdZFwHFpFjOn4cLrp1+ecbVoe1TgJ54jgyBSMQRDKroXFF9rEJbwP/yXW6KNxcqTljIHULqNjdPhQW0OU8OsXTlprU5m+yRN6ZUcGlEYacIwIDAQAB",
 
-  "permissions": [
-    "identity",
-    "activeTab",
-    "storage"
-  ],
+  "permissions": ["identity", "activeTab", "storage"],
 
   "host_permissions": [
     "https://accounts.google.com/*",
@@ -22,7 +18,7 @@
   },
 
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "popup-web.html",
     "default_title": "Quote Collector",
     "default_icon": {
       "16": "icon-16.png",

@@ -1,195 +1,196 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Bookmark, Save, X, ExternalLink, Sparkles } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+
+interface SelectedContent {
+  title: string;
+  content: string;
+  url: string;
+  siteName: string;
+  imageUrl: string;
+  suggestedTags: string[];
+}
 
 export default function ExtensionPopup() {
   const { toast } = useToast();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState("");
-  const [statusType, setStatusType] = useState<"info" | "success" | "error">("info");
-  const [debugLog, setDebugLog] = useState("");
+  const queryClient = useQueryClient();
+  
+  // Mock selected content - in real extension this would come from content script
+  const [selectedContent] = useState<SelectedContent>({
+    title: "The Future of Web Development",
+    content: "Modern web development has evolved significantly with the introduction of new frameworks and tools that enable developers to create more interactive and performant applications...",
+    url: "https://techblog.example.com/web-dev-future",
+    siteName: "TechBlog",
+    imageUrl: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=80",
+    suggestedTags: ["web development", "technology"],
+  });
 
-  // Simulate the Chrome extension's working authentication
-  useEffect(() => {
-    const checkAuth = () => {
-      setStatus("Checking authentication...");
-      setStatusType("info");
-      
-      setTimeout(() => {
-        setStatus("");
-        setIsAuthenticated(false);
-      }, 1000);
-    };
-    
-    checkAuth();
-  }, []);
+  const [customTags, setCustomTags] = useState("");
+  const [userTags, setUserTags] = useState<string[]>(["programming"]);
 
-  const handleAuthenticate = () => {
-    setStatus("Starting authentication...");
-    setStatusType("info");
-    addDebugLog("Starting OAuth flow with chrome.identity.getAuthToken");
-    
-    setTimeout(() => {
-      setStatus("Authentication successful!");
-      setStatusType("success");
-      addDebugLog("Access token received: ya29.a0AcM612...");
-      
-      setTimeout(() => {
-        setStatus("Setting up Google Sheets...");
-        setStatusType("info");
-        addDebugLog("Creating spreadsheet...");
-        
-        setTimeout(() => {
-          setStatus("Google Sheets connected!");
-          setStatusType("success");
-          addDebugLog("Spreadsheet created: 1ABC-DEF123...");
-          setIsAuthenticated(true);
-          
-          setTimeout(() => setStatus(""), 3000);
-        }, 1500);
-      }, 1000);
-    }, 2000);
-  };
-
-  const addDebugLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setDebugLog(prev => prev + `${timestamp}: ${message}\n`);
-  };
+  const saveContentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", "/api/content", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      toast({
+        title: "Content Saved",
+        description: "Your content has been saved to your collection.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Save Failed",
+        description: "Failed to save content. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleSave = () => {
-    if (!content.trim()) {
-      setStatus("Please enter some content to save");
-      setStatusType("error");
-      return;
-    }
+    const allTags = [
+      ...selectedContent.suggestedTags,
+      ...userTags,
+      ...customTags.split(",").map(tag => tag.trim()).filter(Boolean),
+    ];
+    
+    const uniqueTags = [...new Set(allTags)];
 
-    setStatus("Saving to Google Sheets...");
-    setStatusType("info");
-    addDebugLog("Saving quote to spreadsheet...");
-
-    setTimeout(() => {
-      setStatus("Saved successfully!");
-      setStatusType("success");
-      addDebugLog("Quote saved successfully");
-      
-      setTitle("");
-      setContent("");
-      setNotes("");
-      
-      toast({
-        title: "Quote Saved",
-        description: "Your quote has been saved to Google Sheets!",
-      });
-      
-      setTimeout(() => setStatus(""), 3000);
-    }, 1500);
+    saveContentMutation.mutate({
+      title: selectedContent.title,
+      content: selectedContent.content,
+      url: selectedContent.url,
+      siteName: selectedContent.siteName,
+      imageUrl: selectedContent.imageUrl,
+      tags: uniqueTags,
+    });
   };
 
-  const getStatusClass = () => {
-    switch (statusType) {
-      case "success": return "bg-green-50 text-green-700 border-green-200";
-      case "error": return "bg-red-50 text-red-700 border-red-200";
-      case "info": return "bg-blue-50 text-blue-700 border-blue-200";
-      default: return "bg-gray-50 text-gray-700 border-gray-200";
+  const handleAddCustomTag = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && customTags.trim()) {
+      const newTags = customTags.split(",").map(tag => tag.trim()).filter(Boolean);
+      setUserTags(prev => [...prev, ...newTags]);
+      setCustomTags("");
     }
+  };
+
+  const removeUserTag = (tagToRemove: string) => {
+    setUserTags(prev => prev.filter(tag => tag !== tagToRemove));
   };
 
   return (
     <div className="max-w-sm mx-auto mt-8 p-4">
-      <Card className="bg-white rounded-lg shadow-lg overflow-hidden" style={{ width: "350px" }}>
+      <Card className="bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Header */}
-        <div className="bg-blue-600 text-white p-5">
-          <h1 className="text-lg font-medium text-center">Quote Collector</h1>
+        <div className="bg-primary text-primary-foreground p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium">WebCapture</h2>
+            <Bookmark className="h-5 w-5 text-primary-foreground/80" />
+          </div>
         </div>
 
-        {/* Auth Section */}
-        {!isAuthenticated && (
-          <div className="p-5 text-center">
-            <p className="mb-4 text-gray-600">Connect to Google Sheets to save your quotes</p>
-            <Button 
-              onClick={handleAuthenticate}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Connect with Google
+        {/* Content Preview */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-start space-x-3">
+            <img 
+              src={selectedContent.imageUrl}
+              alt="Article preview" 
+              className="w-16 h-12 rounded object-cover flex-shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-medium text-gray-900 truncate">
+                {selectedContent.title}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {selectedContent.url}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Selected Content Preview */}
+        <div className="p-4 border-b border-gray-200">
+          <label className="block text-xs font-medium text-gray-700 mb-2">
+            Selected Content
+          </label>
+          <Textarea
+            value={selectedContent.content}
+            readOnly
+            className="bg-gray-50 text-sm max-h-24 resize-none"
+          />
+        </div>
+
+        {/* Tags Section */}
+        <div className="p-4 border-b border-gray-200">
+          <label className="block text-xs font-medium text-gray-700 mb-2">
+            Tags
+          </label>
+          
+          {/* Suggested Tags */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            {selectedContent.suggestedTags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="bg-blue-accent-light text-blue-accent">
+                <Sparkles className="w-3 h-3 mr-1" />
+                {tag}
+              </Badge>
+            ))}
+          </div>
+
+          {/* Tag Input */}
+          <Input
+            type="text"
+            placeholder="Add custom tags (comma-separated)..."
+            value={customTags}
+            onChange={(e) => setCustomTags(e.target.value)}
+            onKeyDown={handleAddCustomTag}
+            className="mb-2"
+          />
+
+          {/* User Tags */}
+          <div className="flex flex-wrap gap-2">
+            {userTags.map((tag) => (
+              <Badge key={tag} variant="outline" className="bg-gray-100">
+                {tag}
+                <button 
+                  onClick={() => removeUserTag(tag)}
+                  className="ml-1 text-gray-500 hover:text-red-500"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="p-4 space-y-2">
+          <Button 
+            onClick={handleSave}
+            disabled={saveContentMutation.isPending}
+            className="w-full"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {saveContentMutation.isPending ? "Saving..." : "Save to Collection"}
+          </Button>
+          <div className="flex space-x-2">
+            <Button variant="outline" className="flex-1">
+              Cancel
             </Button>
-            {status && (
-              <div className={`mt-3 p-2 rounded text-sm border ${getStatusClass()}`}>
-                {status}
-              </div>
-            )}
+            <Button variant="outline" className="flex-1">
+              <ExternalLink className="w-4 h-4 mr-1" />
+              View All
+            </Button>
           </div>
-        )}
-
-        {/* Main Section */}
-        {isAuthenticated && (
-          <div className="p-5">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title
-                </label>
-                <Input
-                  type="text"
-                  placeholder="Enter a title for this quote"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Selected Text
-                </label>
-                <Textarea
-                  placeholder="Selected text will appear here"
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes (optional)
-                </label>
-                <Input
-                  type="text"
-                  placeholder="Add any notes or tags"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
-
-              <Button 
-                onClick={handleSave}
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
-              >
-                Save to Google Sheets
-              </Button>
-
-              {status && (
-                <div className={`p-2 rounded text-sm border ${getStatusClass()}`}>
-                  {status}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Debug Log */}
-        {debugLog && (
-          <div className="p-5 border-t bg-gray-50">
-            <div className="bg-gray-100 p-3 rounded text-xs font-mono whitespace-pre-wrap">
-              {debugLog}
-            </div>
-          </div>
-        )}
+        </div>
       </Card>
     </div>
   );

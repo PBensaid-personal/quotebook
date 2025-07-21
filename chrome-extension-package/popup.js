@@ -1,9 +1,7 @@
 // Fixed OAuth for Chrome Extension
 class FixedOAuthCollector {
   constructor() {
-    // Using a web application client ID instead of Chrome extension client
     this.clientId = '184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com';
-    this.clientSecret = null; // Web apps don't need client secret for implicit flow
     this.accessToken = null;
     this.spreadsheetId = null;
     this.init();
@@ -27,20 +25,35 @@ class FixedOAuthCollector {
 
   async checkExistingAuth() {
     try {
-      const result = await chrome.storage.local.get(['accessToken', 'spreadsheetId']);
-      if (result.accessToken) {
-        this.accessToken = result.accessToken;
-        this.spreadsheetId = result.spreadsheetId;
+      const tokenResult = await chrome.identity.getAuthToken({ interactive: false });
 
-        // Verify token is still valid
-        const isValid = await this.validateToken();
-        if (isValid) {
-          this.showMainInterface();
-          return;
+      if (tokenResult) {
+        let accessToken;
+
+        // Handle both new object format and old string format
+        if (typeof tokenResult === 'object' && tokenResult !== null && tokenResult.token) {
+          accessToken = tokenResult.token;
+        } else if (typeof tokenResult === 'string') {
+          accessToken = tokenResult;
+        }
+
+        if (accessToken) {
+          this.accessToken = accessToken;
+
+          const isValid = await this.validateToken();
+          if (isValid) {
+            await this.setupSpreadsheetIfNeeded();
+            this.showMainInterface();
+            return;
+          } else {
+            // Remove invalid token
+            const tokenToRemove = typeof tokenResult === 'object' ? tokenResult.token : tokenResult;
+            await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
+          }
         }
       }
     } catch (error) {
-      console.log('No existing auth found');
+      // No existing auth found, continue to show auth interface
     }
 
     this.showAuthInterface();
@@ -59,19 +72,18 @@ class FixedOAuthCollector {
     this.showStatus('Starting authentication...', 'info');
 
     try {
-      // Clear any existing tokens first
+      // Clear any existing tokens
       try {
-        const tokenResult = await chrome.identity.getAuthToken({ interactive: false });
-        if (tokenResult) {
-          // Handle both old format (string) and new format (object)
-          const tokenToRemove = typeof tokenResult === 'object' ? tokenResult.token : tokenResult;
+        const oldToken = await chrome.identity.getAuthToken({ interactive: false });
+        if (oldToken) {
+          const tokenToRemove = typeof oldToken === 'object' ? oldToken.token : oldToken;
           await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
         }
       } catch (e) {
         // No cached token to remove
       }
 
-      // Request new token with interactive prompt
+      // Request new token
       const tokenResult = await chrome.identity.getAuthToken({ 
         interactive: true
       });
@@ -103,27 +115,25 @@ class FixedOAuthCollector {
 
       this.accessToken = accessToken;
       this.showStatus('Authentication successful!', 'success');
-      this.debugLog(`Access token received: ${accessToken.substring(0, 20)}...`);
-      this.setupSpreadsheet();
+      await this.setupSpreadsheetIfNeeded();
+      this.showMainInterface();
 
     } catch (error) {
       this.showStatus(`Auth error: ${error.message}`, 'error');
-      this.debugLog(`Chrome runtime error: ${error.message}`);
     }
   }
 
-  async setupSpreadsheet() {
+  async setupSpreadsheetIfNeeded() {
     try {
-      this.showStatus('Setting up Google Sheets...', 'info');
-
       // Check for existing spreadsheet
       const stored = await chrome.storage.local.get(['spreadsheetId']);
       if (stored.spreadsheetId) {
         this.spreadsheetId = stored.spreadsheetId;
         this.showStatus('Connected to existing spreadsheet', 'success');
-        this.showMainInterface();
         return;
       }
+
+      this.showStatus('Setting up Google Sheets...', 'info');
 
       // Create new spreadsheet
       const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
@@ -144,15 +154,12 @@ class FixedOAuthCollector {
         })
       });
 
-      this.debugLog(`Spreadsheet response status: ${response.status}`);
-
       if (response.ok) {
         const data = await response.json();
         this.spreadsheetId = data.spreadsheetId;
 
         // Store credentials
         await chrome.storage.local.set({
-          accessToken: this.accessToken,
           spreadsheetId: this.spreadsheetId
         });
 
@@ -160,25 +167,20 @@ class FixedOAuthCollector {
         await this.addHeaders();
 
         this.showStatus('Google Sheets connected!', 'success');
-        this.showMainInterface();
-
-        this.debugLog(`Spreadsheet created: ${this.spreadsheetId}`);
       } else {
         const error = await response.text();
         this.showStatus(`Failed to create spreadsheet: ${response.status}`, 'error');
-        this.debugLog(`Spreadsheet creation failed: ${error}`);
       }
 
     } catch (error) {
       this.showStatus(`Setup error: ${error.message}`, 'error');
-      this.debugLog(`Setup error: ${error}`);
     }
   }
 
   async addHeaders() {
     const headers = ['Date', 'Title', 'Content', 'URL', 'Notes'];
 
-    const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:E1?valueInputOption=RAW`, {
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:E1?valueInputOption=RAW`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${this.accessToken}`,
@@ -188,15 +190,12 @@ class FixedOAuthCollector {
         values: [headers]
       })
     });
-
-    this.debugLog(`Headers response: ${response.status}`);
   }
 
   async loadSelectedText() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-      // Try to get selected text
       try {
         const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSelectedText' });
 
@@ -205,10 +204,10 @@ class FixedOAuthCollector {
           document.getElementById('title').value = tab.title || '';
         }
       } catch (e) {
-        this.debugLog('Could not get selected text: ' + e.message);
+        // Could not get selected text, this is normal for some pages
       }
     } catch (error) {
-      console.log('Could not access tab:', error);
+      // Could not access tab, this is normal
     }
   }
 
@@ -257,12 +256,10 @@ class FixedOAuthCollector {
       } else {
         const error = await response.text();
         this.showStatusMain(`Save failed: ${response.status}`, 'error');
-        this.debugLog(`Save error: ${error}`);
       }
 
     } catch (error) {
       this.showStatusMain(`Error: ${error.message}`, 'error');
-      this.debugLog(`Save error: ${error}`);
     }
   }
 
@@ -300,13 +297,6 @@ class FixedOAuthCollector {
         status.style.display = 'none';
       }, 3000);
     }
-  }
-
-  debugLog(message) {
-    const debug = document.getElementById('debug');
-    debug.style.display = 'block';
-    debug.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
-    console.log('[FixedOAuth]', message);
   }
 }
 
