@@ -144,4 +144,5 @@ The application is designed as a monorepo with shared TypeScript types and schem
 - **UI TRANSFORMATION**: Extension completely redesigned to match web preview interface
 - Beautiful card-based design with modern styling and enhanced UX (January 21, 2025)
 - **FULL PAGE VIEW IMPLEMENTATION**: Complete local full-page interface with Google Sheets integration
-- Advanced search/filtering, statistics dashboard, and masonry content layout (January 21, 2025)ion redirect URI
+- Advanced search/filtering, statistics dashboard, and masonry content layout (January 21, 2025)
+- **REGRESSION FIXES COMPLETED**: Removed all garbage files, fixed masonry layout, blue theme, proper header, removed default tags, added delete functionality, enhanced metadata extraction (January 21, 2025)
