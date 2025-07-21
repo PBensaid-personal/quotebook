@@ -475,6 +475,9 @@ class EnhancedQuoteCollector {
         pageCategories.join(', ')
       ];
 
+      console.log('Attempting to save to spreadsheet:', this.spreadsheetId);
+      console.log('Row data:', row);
+      
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
         method: 'POST',
         headers: {
@@ -485,6 +488,9 @@ class EnhancedQuoteCollector {
           values: [row]
         })
       });
+
+      console.log('Save response status:', response.status);
+      console.log('Save response ok:', response.ok);
 
       if (response.ok) {
         this.showStatusMain('Content saved successfully!', 'success');
