@@ -111,24 +111,42 @@ class EnhancedQuoteCollector {
       
       if (stored.googleSpreadsheetId && stored.googleAccessToken) {
         console.log('Testing cached spreadsheet:', stored.googleSpreadsheetId);
-        // We have cached data, but let's verify the spreadsheet still exists
+        // We have cached data, but let's verify the spreadsheet still exists and is not trashed
         try {
-          const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
+          // Check if file is trashed using Drive API
+          const driveResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${stored.googleSpreadsheetId}?fields=trashed,name`, {
             headers: { 'Authorization': `Bearer ${stored.googleAccessToken}` }
           });
           
-          console.log('Spreadsheet test response:', testResponse.status);
+          console.log('Drive API test response:', driveResponse.status);
           
-          if (testResponse.ok) {
-            // Spreadsheet exists and is accessible
-            console.log('Spreadsheet verified, showing main interface');
-            this.accessToken = stored.googleAccessToken;
-            this.spreadsheetId = stored.googleSpreadsheetId;
-            this.showMainInterface();
-            return;
+          if (driveResponse.ok) {
+            const fileInfo = await driveResponse.json();
+            console.log('File info:', fileInfo);
+            
+            if (fileInfo.trashed === true) {
+              console.log('Spreadsheet is in trash, clearing cache');
+              await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+            } else {
+              // File exists and is not trashed, verify it's still accessible via Sheets API
+              const sheetsResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
+                headers: { 'Authorization': `Bearer ${stored.googleAccessToken}` }
+              });
+              
+              if (sheetsResponse.ok) {
+                console.log('Spreadsheet verified and accessible, showing main interface');
+                this.accessToken = stored.googleAccessToken;
+                this.spreadsheetId = stored.googleSpreadsheetId;
+                this.showMainInterface();
+                return;
+              } else {
+                console.log('Spreadsheet not accessible via Sheets API, clearing cache');
+                await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+              }
+            }
           } else {
-            // Spreadsheet was deleted or token expired, clear cache
-            console.log('Spreadsheet not accessible, clearing cache');
+            // File not found or not accessible, clear cache
+            console.log('File not accessible via Drive API, clearing cache');
             await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
           }
         } catch (error) {

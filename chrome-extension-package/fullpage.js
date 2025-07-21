@@ -21,23 +21,43 @@ class FullPageCollector {
     
     if (result.googleAccessToken && result.googleSpreadsheetId) {
       console.log('Testing cached spreadsheet in fullpage:', result.googleSpreadsheetId);
-      // Verify the spreadsheet still exists before proceeding
+      // Verify the spreadsheet still exists and is not trashed
       try {
-        const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}`, {
+        // Check if file is trashed using Drive API
+        const driveResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${result.googleSpreadsheetId}?fields=trashed,name`, {
           headers: { 'Authorization': `Bearer ${result.googleAccessToken}` }
         });
         
-        console.log('Fullpage spreadsheet test response:', testResponse.status);
+        console.log('Fullpage Drive API test response:', driveResponse.status);
         
-        if (testResponse.ok) {
-          // Spreadsheet exists and is accessible
-          console.log('Fullpage spreadsheet verified, loading content');
-          this.accessToken = result.googleAccessToken;
-          this.spreadsheetId = result.googleSpreadsheetId;
-          await this.loadContent();
+        if (driveResponse.ok) {
+          const fileInfo = await driveResponse.json();
+          console.log('Fullpage file info:', fileInfo);
+          
+          if (fileInfo.trashed === true) {
+            console.log('Fullpage spreadsheet is in trash, clearing cache');
+            await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+            this.showAuthRequired();
+          } else {
+            // File exists and is not trashed, verify it's still accessible via Sheets API
+            const sheetsResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}`, {
+              headers: { 'Authorization': `Bearer ${result.googleAccessToken}` }
+            });
+            
+            if (sheetsResponse.ok) {
+              console.log('Fullpage spreadsheet verified and accessible, loading content');
+              this.accessToken = result.googleAccessToken;
+              this.spreadsheetId = result.googleSpreadsheetId;
+              await this.loadContent();
+            } else {
+              console.log('Fullpage spreadsheet not accessible via Sheets API, clearing cache');
+              await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+              this.showAuthRequired();
+            }
+          }
         } else {
-          // Spreadsheet was deleted, clear cache and show auth
-          console.log('Fullpage spreadsheet not accessible, clearing cache');
+          // File not found or not accessible, clear cache and show auth
+          console.log('Fullpage file not accessible via Drive API, clearing cache');
           await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
           this.showAuthRequired();
         }
