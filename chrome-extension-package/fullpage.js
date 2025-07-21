@@ -12,11 +12,23 @@ class FullPageCollector {
   async init() {
     console.log('Initializing Full Page Collector...');
     
-    // Check for existing auth and validate spreadsheet still exists
-    const result = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
+    // Wait a moment for storage to sync from popup
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Check for cached authentication data with multiple attempts
+    let result = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
+    
+    // If no data found, try a few more times with delays (popup may have just saved)
+    for (let attempt = 0; attempt < 3 && (!result.googleAccessToken || !result.googleSpreadsheetId); attempt++) {
+      console.log(`Storage attempt ${attempt + 1}: waiting for sync...`);
+      await new Promise(resolve => setTimeout(resolve, 200 * (attempt + 1)));
+      result = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
+    }
+    
     console.log('Fullpage cached data:', { 
       hasSpreadsheetId: !!result.googleSpreadsheetId, 
-      hasAccessToken: !!result.googleAccessToken 
+      hasAccessToken: !!result.googleAccessToken,
+      spreadsheetId: result.googleSpreadsheetId
     });
     
     if (result.googleAccessToken && result.googleSpreadsheetId) {
@@ -68,7 +80,7 @@ class FullPageCollector {
         this.showAuthRequired();
       }
     } else {
-      console.log('No cached data, showing auth required');
+      console.log('No cached data found after retries, showing auth required');
       this.showAuthRequired();
     }
 
