@@ -75,17 +75,17 @@
         white-space: nowrap;
       }
       .stat-card {
-        text-align: center;
-        min-width: 60px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
         flex-shrink: 0;
+        white-space: nowrap;
       }
 
       .stat-number {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: bold;
         color: hsl(220, 30%, 18%);
-        display: block;
-        margin-bottom: 2px;
       }
 
       .stat-label {
@@ -93,7 +93,6 @@
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        display: block;
       }
 
       .filters {
