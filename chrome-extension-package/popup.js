@@ -149,6 +149,9 @@ class EnhancedQuoteCollector {
     this.showStatus('Starting authentication...', 'info');
 
     try {
+      // Clear any existing cached data when re-authenticating
+      await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+
       // Clear any existing tokens
       try {
         const oldToken = await chrome.identity.getAuthToken({ interactive: false });

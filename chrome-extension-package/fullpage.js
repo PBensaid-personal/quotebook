@@ -50,9 +50,12 @@ class FullPageCollector {
     try {
       console.log('Starting authentication...');
       
+      // Clear any existing cached data when re-authenticating
+      await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+      
       const redirectURL = chrome.identity.getRedirectURL();
       const clientId = '184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com';
-      const scopes = ['https://www.googleapis.com/auth/spreadsheets'];
+      const scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.readonly'];
       let authURL = 'https://accounts.google.com/oauth2/authorize';
       authURL += `?client_id=${clientId}`;
       authURL += `&response_type=token`;
@@ -163,6 +166,21 @@ class FullPageCollector {
     try {
       this.showLoading(true);
 
+      // First verify the spreadsheet exists
+      const verifyResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }
+      });
+
+      if (!verifyResponse.ok) {
+        if (verifyResponse.status === 404) {
+          console.log('Spreadsheet was deleted, clearing storage and requiring re-authentication');
+          await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+          this.showAuthRequired();
+          return;
+        }
+        throw new Error(`Failed to verify spreadsheet: ${verifyResponse.status}`);
+      }
+
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A2:G1000`, {
         headers: {
           'Authorization': `Bearer ${this.accessToken}`
@@ -170,6 +188,12 @@ class FullPageCollector {
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          console.log('Spreadsheet was deleted, clearing storage and requiring re-authentication');
+          await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+          this.showAuthRequired();
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
