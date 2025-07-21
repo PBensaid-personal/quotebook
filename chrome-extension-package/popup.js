@@ -427,24 +427,6 @@ class EnhancedQuoteCollector {
       this.showStatusMain('Saving to Google Sheets...', 'info');
       document.getElementById('save-button').disabled = true;
 
-      // Verify spreadsheet still exists before trying to save
-      const verifyResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }
-      });
-
-      if (!verifyResponse.ok) {
-        if (verifyResponse.status === 404) {
-          console.log('Spreadsheet was deleted, clearing cache');
-          await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
-          this.showStatusMain('Spreadsheet was deleted. Please re-authenticate.', 'error');
-          setTimeout(() => {
-            this.showAuthInterface();
-          }, 2000);
-          return;
-        }
-        throw new Error(`Failed to verify spreadsheet: ${verifyResponse.status}`);
-      }
-
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       // Extract page metadata including image and categories
@@ -475,9 +457,6 @@ class EnhancedQuoteCollector {
         pageCategories.join(', ')
       ];
 
-      console.log('Attempting to save to spreadsheet:', this.spreadsheetId);
-      console.log('Row data:', row);
-      
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
         method: 'POST',
         headers: {
@@ -488,9 +467,6 @@ class EnhancedQuoteCollector {
           values: [row]
         })
       });
-
-      console.log('Save response status:', response.status);
-      console.log('Save response ok:', response.ok);
 
       if (response.ok) {
         this.showStatusMain('Content saved successfully!', 'success');
@@ -503,14 +479,6 @@ class EnhancedQuoteCollector {
         setTimeout(() => {
           window.close();
         }, 1500);
-      } else if (response.status === 404) {
-        // Spreadsheet was deleted, clear cache and require re-authentication
-        console.log('Spreadsheet was deleted during save, clearing cache');
-        await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
-        this.showStatusMain('Spreadsheet was deleted. Please re-authenticate.', 'error');
-        setTimeout(() => {
-          this.showAuthInterface();
-        }, 2000);
       } else {
         const error = await response.text();
         this.showStatusMain(`Save failed: ${response.status}`, 'error');

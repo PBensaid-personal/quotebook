@@ -194,16 +194,11 @@ class FullPageCollector {
   async loadContent() {
     try {
       this.showLoading(true);
-      
-      console.log('Loading content from spreadsheet:', this.spreadsheetId);
-      console.log('Using access token:', this.accessToken ? 'Present' : 'Missing');
 
       // First verify the spreadsheet exists
       const verifyResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}`, {
         headers: { 'Authorization': `Bearer ${this.accessToken}` }
       });
-
-      console.log('Verify response status:', verifyResponse.status);
 
       if (!verifyResponse.ok) {
         if (verifyResponse.status === 404) {
@@ -233,10 +228,6 @@ class FullPageCollector {
 
       const data = await response.json();
       const rows = data.values || [];
-      
-      console.log('API Response data:', data);
-      console.log('Rows from spreadsheet:', rows);
-      console.log('Number of rows:', rows.length);
 
       this.contentData = rows.map((row, index) => ({
         id: index + 2, // Row number (starting from 2 since 1 is header)
