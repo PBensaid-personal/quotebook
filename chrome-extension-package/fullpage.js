@@ -603,8 +603,8 @@ class FullPageCollector {
         }
         
         <div class="content-meta">
-          <time class="content-date">${item.date}</time>
           <span class="content-domain">${this.getDomain(item.url)}</span>
+          <time class="content-date">${item.date}</time>
         </div>
       </div>
     `,

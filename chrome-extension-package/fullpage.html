@@ -4,7 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Quote Collector - Your complete collection</title>
-    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
     <style>
       * {
         margin: 0;
@@ -93,14 +96,10 @@
 
       .filters {
         background: hsl(0, 0%, 100%);
-        border: 1px solid hsl(20, 5.9%, 90%);
-        border-radius: 12px;
-        padding: 24px 32px 24px 24px;
-        margin-bottom: 30px;
         display: grid;
+        padding-bottom: 20px;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 15px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
 
       .filter-group label {
@@ -166,7 +165,6 @@
       .content-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
-        border-color: hsl(220, 30%, 18%);
       }
 
       .content-actions {
@@ -222,14 +220,14 @@
       }
 
       .content-title:hover {
-        color: hsl(207, 90%, 54%);
         text-decoration: underline;
+        text-decoration-color: rgb(255, 217, 16);
       }
 
       .content-text {
         color: hsl(25, 5.3%, 44.7%);
-        font-family: 'Libre Baskerville', Georgia, serif;
-        font-size: 16px;
+        font-family: "Libre Baskerville", Georgia, serif;
+        font-size: 20px;
         line-height: 1.5;
         margin-bottom: 16px;
       }
@@ -253,10 +251,10 @@
       }
 
       .tag-pill:hover {
-        background: hsl(220, 30%, 18%);
-        color: white;
+        background: rgb(255, 217, 16);
+        color: hsl(220, 30%, 18%);
         transform: translateY(-1px);
-        border: 1px solid hsl(220, 30%, 18%);
+        border: 1px solid rgb(255, 217, 16);
       }
 
       .content-meta {
