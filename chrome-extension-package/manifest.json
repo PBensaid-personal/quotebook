@@ -9,12 +9,16 @@
 
   "host_permissions": [
     "https://accounts.google.com/*",
-    "https://sheets.googleapis.com/*"
+    "https://sheets.googleapis.com/*",
+    "https://www.googleapis.com/*"
   ],
 
   "oauth2": {
     "client_id": "184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com",
-    "scopes": ["https://www.googleapis.com/auth/spreadsheets"]
+    "scopes": [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.readonly"
+    ]
   },
 
   "action": {

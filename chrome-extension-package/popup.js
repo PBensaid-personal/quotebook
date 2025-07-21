@@ -202,17 +202,61 @@ class EnhancedQuoteCollector {
 
   async setupSpreadsheetIfNeeded() {
     try {
-      // Check for existing spreadsheet
+      // Check for existing spreadsheet in storage
       const stored = await chrome.storage.local.get(['googleSpreadsheetId']);
       if (stored.googleSpreadsheetId) {
-        this.spreadsheetId = stored.googleSpreadsheetId;
-        this.showStatus('Connected to existing spreadsheet', 'success');
-        return;
+        // Verify the spreadsheet still exists and is accessible
+        try {
+          const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
+            headers: { 'Authorization': `Bearer ${this.accessToken}` }
+          });
+          
+          if (testResponse.ok) {
+            this.spreadsheetId = stored.googleSpreadsheetId;
+            this.showStatus('Connected to existing spreadsheet', 'success');
+            return;
+          } else {
+            // Stored spreadsheet no longer exists, clear it
+            await chrome.storage.local.remove(['googleSpreadsheetId']);
+          }
+        } catch (error) {
+          // Error accessing stored spreadsheet, clear it
+          await chrome.storage.local.remove(['googleSpreadsheetId']);
+        }
       }
 
-      this.showStatus('Setting up Google Sheets...', 'info');
+      this.showStatus('Looking for existing Quote Collector spreadsheet...', 'info');
 
-      // Create new spreadsheet
+      // Search for existing Quote Collector spreadsheets
+      const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name contains 'Quote Collector' and mimeType='application/vnd.google-apps.spreadsheet'&fields=files(id,name,createdTime)`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }
+      });
+
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        const existingSheets = searchData.files || [];
+
+        if (existingSheets.length > 0) {
+          // Sort by creation date (newest first)
+          existingSheets.sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime));
+          
+          // Use the most recent Quote Collector spreadsheet
+          this.spreadsheetId = existingSheets[0].id;
+          
+          // Store the found spreadsheet
+          await chrome.storage.local.set({
+            googleAccessToken: this.accessToken,
+            googleSpreadsheetId: this.spreadsheetId
+          });
+
+          this.showStatus(`Connected to existing "${existingSheets[0].name}"`, 'success');
+          return;
+        }
+      }
+
+      // No existing spreadsheet found, create a new one
+      this.showStatus('Creating new Quote Collector spreadsheet...', 'info');
+      
       const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
         method: 'POST',
         headers: {
@@ -244,7 +288,7 @@ class EnhancedQuoteCollector {
         // Add headers
         await this.addHeaders();
 
-        this.showStatus('Google Sheets connected!', 'success');
+        this.showStatus('New Quote Collector spreadsheet created!', 'success');
       } else {
         const error = await response.text();
         this.showStatus(`Failed to create spreadsheet: ${response.status}`, 'error');

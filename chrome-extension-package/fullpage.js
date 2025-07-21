@@ -95,7 +95,29 @@ class FullPageCollector {
 
   async setupSpreadsheet() {
     try {
-      // Create new spreadsheet
+      console.log('Looking for existing Quote Collector spreadsheet...');
+
+      // Search for existing Quote Collector spreadsheets
+      const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name contains 'Quote Collector' and mimeType='application/vnd.google-apps.spreadsheet'&fields=files(id,name,createdTime)`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }
+      });
+
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        const existingSheets = searchData.files || [];
+
+        if (existingSheets.length > 0) {
+          // Sort by creation date (newest first)
+          existingSheets.sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime));
+          
+          console.log(`Found existing spreadsheet: "${existingSheets[0].name}"`);
+          return existingSheets[0].id;
+        }
+      }
+
+      // No existing spreadsheet found, create a new one
+      console.log('Creating new Quote Collector spreadsheet...');
+      
       const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
         method: 'POST',
         headers: {
@@ -104,7 +126,7 @@ class FullPageCollector {
         },
         body: JSON.stringify({
           properties: {
-            title: 'Quote Collector - Saved Content'
+            title: 'Quote Collector Collection'
           },
           sheets: [{
             properties: {
@@ -129,6 +151,7 @@ class FullPageCollector {
         })
       });
 
+      console.log('New Quote Collector spreadsheet created!');
       return spreadsheetId;
     } catch (error) {
       console.error('Failed to setup spreadsheet:', error);
