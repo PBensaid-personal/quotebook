@@ -98,17 +98,22 @@ class EnhancedQuoteCollector {
 
   addCustomTags() {
     const input = document.getElementById('tag-input');
+    console.log('Adding custom tags, input value:', input.value);
     const newTags = input.value.split(',').map(tag => tag.trim()).filter(Boolean);
     
     if (newTags.length > 0) {
-      this.userTags = [...this.userTags, ...newTags];
+      console.log('New tags to add:', newTags);
+      this.userTags = [...new Set([...this.userTags, ...newTags])]; // Remove duplicates
       input.value = '';
+      console.log('Updated userTags:', this.userTags);
       this.renderUserTags();
     }
   }
 
   removeUserTag(tagToRemove) {
+    console.log('Removing tag:', tagToRemove);
     this.userTags = this.userTags.filter(tag => tag !== tagToRemove);
+    console.log('Updated userTags after removal:', this.userTags);
     this.renderUserTags();
   }
 
@@ -420,12 +425,36 @@ class EnhancedQuoteCollector {
           // If no text selected, show sample content for demo
           document.getElementById('content').value = "Select text on the webpage to capture it here...";
         }
+        
+        // Always try to get page metadata for suggested tags
+        this.extractPageMetadata();
       } catch (e) {
         // Could not get selected text, this is normal for some pages
         document.getElementById('content').value = "Select text on the webpage to capture it here...";
+        // Still try to get page metadata
+        this.extractPageMetadata();
       }
     } catch (error) {
       // Could not access tab, this is normal
+    }
+  }
+
+  async extractPageMetadata() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
+      
+      if (result && result.categories && result.categories.length > 0) {
+        console.log('Extracted page categories:', result.categories);
+        // Add page categories as suggested tags
+        const existingSuggested = this.suggestedTags || [];
+        const newSuggested = [...new Set([...existingSuggested, ...result.categories.slice(0, 3)])];
+        this.suggestedTags = newSuggested.slice(0, 5); // Limit to 5 total
+        console.log('Updated suggested tags:', this.suggestedTags);
+        this.renderSuggestedTags();
+      }
+    } catch (e) {
+      console.log('Could not extract page metadata:', e);
     }
   }
 
@@ -451,12 +480,17 @@ class EnhancedQuoteCollector {
     if (text.includes('react')) keywords.push('react');
     if (text.includes('api')) keywords.push('api');
     if (text.includes('database')) keywords.push('database');
+    if (text.includes('hospital') || text.includes('medical')) keywords.push('healthcare');
+    if (text.includes('security') || text.includes('cyber')) keywords.push('security');
+    if (text.includes('research') || text.includes('study')) keywords.push('research');
     
     // General categories
     if (text.includes('tutorial') || text.includes('guide')) keywords.push('tutorial');
     if (text.includes('tips') || text.includes('advice')) keywords.push('tips');
     if (text.includes('best practices')) keywords.push('best practices');
+    if (text.includes('news') || text.includes('report')) keywords.push('news');
     
+    console.log('Generated suggested tags from content:', keywords);
     this.suggestedTags = [...new Set(keywords)].slice(0, 4); // Max 4 tags
     
     this.renderSuggestedTags();
