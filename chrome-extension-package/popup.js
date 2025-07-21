@@ -102,14 +102,23 @@ class EnhancedQuoteCollector {
 
   addCustomTags() {
     const input = document.getElementById('tag-input');
-    console.log('Adding custom tags, input value:', input.value);
-    const newTags = input.value.split(',').map(tag => tag.trim()).filter(Boolean);
+    const inputValue = input.value.trim();
+    console.log('Adding custom tags, input value:', inputValue);
+    
+    if (!inputValue) return;
+    
+    const newTags = inputValue.split(',').map(tag => tag.trim()).filter(Boolean);
     
     if (newTags.length > 0) {
       console.log('New tags to add:', newTags);
-      this.userTags = [...new Set([...this.userTags, ...newTags])]; // Remove duplicates
+      // Add new tags, avoiding duplicates
+      newTags.forEach(tag => {
+        if (!this.userTags.includes(tag)) {
+          this.userTags.push(tag);
+        }
+      });
       input.value = '';
-      console.log('Updated userTags:', this.userTags);
+      console.log('Updated userTags after adding:', this.userTags);
       this.renderUserTags();
     }
   }
@@ -528,29 +537,20 @@ class EnhancedQuoteCollector {
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      // Extract page metadata including image and categories
+      // Extract page image only (don't mess with tags during save)
       let pageImage = '';
-      let pageCategories = [];
-      
       try {
         const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
         if (result) {
           pageImage = result.image || '';
-          pageCategories = result.categories || [];
-          
-          // Use page categories as suggested tags if available
-          if (pageCategories.length > 0) {
-            this.suggestedTags = pageCategories.slice(0, 5);
-            this.renderSuggestedTags();
-          }
         }
       } catch (e) {
         // Fallback to basic image extraction
         pageImage = tab.favIconUrl || '';
       }
       
-      // ONLY save user-added tags - ignore suggested tags
-      console.log('User tags to save:', this.userTags);
+      // ONLY save user-added tags
+      console.log('Final user tags to save:', this.userTags);
       
       const row = [
         tab.title || 'Untitled',
