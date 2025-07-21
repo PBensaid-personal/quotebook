@@ -301,10 +301,14 @@ class EnhancedQuoteCollector {
           // Use the most recent Quote Collector spreadsheet
           this.spreadsheetId = existingSheets[0].id;
           
-          // Store the found spreadsheet
-          await chrome.storage.local.set({
-            googleAccessToken: this.accessToken,
-            googleSpreadsheetId: this.spreadsheetId
+          // Store the found spreadsheet in background for sync
+          await chrome.runtime.sendMessage({
+            action: 'setAuthState',
+            data: {
+              accessToken: this.accessToken,
+              spreadsheetId: this.spreadsheetId,
+              isAuthenticated: true
+            }
           });
 
           this.showStatus(`Connected to existing "${existingSheets[0].name}"`, 'success');
@@ -508,12 +512,16 @@ class EnhancedQuoteCollector {
         const responseData = await response.json();
         console.log('Save successful:', responseData);
         
-        // Make sure storage is up to date with current spreadsheet
-        await chrome.storage.local.set({
-          googleAccessToken: this.accessToken,
-          googleSpreadsheetId: this.spreadsheetId
+        // Update background script with auth state for cross-context sync
+        await chrome.runtime.sendMessage({
+          action: 'setAuthState',
+          data: {
+            accessToken: this.accessToken,
+            spreadsheetId: this.spreadsheetId,
+            isAuthenticated: true
+          }
         });
-        console.log('Storage updated with:', { 
+        console.log('Background auth state updated with:', { 
           hasAccessToken: !!this.accessToken, 
           spreadsheetId: this.spreadsheetId 
         });
