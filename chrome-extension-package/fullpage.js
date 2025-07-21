@@ -665,7 +665,7 @@ class FullPageCollector {
       authRequired.style.display = "none";
     } else {
       loading.style.display = "none";
-      stats.style.display = "grid";
+      stats.style.display = "flex";
     }
   }
 
