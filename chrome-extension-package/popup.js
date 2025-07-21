@@ -102,6 +102,33 @@ class EnhancedQuoteCollector {
 
   async checkExistingAuth() {
     try {
+      // First check if we have cached spreadsheet data
+      const stored = await chrome.storage.local.get(['googleSpreadsheetId', 'googleAccessToken']);
+      
+      if (stored.googleSpreadsheetId && stored.googleAccessToken) {
+        // We have cached data, but let's verify the spreadsheet still exists
+        try {
+          const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
+            headers: { 'Authorization': `Bearer ${stored.googleAccessToken}` }
+          });
+          
+          if (testResponse.ok) {
+            // Spreadsheet exists and is accessible
+            this.accessToken = stored.googleAccessToken;
+            this.spreadsheetId = stored.googleSpreadsheetId;
+            this.showMainInterface();
+            return;
+          } else {
+            // Spreadsheet was deleted or token expired, clear cache
+            await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+          }
+        } catch (error) {
+          // Error accessing spreadsheet, clear cache
+          await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+        }
+      }
+
+      // No valid cached data, try to get fresh auth token
       const tokenResult = await chrome.identity.getAuthToken({ interactive: false });
 
       if (tokenResult) {

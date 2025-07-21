@@ -12,13 +12,31 @@ class FullPageCollector {
   async init() {
     console.log('Initializing Full Page Collector...');
     
-    // Check for existing auth
+    // Check for existing auth and validate spreadsheet still exists
     const result = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
     
     if (result.googleAccessToken && result.googleSpreadsheetId) {
-      this.accessToken = result.googleAccessToken;
-      this.spreadsheetId = result.googleSpreadsheetId;
-      await this.loadContent();
+      // Verify the spreadsheet still exists before proceeding
+      try {
+        const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}`, {
+          headers: { 'Authorization': `Bearer ${result.googleAccessToken}` }
+        });
+        
+        if (testResponse.ok) {
+          // Spreadsheet exists and is accessible
+          this.accessToken = result.googleAccessToken;
+          this.spreadsheetId = result.googleSpreadsheetId;
+          await this.loadContent();
+        } else {
+          // Spreadsheet was deleted, clear cache and show auth
+          await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+          this.showAuthRequired();
+        }
+      } catch (error) {
+        // Error accessing spreadsheet, clear cache and show auth
+        await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+        this.showAuthRequired();
+      }
     } else {
       this.showAuthRequired();
     }
