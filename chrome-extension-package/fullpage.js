@@ -1,4 +1,4 @@
-// Full page Quote Collector interface
+// Full page Quotebook interface
 
 class FullPageCollector {
   constructor() {
@@ -86,6 +86,7 @@ class FullPageCollector {
               );
               this.accessToken = result.googleAccessToken;
               this.spreadsheetId = result.googleSpreadsheetId;
+              this.updateSpreadsheetLink();
               await this.loadContent();
             } else {
               console.log(
@@ -131,6 +132,7 @@ class FullPageCollector {
     const tagFilter = document.getElementById("tagFilter");
     const dateFilter = document.getElementById("dateFilter");
     const authButton = document.getElementById("auth-button");
+    const spreadsheetLink = document.getElementById("spreadsheet-link");
 
     if (searchInput) {
       searchInput.addEventListener("input", () => this.applyFilters());
@@ -143,6 +145,14 @@ class FullPageCollector {
     }
     if (authButton) {
       authButton.addEventListener("click", () => this.authenticateWithGoogle());
+    }
+    if (spreadsheetLink) {
+      spreadsheetLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (this.spreadsheetId) {
+          window.open(`https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit`, '_blank');
+        }
+      });
     }
   }
 
@@ -204,11 +214,11 @@ class FullPageCollector {
 
   async setupSpreadsheet() {
     try {
-      console.log("Looking for existing Quote Collector spreadsheet...");
+      console.log("Looking for existing Quotebook spreadsheet...");
 
-      // Search for existing Quote Collector spreadsheets
+      // Search for existing Quotebook spreadsheets
       const searchResponse = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name contains 'Quote Collector' and mimeType='application/vnd.google-apps.spreadsheet'&fields=files(id,name,createdTime)`,
+        `https://www.googleapis.com/drive/v3/files?q=name contains 'Quotebook' and mimeType='application/vnd.google-apps.spreadsheet'&fields=files(id,name,createdTime)`,
         {
           headers: { Authorization: `Bearer ${this.accessToken}` },
         },
@@ -232,7 +242,7 @@ class FullPageCollector {
       }
 
       // No existing spreadsheet found, create a new one
-      console.log("Creating new Quote Collector spreadsheet...");
+      console.log("Creating new Quotebook spreadsheet...");
 
       const createResponse = await fetch(
         "https://sheets.googleapis.com/v4/spreadsheets",
@@ -244,7 +254,7 @@ class FullPageCollector {
           },
           body: JSON.stringify({
             properties: {
-              title: "Quote Collector Collection",
+              title: "Quotebook Collection",
             },
             sheets: [
               {
@@ -275,7 +285,7 @@ class FullPageCollector {
         },
       );
 
-      console.log("New Quote Collector spreadsheet created!");
+      console.log("New Quotebook spreadsheet created!");
       return spreadsheetId;
     } catch (error) {
       console.error("Failed to setup spreadsheet:", error);
@@ -674,11 +684,23 @@ class FullPageCollector {
     const content = document.getElementById("content");
     const stats = document.getElementById("stats");
     const authRequired = document.getElementById("auth-required");
+    const spreadsheetLink = document.getElementById("spreadsheet-link");
 
     loading.style.display = "none";
     content.style.display = "none";
     stats.style.display = "none";
     authRequired.style.display = "block";
+    if (spreadsheetLink) spreadsheetLink.style.display = "none";
+  }
+
+  updateSpreadsheetLink() {
+    const spreadsheetLink = document.getElementById('spreadsheet-link');
+    if (spreadsheetLink && this.spreadsheetId) {
+      spreadsheetLink.href = `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit`;
+      spreadsheetLink.style.display = 'flex';
+    } else if (spreadsheetLink) {
+      spreadsheetLink.style.display = 'none';
+    }
   }
 }
 
