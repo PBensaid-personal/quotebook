@@ -38,12 +38,17 @@ export default function FullPageView() {
   });
 
   // Fetch statistics
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<{
+    totalItems: number;
+    totalTags: number;
+    thisMonth: number;
+    uniqueWebsites: number;
+  }>({
     queryKey: ["/api/stats"],
   });
 
   // Get unique tags for filter dropdown
-  const allTags = useMemo(() => {
+  const allTags = useMemo((): string[] => {
     return Array.from(new Set(items.flatMap(item => item.tags || [])));
   }, [items]);
 
