@@ -365,7 +365,6 @@ class EnhancedQuoteCollector {
     if (text.includes('javascript') || text.includes('js')) keywords.push('javascript');
     if (text.includes('python')) keywords.push('python');
     if (text.includes('react')) keywords.push('react');
-    if (text.includes('web development') || text.includes('coding')) keywords.push('web development');
     if (text.includes('api')) keywords.push('api');
     if (text.includes('database')) keywords.push('database');
     
