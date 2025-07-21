@@ -41,7 +41,7 @@ class EnhancedQuoteCollector {
   }
 
   setupTagInterface() {
-    // Start with empty suggested tags - they'll be populated when content is analyzed
+    // Start with empty suggested tags - they'll be populated from page metadata
     this.suggestedTags = [];
     this.renderSuggestedTags();
     this.renderUserTags();
@@ -60,6 +60,18 @@ class EnhancedQuoteCollector {
         </svg>
         ${tag}
       `;
+      
+      // Make suggested tags clickable to add them to user tags
+      tagElement.addEventListener('click', () => {
+        if (!this.userTags.includes(tag)) {
+          this.userTags.push(tag);
+          this.renderUserTags();
+        }
+        // Remove from suggested after adding
+        this.suggestedTags = this.suggestedTags.filter(t => t !== tag);
+        this.renderSuggestedTags();
+      });
+      
       container.appendChild(tagElement);
     });
   }
@@ -487,6 +499,12 @@ class EnhancedQuoteCollector {
         if (result) {
           pageImage = result.image || '';
           pageCategories = result.categories || [];
+          
+          // Use page categories as suggested tags if available
+          if (pageCategories.length > 0) {
+            this.suggestedTags = pageCategories.slice(0, 5);
+            this.renderSuggestedTags();
+          }
         }
       } catch (e) {
         // Fallback to basic image extraction
