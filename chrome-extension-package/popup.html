@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
       width: 350px;
@@ -34,15 +35,7 @@
       padding: 20px 0;
     }
 
-    .main-section {
-      display: none;
-    }
-
-    .main-section.active {
-      display: block;
-    }
-
-    button {
+    .auth-button {
       background: #1a73e8;
       color: white;
       border: none;
@@ -51,20 +44,43 @@
       font-size: 14px;
       cursor: pointer;
       transition: background-color 0.2s;
-      width: 100%;
-      margin-bottom: 10px;
     }
 
-    button:hover {
+    .auth-button:hover {
       background: #1557b0;
     }
 
-    .save-button {
-      background: #34a853;
+    .status {
+      margin: 10px 0;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
     }
 
-    .save-button:hover {
-      background: #2d7f47;
+    .status.success {
+      background: #e8f5e8;
+      color: #2d5016;
+      border: 1px solid #c3e6c3;
+    }
+
+    .status.error {
+      background: #fce8e6;
+      color: #d93025;
+      border: 1px solid #f9ab9f;
+    }
+
+    .status.info {
+      background: #e8f0fe;
+      color: #1a73e8;
+      border: 1px solid #aecbfa;
+    }
+
+    .main-section {
+      display: none;
+    }
+
+    .main-section.active {
+      display: block;
     }
 
     .form-group {
@@ -93,52 +109,19 @@
       resize: vertical;
     }
 
-    .status {
-      margin: 10px 0;
-      padding: 8px;
+    .save-button {
+      background: #34a853;
+      color: white;
+      border: none;
+      padding: 10px 20px;
       border-radius: 4px;
-      font-size: 12px;
-      display: none;
+      font-size: 14px;
+      cursor: pointer;
+      width: 100%;
     }
 
-    .status.success {
-      background: #e8f5e8;
-      color: #2d5016;
-      border: 1px solid #c3e6c3;
-    }
-
-    .status.error {
-      background: #fce8e6;
-      color: #d93025;
-      border: 1px solid #f9ab9f;
-    }
-
-    .status.info {
-      background: #e8f0fe;
-      color: #1a73e8;
-      border: 1px solid #aecbfa;
-    }
-
-    .debug {
-      background: #f1f3f4;
-      padding: 10px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 11px;
-      margin-top: 10px;
-      white-space: pre-wrap;
-      max-height: 150px;
-      overflow-y: auto;
-    }
-
-    .instruction {
-      background: #fff3cd;
-      border: 1px solid #ffeaa7;
-      color: #856404;
-      padding: 10px;
-      border-radius: 4px;
-      margin-bottom: 15px;
-      font-size: 12px;
+    .save-button:hover {
+      background: #2d7f47;
     }
   </style>
 </head>
@@ -149,16 +132,9 @@
     </div>
 
     <div id="auth-section" class="auth-section">
-      <div class="instruction">
-        <strong>SETUP REQUIRED:</strong><br>
-        1. Go to Google Cloud Console → Credentials<br>
-        2. Create <strong>Web Application</strong> OAuth client<br>
-        3. Add redirect URI: <span id="redirect-uri"></span><br>
-        4. Copy the new Client ID below
-      </div>
-      
-      <button id="auth-button">Connect with Google</button>
-      <div id="status" class="status"></div>
+      <p>Connect to Google Sheets to save your quotes</p>
+      <button id="auth-button" class="auth-button">Connect with Google</button>
+      <div id="status" class="status" style="display: none;"></div>
     </div>
 
     <div id="main-section" class="main-section">
@@ -179,12 +155,10 @@
 
       <button id="save-button" class="save-button">Save to Google Sheets</button>
       
-      <div id="status-main" class="status"></div>
+      <div id="status-main" class="status" style="display: none;"></div>
     </div>
-
-    <div id="debug" class="debug"></div>
   </div>
 
-  <script src="popup-working.js"></script>
+  <script src="popup.js"></script>
 </body>
 </html>

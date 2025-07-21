@@ -1,9 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Quote Collector",
+  "name": "Quote Collector Chrome Extension",
   "version": "1.0.0",
   "description": "Save quotes to Google Sheets",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqslDuQgkzU04EOb77YVTQ6L/QFDnEvsEUHaFr+Z9Mn8qAYsXicKsttAn2yCvnta3TzFcBe/EjRLxhxkkv+nK/02Xm0ZUda+BN9pk7QV5eCn1R2yBgkeG9dWoQ4oGjpYdWJlyk89q19yUooeJLEx83Ok14FtNLOQPoRC9qPikQ1ilSLRMp3AOL44yLuprcCuMSItE8Lr9EVo4dqn/SChW7GfN9pKQcPNZKyEuLhjfWWjdZFwHFpFjOn4cLrp1+ecbVoe1TgJ54jgyBSMQRDKroXFF9rEJbwP/yXW6KNxcqTljIHULqNjdPhQW0OU8OsXTlprU5m+yRN6ZUcGlEYacIwIDAQAB",
 
   "permissions": [
     "identity",
@@ -11,12 +10,25 @@
     "storage"
   ],
 
+  "host_permissions": [
+    "https://accounts.google.com/*",
+    "https://sheets.googleapis.com/*",
+    "https://www.googleapis.com/*"
+  ],
+
+  "oauth2": {
+    "client_id": "184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/spreadsheets"
+    ]
+  },
+
   "action": {
-    "default_popup": "popup-working.html",
+    "default_popup": "popup.html",
     "default_title": "Quote Collector",
     "default_icon": {
       "16": "icon-16.png",
-      "48": "icon-48.png", 
+      "48": "icon-48.png",
       "128": "icon-128.png"
     }
   },
@@ -33,5 +45,9 @@
       "js": ["content.js"],
       "css": ["content.css"]
     }
-  ]
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  }
 }

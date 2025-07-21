@@ -1,5 +1,3 @@
-/* Content script styles for WebCapture extension */
-
 #webcapture-feedback {
   position: fixed !important;
   top: 20px !important;
@@ -28,7 +26,6 @@
   }
 }
 
-/* Text selection highlight enhancement */
 ::selection {
   background-color: rgba(79, 124, 172, 0.3) !important;
 }
