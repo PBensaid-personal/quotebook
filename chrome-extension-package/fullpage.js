@@ -275,14 +275,44 @@ class FullPageCollector {
     }
   }
 
+  attachEventListeners() {
+    // Delete button event listeners
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const itemId = btn.getAttribute('data-item-id');
+        this.deleteItem(parseInt(itemId));
+      });
+    });
+
+    // Tag pill event listeners
+    document.querySelectorAll('.tag-pill').forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tag = pill.getAttribute('data-tag');
+        document.getElementById('tagFilter').value = tag;
+        this.applyFilters();
+      });
+    });
+  }
+
   async deleteItem(itemId) {
     if (!confirm('Are you sure you want to delete this item?')) {
       return;
     }
 
     try {
+      console.log('Deleting item with ID:', itemId);
+      
+      // Find the row number for this item (row numbers start at 1, but we need 0-based index)
+      // Row 1 is headers, so data starts at row 2
+      const rowIndex = itemId + 1; // itemId is already 1-based from spreadsheet data
+      
+      console.log('Deleting row index:', rowIndex);
+
       // Delete row from spreadsheet
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`, {
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -294,16 +324,23 @@ class FullPageCollector {
               range: {
                 sheetId: 0,
                 dimension: 'ROWS',
-                startIndex: itemId - 1,
-                endIndex: itemId
+                startIndex: rowIndex - 1, // Convert to 0-based index
+                endIndex: rowIndex
               }
             }
           }]
         })
       });
 
-      // Reload content
-      await this.loadContent();
+      if (response.ok) {
+        console.log('Item deleted successfully');
+        // Reload content to refresh the display
+        await this.loadContent();
+      } else {
+        const errorData = await response.json();
+        console.error('Delete failed:', errorData);
+        alert('Failed to delete item. Please try again.');
+      }
       
     } catch (error) {
       console.error('Failed to delete item:', error);
@@ -416,9 +453,9 @@ class FullPageCollector {
     noResults.style.display = 'none';
 
     contentContainer.innerHTML = this.filteredData.map(item => `
-      <div class="content-card">
+      <div class="content-card" data-item-id="${item.id}">
         <div class="content-actions">
-          <button class="delete-btn" onclick="fullPageCollector.deleteItem(${item.id})" title="Delete">
+          <button class="delete-btn" data-item-id="${item.id}" title="Delete">
             🗑️
           </button>
         </div>
@@ -436,7 +473,7 @@ class FullPageCollector {
         ${item.tags.length > 0 ? `
           <div class="content-tags">
             ${item.tags.map(tag => `
-              <span class="tag-pill" onclick="document.getElementById('tagFilter').value='${this.escapeHtml(tag)}'; fullPageCollector.applyFilters()">
+              <span class="tag-pill" data-tag="${this.escapeHtml(tag)}">
                 ${this.escapeHtml(tag)}
               </span>`).join('')}
           </div>
@@ -448,6 +485,9 @@ class FullPageCollector {
         </div>
       </div>
     `).join('');
+    
+    // Add event listeners for delete buttons and tag pills
+    this.attachEventListeners();
   }
 
   renderNoResults() {
