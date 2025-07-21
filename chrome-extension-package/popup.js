@@ -1,5 +1,5 @@
-// Chrome Extension OAuth implementation
-class ChromeExtensionOAuth {
+// Fixed OAuth for Chrome Extension
+class FixedOAuthCollector {
   constructor() {
     this.clientId = '184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com';
     this.accessToken = null;
@@ -15,7 +15,7 @@ class ChromeExtensionOAuth {
 
   setupEventListeners() {
     document.getElementById('auth-button').addEventListener('click', () => {
-      this.authenticateWithExtensionFlow();
+      this.authenticateFixed();
     });
 
     document.getElementById('save-button').addEventListener('click', () => {
@@ -25,110 +25,117 @@ class ChromeExtensionOAuth {
 
   async checkExistingAuth() {
     try {
-      const token = await chrome.identity.getAuthToken({ interactive: false });
+      const tokenResult = await chrome.identity.getAuthToken({ interactive: false });
 
-      if (token) {
-        console.log('Found existing token');
-        this.accessToken = token;
+      if (tokenResult) {
+        let accessToken;
 
-        const isValid = await this.validateToken();
-        if (isValid) {
-          await this.setupSpreadsheetIfNeeded();
-          this.showMainInterface();
-          return;
-        } else {
-          await chrome.identity.removeCachedAuthToken({ token: token });
+        // Handle both new object format and old string format
+        if (typeof tokenResult === 'object' && tokenResult !== null && tokenResult.token) {
+          accessToken = tokenResult.token;
+        } else if (typeof tokenResult === 'string') {
+          accessToken = tokenResult;
+        }
+
+        if (accessToken) {
+          this.accessToken = accessToken;
+
+          const isValid = await this.validateToken();
+          if (isValid) {
+            await this.setupSpreadsheetIfNeeded();
+            this.showMainInterface();
+            return;
+          } else {
+            // Remove invalid token
+            const tokenToRemove = typeof tokenResult === 'object' ? tokenResult.token : tokenResult;
+            await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
+          }
         }
       }
     } catch (error) {
-      console.log('No existing auth found:', error);
+      // No existing auth found, continue to show auth interface
     }
 
     this.showAuthInterface();
   }
 
   async validateToken() {
-    if (!this.accessToken) return false;
-
     try {
       const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${this.accessToken}`);
-      const data = await response.json();
-
-      if (response.ok && data.scope && data.scope.includes('spreadsheets')) {
-        console.log('Token valid:', data);
-        return true;
-      } else {
-        console.log('Token invalid or missing scopes:', data);
-        return false;
-      }
-    } catch (error) {
-      console.log('Token validation failed:', error);
+      return response.ok;
+    } catch {
       return false;
     }
   }
 
-  async authenticateWithExtensionFlow() {
-    console.log('=== DEBUG OAUTH ===');
-    console.log('Extension ID:', chrome.runtime.id);
-    console.log('Manifest:', chrome.runtime.getManifest());
-
-    this.showStatus('Connecting to Google...', 'info');
-    
-    this.showStatus('Connecting to Google...', 'info');
+  async authenticateFixed() {
+    this.showStatus('Starting authentication...', 'info');
 
     try {
+      // Clear any existing tokens
       try {
         const oldToken = await chrome.identity.getAuthToken({ interactive: false });
         if (oldToken) {
-          await chrome.identity.removeCachedAuthToken({ token: oldToken });
+          const tokenToRemove = typeof oldToken === 'object' ? oldToken.token : oldToken;
+          await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
         }
       } catch (e) {
         // No cached token to remove
       }
 
-      const token = await chrome.identity.getAuthToken({ 
+      // Request new token
+      const tokenResult = await chrome.identity.getAuthToken({ 
         interactive: true
       });
 
-      if (token) {
-        this.accessToken = token;
-        console.log('Authentication successful, token received');
+      let accessToken;
 
-        const isValid = await this.validateToken();
-        if (isValid) {
-          this.showStatus('Authentication successful!', 'success');
-          await this.setupSpreadsheetIfNeeded();
-          this.showMainInterface();
+      // Handle both new object format and old string format
+      if (typeof tokenResult === 'object' && tokenResult !== null) {
+        if (tokenResult.token) {
+          accessToken = tokenResult.token;
+
+          // Verify we have the required scope
+          const grantedScopes = tokenResult.grantedScopes || [];
+          const hasSheetScope = grantedScopes.some(scope => 
+            scope.includes('spreadsheets') || scope.includes('sheets')
+          );
+
+          if (!hasSheetScope) {
+            throw new Error('Missing required Google Sheets permission');
+          }
         } else {
-          throw new Error('Token validation failed - check OAuth scopes');
+          throw new Error('Authentication failed - no token received');
         }
+      } else if (typeof tokenResult === 'string' && tokenResult) {
+        accessToken = tokenResult;
       } else {
-        throw new Error('No token received from Google');
+        throw new Error('Authentication failed - invalid response');
       }
+
+      this.accessToken = accessToken;
+      this.showStatus('Authentication successful!', 'success');
+      await this.setupSpreadsheetIfNeeded();
+      this.showMainInterface();
 
     } catch (error) {
-      console.error('Authentication failed:', error);
-      this.showStatus(`Authentication failed: ${error.message}`, 'error');
-
-      if (error.message.includes('OAuth2 not granted')) {
-        this.showStatus('Please approve the permissions in the popup window', 'error');
-      } else if (error.message.includes('scopes')) {
-        this.showStatus('Missing required permissions. Check OAuth configuration.', 'error');
-      }
+      this.showStatus(`Auth error: ${error.message}`, 'error');
     }
   }
 
   async setupSpreadsheetIfNeeded() {
     try {
-      const result = await chrome.storage.local.get(['spreadsheetId']);
-      if (result.spreadsheetId) {
-        this.spreadsheetId = result.spreadsheetId;
-        console.log('Using existing spreadsheet:', this.spreadsheetId);
+      // Check for existing spreadsheet
+      const stored = await chrome.storage.local.get(['spreadsheetId']);
+      if (stored.spreadsheetId) {
+        this.spreadsheetId = stored.spreadsheetId;
+        this.showStatus('Connected to existing spreadsheet', 'success');
         return;
       }
 
       this.showStatus('Setting up Google Sheets...', 'info');
 
+      // Create new spreadsheet
       const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
         method: 'POST',
         headers: {
@@ -137,101 +144,80 @@ class ChromeExtensionOAuth {
         },
         body: JSON.stringify({
           properties: {
-            title: `Quote Collector - ${new Date().toLocaleDateString()}`
+            title: 'Quote Collector Collection'
           },
           sheets: [{
             properties: {
-              title: 'Collected Quotes',
-              gridProperties: {
-                rowCount: 1000,
-                columnCount: 5
-              }
+              title: 'Saved Quotes'
             }
           }]
         })
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Spreadsheet creation failed:', response.status, errorText);
+      if (response.ok) {
+        const data = await response.json();
+        this.spreadsheetId = data.spreadsheetId;
 
-        if (response.status === 403) {
-          throw new Error('Google Sheets API not enabled. Please enable it in Google Cloud Console.');
-        } else if (response.status === 401) {
-          throw new Error('Authentication token expired. Please try connecting again.');
-        } else {
-          throw new Error(`Failed to create spreadsheet: ${response.status}`);
-        }
+        // Store credentials
+        await chrome.storage.local.set({
+          spreadsheetId: this.spreadsheetId
+        });
+
+        // Add headers
+        await this.addHeaders();
+
+        this.showStatus('Google Sheets connected!', 'success');
+      } else {
+        const error = await response.text();
+        this.showStatus(`Failed to create spreadsheet: ${response.status}`, 'error');
       }
 
-      const data = await response.json();
-      this.spreadsheetId = data.spreadsheetId;
-
-      await chrome.storage.local.set({ spreadsheetId: this.spreadsheetId });
-      await this.addHeaders();
-
-      this.showStatus('Google Sheets ready!', 'success');
-      console.log('Spreadsheet created:', `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}`);
-
     } catch (error) {
-      console.error('Spreadsheet setup error:', error);
-      this.showStatus(`Setup failed: ${error.message}`, 'error');
-      throw error;
+      this.showStatus(`Setup error: ${error.message}`, 'error');
     }
   }
 
   async addHeaders() {
-    const headers = ['Date', 'Title', 'Content', 'Source URL', 'Notes'];
+    const headers = ['Date', 'Title', 'Content', 'URL', 'Notes'];
 
-    try {
-      const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:E1?valueInputOption=RAW`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${this.accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            values: [headers]
-          })
-        }
-      );
-
-      if (!response.ok) {
-        console.warn('Failed to add headers:', await response.text());
-      } else {
-        console.log('Headers added successfully');
-      }
-    } catch (error) {
-      console.warn('Error adding headers:', error);
-    }
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:E1?valueInputOption=RAW`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        values: [headers]
+      })
+    });
   }
 
   async loadSelectedText() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSelectedText' });
+      try {
+        const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSelectedText' });
 
-      if (response && response.selectedText) {
-        document.getElementById('content').value = response.selectedText;
-
-        const title = tab.title || 'Untitled';
-        document.getElementById('title').value = title.length > 50 ? title.substring(0, 50) + '...' : title;
+        if (response && response.selectedText) {
+          document.getElementById('content').value = response.selectedText;
+          document.getElementById('title').value = tab.title || '';
+        }
+      } catch (e) {
+        // Could not get selected text, this is normal for some pages
       }
     } catch (error) {
-      console.log('Could not get selected text:', error);
+      // Could not access tab, this is normal
     }
   }
 
   async saveQuote() {
     try {
-      const title = document.getElementById('title').value.trim();
-      const content = document.getElementById('content').value.trim();
-      const notes = document.getElementById('notes').value.trim();
+      const title = document.getElementById('title').value;
+      const content = document.getElementById('content').value;
+      const notes = document.getElementById('notes').value;
 
-      if (!content) {
+      if (!content.trim()) {
         this.showStatusMain('Please enter some content to save', 'error');
         return;
       }
@@ -239,56 +225,40 @@ class ChromeExtensionOAuth {
       this.showStatusMain('Saving to Google Sheets...', 'info');
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      const timestamp = new Date().toLocaleString();
-
       const row = [
-        timestamp,
-        title || 'Untitled Quote',
+        new Date().toLocaleDateString(),
+        title || 'Untitled',
         content,
-        tab.url || '',
-        notes || ''
+        tab.url,
+        notes
       ];
 
-      const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:E:append?valueInputOption=RAW`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            values: [row]
-          })
-        }
-      );
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:E:append?valueInputOption=RAW`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          values: [row]
+        })
+      });
 
       if (response.ok) {
-        this.showStatusMain('✅ Saved successfully!', 'success');
-        console.log('Quote saved successfully');
+        this.showStatusMain('Saved successfully!', 'success');
 
+        // Clear form
         document.getElementById('title').value = '';
         document.getElementById('content').value = '';
         document.getElementById('notes').value = '';
 
-        setTimeout(() => {
-          if (window.close) window.close();
-        }, 1500);
-
+        setTimeout(() => window.close(), 1500);
       } else {
-        const errorText = await response.text();
-        console.error('Save failed:', response.status, errorText);
-
-        if (response.status === 401) {
-          this.showStatusMain('Session expired. Please reconnect.', 'error');
-          this.showAuthInterface();
-        } else {
-          this.showStatusMain(`Save failed: ${response.status}`, 'error');
-        }
+        const error = await response.text();
+        this.showStatusMain(`Save failed: ${response.status}`, 'error');
       }
 
     } catch (error) {
-      console.error('Save error:', error);
       this.showStatusMain(`Error: ${error.message}`, 'error');
     }
   }
@@ -305,42 +275,30 @@ class ChromeExtensionOAuth {
 
   showStatus(message, type) {
     const status = document.getElementById('status');
-    if (status) {
-      status.textContent = message;
-      status.className = `status ${type}`;
-      status.style.display = 'block';
+    status.textContent = message;
+    status.className = `status ${type}`;
+    status.style.display = 'block';
 
-      if (type === 'success') {
-        setTimeout(() => {
-          status.style.display = 'none';
-        }, 3000);
-      }
+    if (type === 'success') {
+      setTimeout(() => {
+        status.style.display = 'none';
+      }, 3000);
     }
-    console.log(`[Status ${type}]`, message);
   }
 
   showStatusMain(message, type) {
     const status = document.getElementById('status-main');
-    if (status) {
-      status.textContent = message;
-      status.className = `status ${type}`;
-      status.style.display = 'block';
+    status.textContent = message;
+    status.className = `status ${type}`;
+    status.style.display = 'block';
 
-      if (type === 'success') {
-        setTimeout(() => {
-          status.style.display = 'none';
-        }, 3000);
-      }
+    if (type === 'success') {
+      setTimeout(() => {
+        status.style.display = 'none';
+      }, 3000);
     }
-    console.log(`[Main Status ${type}]`, message);
   }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    new ChromeExtensionOAuth();
-  });
-} else {
-  new ChromeExtensionOAuth();
-}
+// Initialize the extension
+new FixedOAuthCollector();

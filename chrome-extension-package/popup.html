@@ -123,6 +123,16 @@
     .save-button:hover {
       background: #2d7f47;
     }
+
+    .debug-info {
+      background: #f1f3f4;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -157,8 +167,10 @@
       
       <div id="status-main" class="status" style="display: none;"></div>
     </div>
+
+    <div id="debug" class="debug-info" style="display: none;"></div>
   </div>
 
   <script src="popup.js"></script>
 </body>
-</html>
+</html><script src="get-redirect-uri.js"></script>
