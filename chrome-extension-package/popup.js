@@ -48,6 +48,7 @@ class EnhancedQuoteCollector {
   }
 
   renderSuggestedTags() {
+    // Render suggested tags - clickable to add to user tags
     const container = document.getElementById('suggested-tags');
     container.innerHTML = '';
     
@@ -77,8 +78,11 @@ class EnhancedQuoteCollector {
   }
 
   renderUserTags() {
+    // Render user-added tags - all with X to delete
     const container = document.getElementById('user-tags');
     container.innerHTML = '';
+    
+    console.log('Rendering user tags:', this.userTags);
     
     this.userTags.forEach(tag => {
       const tagElement = document.createElement('div');
@@ -545,14 +549,14 @@ class EnhancedQuoteCollector {
         pageImage = tab.favIconUrl || '';
       }
       
-      // Combine user tags with page categories - all become tags
-      const allTags = [...new Set([...this.userTags, ...pageCategories])];
+      // ONLY save user-added tags - ignore suggested tags
+      console.log('User tags to save:', this.userTags);
       
       const row = [
         tab.title || 'Untitled',
         content,
         tab.url,
-        allTags.join(', '),
+        this.userTags.join(', '),  // Only user tags
         new Date().toISOString().split('T')[0],
         pageImage
       ];
