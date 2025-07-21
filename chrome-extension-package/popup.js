@@ -263,18 +263,35 @@ class EnhancedQuoteCollector {
       // Check for existing spreadsheet in storage
       const stored = await chrome.storage.local.get(['googleSpreadsheetId']);
       if (stored.googleSpreadsheetId) {
-        // Verify the spreadsheet still exists and is accessible
+        // Verify the spreadsheet still exists and is not trashed
         try {
-          const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
+          // Check if file is trashed using Drive API first
+          const driveResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${stored.googleSpreadsheetId}?fields=trashed,name`, {
             headers: { 'Authorization': `Bearer ${this.accessToken}` }
           });
           
-          if (testResponse.ok) {
-            this.spreadsheetId = stored.googleSpreadsheetId;
-            this.showStatus('Connected to existing spreadsheet', 'success');
-            return;
+          if (driveResponse.ok) {
+            const fileInfo = await driveResponse.json();
+            if (fileInfo.trashed === true) {
+              console.log('Stored spreadsheet is trashed, clearing cache');
+              await chrome.storage.local.remove(['googleSpreadsheetId']);
+            } else {
+              // Not trashed, test Sheets API access
+              const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
+                headers: { 'Authorization': `Bearer ${this.accessToken}` }
+              });
+              
+              if (testResponse.ok) {
+                this.spreadsheetId = stored.googleSpreadsheetId;
+                this.showStatus('Connected to existing spreadsheet', 'success');
+                return;
+              } else {
+                // Sheets API failed, clear cache
+                await chrome.storage.local.remove(['googleSpreadsheetId']);
+              }
+            }
           } else {
-            // Stored spreadsheet no longer exists, clear it
+            // Drive API failed, clear cache
             await chrome.storage.local.remove(['googleSpreadsheetId']);
           }
         } catch (error) {
@@ -285,8 +302,8 @@ class EnhancedQuoteCollector {
 
       this.showStatus('Looking for existing Quote Collector spreadsheet...', 'info');
 
-      // Search for existing Quote Collector spreadsheets
-      const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name contains 'Quote Collector' and mimeType='application/vnd.google-apps.spreadsheet'&fields=files(id,name,createdTime)`, {
+      // Search for existing Quote Collector spreadsheets (excluding trashed files)
+      const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name contains 'Quote Collector' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name,createdTime)`, {
         headers: { 'Authorization': `Bearer ${this.accessToken}` }
       });
 
