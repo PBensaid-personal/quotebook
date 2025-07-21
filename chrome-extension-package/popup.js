@@ -41,8 +41,8 @@ class EnhancedQuoteCollector {
   }
 
   setupTagInterface() {
-    // Generate some suggested tags based on content
-    this.suggestedTags = ['web development', 'technology'];
+    // Start with empty suggested tags - they'll be populated when content is analyzed
+    this.suggestedTags = [];
     this.renderSuggestedTags();
     this.renderUserTags();
   }
