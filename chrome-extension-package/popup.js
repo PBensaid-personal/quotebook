@@ -68,6 +68,12 @@ class ChromeExtensionOAuth {
   }
 
   async authenticateWithExtensionFlow() {
+    console.log('=== DEBUG OAUTH ===');
+    console.log('Extension ID:', chrome.runtime.id);
+    console.log('Manifest:', chrome.runtime.getManifest());
+
+    this.showStatus('Connecting to Google...', 'info');
+    
     this.showStatus('Connecting to Google...', 'info');
 
     try {
