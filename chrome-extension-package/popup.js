@@ -4,7 +4,7 @@ class EnhancedQuoteCollector {
     this.clientId = '184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com';
     this.accessToken = null;
     this.spreadsheetId = null;
-    this.userTags = ['programming'];
+    this.userTags = [];
     this.suggestedTags = [];
     this.init();
   }
@@ -255,9 +255,9 @@ class EnhancedQuoteCollector {
   }
 
   async addHeaders() {
-    const headers = ['Date', 'Title', 'Content', 'URL', 'Tags'];
+    const headers = ['Title', 'Content', 'URL', 'Tags', 'Date', 'Image', 'Categories'];
 
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:E1?valueInputOption=RAW`, {
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:G1?valueInputOption=RAW`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${this.accessToken}`,
@@ -348,19 +348,35 @@ class EnhancedQuoteCollector {
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      // Combine all tags
-      const allTags = [...this.suggestedTags, ...this.userTags];
-      const uniqueTags = [...new Set(allTags)];
+      // Extract page metadata including image and categories
+      let pageImage = '';
+      let pageCategories = [];
+      
+      try {
+        const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
+        if (result) {
+          pageImage = result.image || '';
+          pageCategories = result.categories || [];
+        }
+      } catch (e) {
+        // Fallback to basic image extraction
+        pageImage = tab.favIconUrl || '';
+      }
+      
+      // Combine only user tags (no defaults)
+      const uniqueTags = [...new Set(this.userTags)];
       
       const row = [
-        new Date().toLocaleDateString(),
         tab.title || 'Untitled',
         content,
         tab.url,
-        uniqueTags.join(', ')
+        uniqueTags.join(', '),
+        new Date().toISOString().split('T')[0],
+        pageImage,
+        pageCategories.join(', ')
       ];
 
-      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:E:append?valueInputOption=RAW`, {
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -376,7 +392,7 @@ class EnhancedQuoteCollector {
 
         // Clear content and reset
         document.getElementById('content').value = 'Select text on the webpage to capture it here...';
-        this.userTags = ['programming'];
+        this.userTags = [];
         this.renderUserTags();
         
         setTimeout(() => {

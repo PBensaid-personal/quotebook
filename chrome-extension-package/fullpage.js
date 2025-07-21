@@ -1,147 +1,106 @@
-// Full Page Quote Collector - Local Extension with Google Sheets Integration
-class FullPageQuoteCollector {
+// Full page Quote Collector interface
+
+class FullPageCollector {
   constructor() {
-    this.clientId = '184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com';
     this.accessToken = null;
     this.spreadsheetId = null;
-    this.allContent = [];
-    this.filteredContent = [];
-    this.allTags = new Set();
+    this.contentData = [];
+    this.filteredData = [];
     this.init();
   }
 
   async init() {
+    console.log('Initializing Full Page Collector...');
+    
+    // Check for existing auth
+    const result = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
+    
+    if (result.googleAccessToken && result.googleSpreadsheetId) {
+      this.accessToken = result.googleAccessToken;
+      this.spreadsheetId = result.googleSpreadsheetId;
+      await this.loadContent();
+    } else {
+      this.showAuthRequired();
+    }
+
     this.setupEventListeners();
-    await this.checkAuthAndLoadData();
   }
 
   setupEventListeners() {
-    // Search functionality
-    document.getElementById('search-input').addEventListener('input', (e) => {
-      this.filterContent();
-    });
+    const searchInput = document.getElementById('searchInput');
+    const tagFilter = document.getElementById('tagFilter');
+    const dateFilter = document.getElementById('dateFilter');
 
-    // Tag filter
-    document.getElementById('tag-filter').addEventListener('change', (e) => {
-      this.filterContent();
-    });
-
-    // Date filter
-    document.getElementById('date-filter').addEventListener('change', (e) => {
-      this.filterContent();
-    });
-
-    // Auth link
-    document.getElementById('auth-link').addEventListener('click', (e) => {
-      e.preventDefault();
-      this.authenticate();
-    });
+    if (searchInput) {
+      searchInput.addEventListener('input', () => this.applyFilters());
+    }
+    if (tagFilter) {
+      tagFilter.addEventListener('change', () => this.applyFilters());
+    }
+    if (dateFilter) {
+      dateFilter.addEventListener('change', () => this.applyFilters());
+    }
   }
 
-  async checkAuthAndLoadData() {
+  async authenticateWithGoogle() {
     try {
-      // Check for existing auth
-      const tokenResult = await chrome.identity.getAuthToken({ interactive: false });
+      console.log('Starting authentication...');
       
-      if (tokenResult) {
-        let accessToken;
-        if (typeof tokenResult === 'object' && tokenResult !== null && tokenResult.token) {
-          accessToken = tokenResult.token;
-        } else if (typeof tokenResult === 'string') {
-          accessToken = tokenResult;
-        }
+      const redirectURL = chrome.identity.getRedirectURL();
+      const clientId = '184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com';
+      const scopes = ['https://www.googleapis.com/auth/spreadsheets'];
+      let authURL = 'https://accounts.google.com/oauth2/authorize';
+      authURL += `?client_id=${clientId}`;
+      authURL += `&response_type=token`;
+      authURL += `&redirect_uri=${encodeURIComponent(redirectURL)}`;
+      authURL += `&scope=${encodeURIComponent(scopes.join(' '))}`;
 
-        if (accessToken) {
-          this.accessToken = accessToken;
-          const isValid = await this.validateToken();
-          
-          if (isValid) {
-            const stored = await chrome.storage.local.get(['spreadsheetId']);
-            if (stored.spreadsheetId) {
-              this.spreadsheetId = stored.spreadsheetId;
-              await this.loadDataFromSheets();
-              return;
-            }
-          } else {
-            // Remove invalid token
-            const tokenToRemove = typeof tokenResult === 'object' ? tokenResult.token : tokenResult;
-            await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
-          }
-        }
-      }
-    } catch (error) {
-      console.log('No existing auth found');
-    }
-
-    this.showAuthRequired();
-  }
-
-  async validateToken() {
-    try {
-      const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${this.accessToken}`);
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  async authenticate() {
-    try {
-      // Clear any existing tokens
-      await chrome.identity.clearAllCachedAuthTokens();
-
-      const tokenResult = await chrome.identity.getAuthToken({ 
-        interactive: true,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.file']
+      const result = await chrome.identity.launchWebAuthFlow({
+        url: authURL,
+        interactive: true
       });
 
-      let accessToken;
-      if (typeof tokenResult === 'object' && tokenResult !== null && tokenResult.token) {
-        accessToken = tokenResult.token;
-        
-        // Verify we have the required scope
-        const grantedScopes = tokenResult.grantedScopes || [];
-        const hasSheetScope = grantedScopes.some(scope => 
-          scope.includes('spreadsheets') || scope.includes('sheets')
-        );
+      const url = new URL(result);
+      const params = new URLSearchParams(url.hash.substring(1));
+      const accessToken = params.get('access_token');
 
-        if (!hasSheetScope) {
-          throw new Error('Missing required Google Sheets permission');
-        }
-      } else if (typeof tokenResult === 'string' && tokenResult) {
-        accessToken = tokenResult;
-      } else {
-        throw new Error('Authentication failed - invalid response');
+      if (!accessToken) {
+        throw new Error('No access token received');
       }
 
       this.accessToken = accessToken;
       
-      // Get or create spreadsheet
-      const stored = await chrome.storage.local.get(['spreadsheetId']);
-      if (stored.spreadsheetId) {
-        this.spreadsheetId = stored.spreadsheetId;
-      } else {
-        await this.createSpreadsheet();
-      }
+      // Create or find spreadsheet
+      const spreadsheetId = await this.setupSpreadsheet();
+      this.spreadsheetId = spreadsheetId;
 
-      await this.loadDataFromSheets();
+      // Save to storage
+      await chrome.storage.local.set({
+        googleAccessToken: accessToken,
+        googleSpreadsheetId: spreadsheetId
+      });
+
+      await this.loadContent();
+      console.log('Authentication successful!');
 
     } catch (error) {
-      this.showError(`Authentication failed: ${error.message}`);
+      console.error('Authentication failed:', error);
+      alert('Authentication failed. Please try again.');
     }
   }
 
-  async createSpreadsheet() {
+  async setupSpreadsheet() {
     try {
-      const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+      // Create new spreadsheet
+      const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           properties: {
-            title: 'Quote Collector Collection'
+            title: 'Quote Collector - Saved Content'
           },
           sheets: [{
             properties: {
@@ -151,90 +110,150 @@ class FullPageQuoteCollector {
         })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        this.spreadsheetId = data.spreadsheetId;
+      const spreadsheet = await createResponse.json();
+      const spreadsheetId = spreadsheet.spreadsheetId;
 
-        // Store credentials
-        await chrome.storage.local.set({
-          spreadsheetId: this.spreadsheetId
-        });
+      // Add headers
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:G1?valueInputOption=RAW`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          values: [['Title', 'Content', 'URL', 'Tags', 'Date', 'Image', 'Categories']]
+        })
+      });
 
-        // Add headers
-        const headers = ['Date', 'Title', 'Content', 'URL', 'Tags'];
-        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:E1?valueInputOption=RAW`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${this.accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            values: [headers]
-          })
-        });
-
-      } else {
-        throw new Error(`Failed to create spreadsheet: ${response.status}`);
-      }
-
+      return spreadsheetId;
     } catch (error) {
-      this.showError(`Spreadsheet creation failed: ${error.message}`);
+      console.error('Failed to setup spreadsheet:', error);
+      throw error;
     }
   }
 
-  async loadDataFromSheets() {
-    this.showLoading(true);
-    
+  async loadContent() {
     try {
-      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:E`, {
+      this.showLoading(true);
+
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A2:G1000`, {
         headers: {
           'Authorization': `Bearer ${this.accessToken}`
         }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const rows = data.values || [];
-        
-        // Skip header row, convert to content objects
-        this.allContent = rows.slice(1).map((row, index) => ({
-          id: index,
-          date: row[0] || '',
-          title: row[1] || 'Untitled',
-          content: row[2] || '',
-          url: row[3] || '',
-          tags: row[4] ? row[4].split(', ').filter(Boolean) : [],
-          createdAt: row[0] || new Date().toLocaleDateString()
-        })).reverse(); // Show newest first
-
-        // Extract all unique tags
-        this.allTags = new Set();
-        this.allContent.forEach(item => {
-          item.tags.forEach(tag => this.allTags.add(tag));
-        });
-
-        this.populateTagFilter();
-        this.updateStats();
-        this.filteredContent = [...this.allContent];
-        this.renderContent();
-        this.showMainContent();
-
-      } else {
-        throw new Error(`Failed to load data: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-    } catch (error) {
-      this.showError(`Failed to load collection: ${error.message}`);
-    } finally {
+      const data = await response.json();
+      const rows = data.values || [];
+
+      this.contentData = rows.map((row, index) => ({
+        id: index + 2, // Row number (starting from 2 since 1 is header)
+        title: row[0] || 'Untitled',
+        content: row[1] || '',
+        url: row[2] || '',
+        tags: row[3] ? row[3].split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+        date: row[4] || new Date().toISOString().split('T')[0],
+        image: row[5] || '',
+        categories: row[6] ? row[6].split(',').map(cat => cat.trim()).filter(cat => cat) : []
+      }));
+
+      this.filteredData = [...this.contentData];
+      this.renderStats();
+      this.renderTagFilter();
+      this.renderContent();
       this.showLoading(false);
+
+    } catch (error) {
+      console.error('Failed to load content:', error);
+      this.showLoading(false);
+      if (error.message.includes('401')) {
+        this.showAuthRequired();
+      }
     }
   }
 
-  populateTagFilter() {
-    const tagFilter = document.getElementById('tag-filter');
-    tagFilter.innerHTML = '<option value="">All Tags</option>';
+  async deleteItem(itemId) {
+    if (!confirm('Are you sure you want to delete this item?')) {
+      return;
+    }
+
+    try {
+      // Delete row from spreadsheet
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests: [{
+            deleteDimension: {
+              range: {
+                sheetId: 0,
+                dimension: 'ROWS',
+                startIndex: itemId - 1,
+                endIndex: itemId
+              }
+            }
+          }]
+        })
+      });
+
+      // Reload content
+      await this.loadContent();
+      
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      alert('Failed to delete item. Please try again.');
+    }
+  }
+
+  renderStats() {
+    const statsContainer = document.getElementById('stats');
+    const totalItems = this.contentData.length;
+    const totalTags = [...new Set(this.contentData.flatMap(item => item.tags))].length;
+    const thisMonth = this.contentData.filter(item => {
+      const itemDate = new Date(item.date);
+      const now = new Date();
+      return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
+    }).length;
+    const uniqueWebsites = [...new Set(this.contentData.map(item => {
+      try {
+        return new URL(item.url).hostname;
+      } catch {
+        return 'Unknown';
+      }
+    }))].length;
+
+    statsContainer.innerHTML = `
+      <div class="stat-card">
+        <div class="stat-number">${totalItems}</div>
+        <div class="stat-label">Total Items</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">${totalTags}</div>
+        <div class="stat-label">Unique Tags</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">${thisMonth}</div>
+        <div class="stat-label">This Month</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">${uniqueWebsites}</div>
+        <div class="stat-label">Websites</div>
+      </div>
+    `;
+  }
+
+  renderTagFilter() {
+    const tagFilter = document.getElementById('tagFilter');
+    const allTags = [...new Set(this.contentData.flatMap(item => item.tags))].sort();
     
-    Array.from(this.allTags).sort().forEach(tag => {
+    tagFilter.innerHTML = '<option value="">All Tags</option>';
+    allTags.forEach(tag => {
       const option = document.createElement('option');
       option.value = tag;
       option.textContent = tag;
@@ -242,22 +261,40 @@ class FullPageQuoteCollector {
     });
   }
 
-  filterContent() {
-    const searchQuery = document.getElementById('search-input').value.toLowerCase();
-    const selectedTag = document.getElementById('tag-filter').value;
-    const dateFilter = document.getElementById('date-filter').value;
+  applyFilters() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const selectedTag = document.getElementById('tagFilter').value;
+    const dateRange = document.getElementById('dateFilter').value;
 
-    this.filteredContent = this.allContent.filter(item => {
-      // Search in title and content
-      const matchesSearch = !searchQuery || 
-        item.title.toLowerCase().includes(searchQuery) ||
-        item.content.toLowerCase().includes(searchQuery);
+    this.filteredData = this.contentData.filter(item => {
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        item.title.toLowerCase().includes(searchTerm) ||
+        item.content.toLowerCase().includes(searchTerm) ||
+        item.tags.some(tag => tag.toLowerCase().includes(searchTerm));
 
-      // Filter by tag
+      // Tag filter
       const matchesTag = !selectedTag || item.tags.includes(selectedTag);
 
-      // Filter by date
-      const matchesDate = !dateFilter || item.date === new Date(dateFilter).toLocaleDateString();
+      // Date filter
+      let matchesDate = true;
+      if (dateRange) {
+        const itemDate = new Date(item.date);
+        const now = new Date();
+        switch (dateRange) {
+          case 'today':
+            matchesDate = itemDate.toDateString() === now.toDateString();
+            break;
+          case 'week':
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            matchesDate = itemDate >= weekAgo;
+            break;
+          case 'month':
+            matchesDate = itemDate.getMonth() === now.getMonth() && 
+                         itemDate.getFullYear() === now.getFullYear();
+            break;
+        }
+      }
 
       return matchesSearch && matchesTag && matchesDate;
     });
@@ -265,101 +302,51 @@ class FullPageQuoteCollector {
     this.renderContent();
   }
 
-  updateStats() {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const thisMonthCount = this.allContent.filter(item => {
-      const itemDate = new Date(item.date);
-      return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
-    }).length;
-
-    const uniqueWebsites = new Set(
-      this.allContent.map(item => {
-        try {
-          return new URL(item.url).hostname;
-        } catch {
-          return item.url;
-        }
-      })
-    ).size;
-
-    document.getElementById('stat-total').textContent = this.allContent.length;
-    document.getElementById('stat-tags').textContent = this.allTags.size;
-    document.getElementById('stat-month').textContent = thisMonthCount;
-    document.getElementById('stat-websites').textContent = uniqueWebsites;
-  }
-
   renderContent() {
-    const grid = document.getElementById('content-grid');
-    
-    if (this.filteredContent.length === 0) {
-      grid.style.display = 'none';
-      document.getElementById('empty-state').style.display = 'block';
+    const contentContainer = document.getElementById('content');
+    const noResults = document.getElementById('no-results');
+
+    if (this.filteredData.length === 0) {
+      contentContainer.style.display = 'none';
+      noResults.style.display = 'block';
       return;
     }
 
-    grid.style.display = 'grid';
-    document.getElementById('empty-state').style.display = 'none';
+    contentContainer.style.display = 'block';
+    noResults.style.display = 'none';
 
-    grid.innerHTML = this.filteredContent.map(item => `
+    contentContainer.innerHTML = this.filteredData.map(item => `
       <div class="content-card">
-        <div class="content-body">
-          <p class="content-quote">${this.escapeHtml(item.content)}</p>
-          
-          <a href="${item.url}" target="_blank" class="content-title">
-            ${this.escapeHtml(item.title)}
-          </a>
-          
+        <div class="content-actions">
+          <button class="delete-btn" onclick="fullPageCollector.deleteItem(${item.id})" title="Delete">
+            🗑️
+          </button>
+        </div>
+        
+        ${item.image ? `<img src="${item.image}" alt="" class="content-image">` : ''}
+        
+        <a href="${item.url}" target="_blank" class="content-title">
+          ${this.escapeHtml(item.title)}
+        </a>
+        
+        <div class="content-text">
+          ${this.escapeHtml(item.content)}
+        </div>
+        
+        ${item.tags.length > 0 ? `
           <div class="content-tags">
             ${item.tags.map(tag => `
               <span class="tag" onclick="window.selectTag('${tag}')">${this.escapeHtml(tag)}</span>
             `).join('')}
           </div>
-          
-          <div class="content-footer">
-            <a href="${item.url}" target="_blank" class="content-source">
-              ${this.getHostname(item.url)}
-            </a>
-            <span class="content-date">${this.formatDate(item.date)}</span>
-          </div>
+        ` : ''}
+        
+        <div class="content-meta">
+          <span>${this.formatDate(item.date)}</span>
+          <span>${this.getDomain(item.url)}</span>
         </div>
       </div>
     `).join('');
-  }
-
-  selectTag(tag) {
-    document.getElementById('tag-filter').value = tag;
-    this.filterContent();
-  }
-
-  getHostname(url) {
-    try {
-      return new URL(url).hostname;
-    } catch {
-      return url;
-    }
-  }
-
-  formatDate(dateStr) {
-    try {
-      const date = new Date(dateStr);
-      const now = new Date();
-      const diffTime = Math.abs(now - date);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays === 1) return "1 day ago";
-      if (diffDays <= 7) return `${diffDays} days ago`;
-      
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
-      });
-    } catch {
-      return dateStr;
-    }
   }
 
   escapeHtml(text) {
@@ -368,35 +355,69 @@ class FullPageQuoteCollector {
     return div.innerHTML;
   }
 
-  showAuthRequired() {
-    document.getElementById('auth-required').style.display = 'block';
-    document.getElementById('main-content').style.display = 'none';
+  formatDate(dateStr) {
+    try {
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
   }
 
-  showMainContent() {
-    document.getElementById('auth-required').style.display = 'none';
-    document.getElementById('main-content').style.display = 'block';
+  getDomain(url) {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return 'Unknown source';
+    }
   }
 
   showLoading(show) {
-    document.getElementById('loading').style.display = show ? 'block' : 'none';
+    const loading = document.getElementById('loading');
+    const content = document.getElementById('content');
+    const stats = document.getElementById('stats');
+    const authRequired = document.getElementById('auth-required');
+
+    if (show) {
+      loading.style.display = 'block';
+      content.style.display = 'none';
+      stats.style.display = 'none';
+      authRequired.style.display = 'none';
+    } else {
+      loading.style.display = 'none';
+      stats.style.display = 'grid';
+    }
   }
 
-  showError(message) {
-    const errorDiv = document.getElementById('error-message');
-    errorDiv.textContent = message;
-    errorDiv.style.display = 'block';
-    setTimeout(() => {
-      errorDiv.style.display = 'none';
-    }, 5000);
+  showAuthRequired() {
+    const loading = document.getElementById('loading');
+    const content = document.getElementById('content');
+    const stats = document.getElementById('stats');
+    const authRequired = document.getElementById('auth-required');
+
+    loading.style.display = 'none';
+    content.style.display = 'none';
+    stats.style.display = 'none';
+    authRequired.style.display = 'block';
   }
 }
 
-// Global function for tag selection (called from HTML)
+// Global functions
 window.selectTag = function(tag) {
-  document.getElementById('tag-filter').value = tag;
-  window.fullPageCollector.filterContent();
-}
+  const tagFilter = document.getElementById('tagFilter');
+  tagFilter.value = tag;
+  fullPageCollector.applyFilters();
+};
 
-// Initialize the full page view
-window.fullPageCollector = new FullPageQuoteCollector();
+window.authenticateWithGoogle = function() {
+  fullPageCollector.authenticateWithGoogle();
+};
+
+// Initialize when page loads
+let fullPageCollector;
+document.addEventListener('DOMContentLoaded', () => {
+  fullPageCollector = new FullPageCollector();
+});
