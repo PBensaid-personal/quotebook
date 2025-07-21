@@ -262,7 +262,8 @@ class FullPageCollector {
       const rows = data.values || [];
 
       this.contentData = rows.map((row, index) => ({
-        id: index + 2, // Row number (starting from 2 since 1 is header)
+        id: index, // 0-based index in the data array
+        rowNumber: index + 2, // Actual spreadsheet row number (row 1 is header, data starts at row 2)
         title: row[0] || 'Untitled',
         content: row[1] || '',
         url: row[2] || '',
@@ -316,13 +317,17 @@ class FullPageCollector {
     try {
       console.log('Deleting item with ID:', itemId);
       
-      // Find the row number for this item (row numbers start at 1, but we need 0-based index)
-      // Row 1 is headers, so data starts at row 2
-      const rowIndex = itemId + 1; // itemId is already 1-based from spreadsheet data
+      // Find the item in our data array
+      const item = this.contentData.find(item => item.id === itemId);
+      if (!item) {
+        console.error('Item not found:', itemId);
+        return;
+      }
       
-      console.log('Deleting row index:', rowIndex);
+      const rowNumber = item.rowNumber; // This is the actual spreadsheet row number
+      console.log('Deleting spreadsheet row:', rowNumber);
 
-      // Delete row from spreadsheet
+      // Delete row from spreadsheet (convert to 0-based index for API)
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`, {
         method: 'POST',
         headers: {
@@ -335,8 +340,8 @@ class FullPageCollector {
               range: {
                 sheetId: 0,
                 dimension: 'ROWS',
-                startIndex: rowIndex - 1, // Convert to 0-based index
-                endIndex: rowIndex
+                startIndex: rowNumber - 1, // Convert to 0-based index for API
+                endIndex: rowNumber // endIndex is exclusive
               }
             }
           }]
