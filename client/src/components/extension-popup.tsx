@@ -21,14 +21,16 @@ interface SelectedContent {
 export default function ExtensionPopup() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   // Mock selected content - in real extension this would come from content script
   const [selectedContent] = useState<SelectedContent>({
     title: "The Future of Web Development",
-    content: "Modern web development has evolved significantly with the introduction of new frameworks and tools that enable developers to create more interactive and performant applications...",
+    content:
+      "Modern web development has evolved significantly with the introduction of new frameworks and tools that enable developers to create more interactive and performant applications...",
     url: "https://techblog.example.com/web-dev-future",
     siteName: "TechBlog",
-    imageUrl: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=80",
+    imageUrl:
+      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=80",
     suggestedTags: ["web development", "technology"],
   });
 
@@ -60,9 +62,12 @@ export default function ExtensionPopup() {
     const allTags = [
       ...selectedContent.suggestedTags,
       ...userTags,
-      ...customTags.split(",").map(tag => tag.trim()).filter(Boolean),
+      ...customTags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
     ];
-    
+
     const uniqueTags = Array.from(new Set(allTags));
 
     saveContentMutation.mutate({
@@ -77,14 +82,17 @@ export default function ExtensionPopup() {
 
   const handleAddCustomTag = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && customTags.trim()) {
-      const newTags = customTags.split(",").map(tag => tag.trim()).filter(Boolean);
-      setUserTags(prev => [...prev, ...newTags]);
+      const newTags = customTags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      setUserTags((prev) => [...prev, ...newTags]);
       setCustomTags("");
     }
   };
 
   const removeUserTag = (tagToRemove: string) => {
-    setUserTags(prev => prev.filter(tag => tag !== tagToRemove));
+    setUserTags((prev) => prev.filter((tag) => tag !== tagToRemove));
   };
 
   return (
@@ -101,9 +109,9 @@ export default function ExtensionPopup() {
         {/* Content Preview */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-start space-x-3">
-            <img 
+            <img
               src={selectedContent.imageUrl}
-              alt="Article preview" 
+              alt="Article preview"
               className="w-16 h-12 rounded object-cover flex-shrink-0"
             />
             <div className="flex-1 min-w-0">
@@ -134,11 +142,15 @@ export default function ExtensionPopup() {
           <label className="block text-xs font-medium text-gray-700 mb-2">
             Tags
           </label>
-          
+
           {/* Suggested Tags */}
           <div className="flex flex-wrap gap-2 mb-3">
             {selectedContent.suggestedTags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="bg-blue-accent-light text-blue-accent">
+              <Badge
+                key={tag}
+                variant="secondary"
+                className="bg-blue-accent-light text-blue-accent"
+              >
                 <Sparkles className="w-3 h-3 mr-1" />
                 {tag}
               </Badge>
@@ -160,7 +172,7 @@ export default function ExtensionPopup() {
             {userTags.map((tag) => (
               <Badge key={tag} variant="outline" className="bg-gray-100">
                 {tag}
-                <button 
+                <button
                   onClick={() => removeUserTag(tag)}
                   className="ml-1 text-gray-500 hover:text-red-500"
                 >
@@ -173,7 +185,7 @@ export default function ExtensionPopup() {
 
         {/* Action Buttons */}
         <div className="p-4 space-y-2">
-          <Button 
+          <Button
             onClick={handleSave}
             disabled={saveContentMutation.isPending}
             className="w-full"

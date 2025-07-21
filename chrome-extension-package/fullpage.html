@@ -141,6 +141,15 @@
         font-size: 14px;
       }
 
+      .filter-group select {
+        padding-right: 40px; /* Extra padding for dropdown arrow */
+        appearance: none; /* Remove default arrow */
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23374151' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
+      }
+
       .filter-group input::placeholder {
         color: hsl(25, 5.3%, 44.7%);
       }
@@ -179,7 +188,6 @@
         break-inside: avoid;
         transition: all 0.3s ease;
         position: relative;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
 
       .content-card:hover {
@@ -390,18 +398,24 @@
         <!-- Content will be populated by JavaScript -->
       </div>
 
-      <div id="load-more-container" style="display: none; text-align: center; margin: 40px 0;">
-        <button id="load-more-btn" style="
-          background: hsl(220, 30%, 18%);
-          color: white;
-          border: none;
-          padding: 12px 24px;
-          border-radius: 8px;
-          font-size: 14px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        ">
+      <div
+        id="load-more-container"
+        style="display: none; text-align: center; margin: 40px 0"
+      >
+        <button
+          id="load-more-btn"
+          style="
+            background: hsl(220, 30%, 18%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          "
+        >
           Load More Quotes
         </button>
       </div>
