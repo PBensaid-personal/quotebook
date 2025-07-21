@@ -442,6 +442,20 @@ class EnhancedQuoteCollector {
         return;
       }
 
+      console.log('Starting save process...');
+      
+      // Ensure we have a spreadsheet ID
+      if (!this.spreadsheetId) {
+        console.log('No spreadsheet ID, setting up spreadsheet...');
+        await this.setupSpreadsheetIfNeeded();
+      }
+      
+      if (!this.spreadsheetId) {
+        throw new Error('Failed to setup spreadsheet');
+      }
+      
+      console.log('Using spreadsheet ID:', this.spreadsheetId);
+      
       this.showStatusMain('Saving to Google Sheets...', 'info');
       document.getElementById('save-button').disabled = true;
 
@@ -474,6 +488,8 @@ class EnhancedQuoteCollector {
         pageImage,
         pageCategories.join(', ')
       ];
+      
+      console.log('Saving row data:', row);
 
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
         method: 'POST',
@@ -486,7 +502,22 @@ class EnhancedQuoteCollector {
         })
       });
 
+      console.log('Save response status:', response.status);
+
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('Save successful:', responseData);
+        
+        // Make sure storage is up to date with current spreadsheet
+        await chrome.storage.local.set({
+          googleAccessToken: this.accessToken,
+          googleSpreadsheetId: this.spreadsheetId
+        });
+        console.log('Storage updated with:', { 
+          hasAccessToken: !!this.accessToken, 
+          spreadsheetId: this.spreadsheetId 
+        });
+        
         this.showStatusMain('Content saved successfully!', 'success');
 
         // Clear content and reset
@@ -498,8 +529,9 @@ class EnhancedQuoteCollector {
           window.close();
         }, 1500);
       } else {
-        const error = await response.text();
-        this.showStatusMain(`Save failed: ${response.status}`, 'error');
+        const errorData = await response.json();
+        console.error('Save failed:', errorData);
+        this.showStatusMain(`Save failed: ${errorData.error?.message || 'Unknown error'}`, 'error');
       }
 
     } catch (error) {
