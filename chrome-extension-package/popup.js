@@ -33,49 +33,16 @@ class EnhancedQuoteCollector {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
 
-    document.getElementById('tag-input').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        this.addCustomTags();
-      }
-    });
+    // Remove Enter key handler - tags will be processed on Save
   }
 
   setupTagInterface() {
-    // Start with empty suggested tags - they'll be populated from page metadata
-    this.suggestedTags = [];
-    this.renderSuggestedTags();
+    // Initialize with empty user tags
+    this.userTags = [];
     this.renderUserTags();
   }
 
-  renderSuggestedTags() {
-    // Render suggested tags - clickable to add to user tags
-    const container = document.getElementById('suggested-tags');
-    container.innerHTML = '';
-    
-    this.suggestedTags.forEach(tag => {
-      const tagElement = document.createElement('div');
-      tagElement.className = 'tag tag-suggested';
-      tagElement.innerHTML = `
-        <svg class="sparkles-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .962 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.962 0L9.937 15.5z"/>
-        </svg>
-        ${tag}
-      `;
-      
-      // Make suggested tags clickable to add them to user tags
-      tagElement.addEventListener('click', () => {
-        if (!this.userTags.includes(tag)) {
-          this.userTags.push(tag);
-          this.renderUserTags();
-        }
-        // Remove from suggested after adding
-        this.suggestedTags = this.suggestedTags.filter(t => t !== tag);
-        this.renderSuggestedTags();
-      });
-      
-      container.appendChild(tagElement);
-    });
-  }
+  // Remove renderSuggestedTags - no longer needed
 
   renderUserTags() {
     // Render user-added tags - all with X to delete
@@ -100,26 +67,23 @@ class EnhancedQuoteCollector {
     });
   }
 
-  addCustomTags() {
+  processInputTags() {
+    // Process tags from input field during save
     const input = document.getElementById('tag-input');
     const inputValue = input.value.trim();
-    console.log('Adding custom tags, input value:', inputValue);
     
-    if (!inputValue) return;
-    
-    const newTags = inputValue.split(',').map(tag => tag.trim()).filter(Boolean);
-    
-    if (newTags.length > 0) {
-      console.log('New tags to add:', newTags);
+    if (inputValue) {
+      const newTags = inputValue.split(',').map(tag => tag.trim()).filter(Boolean);
+      console.log('Processing input tags:', newTags);
+      
       // Add new tags, avoiding duplicates
       newTags.forEach(tag => {
         if (!this.userTags.includes(tag)) {
           this.userTags.push(tag);
         }
       });
-      input.value = '';
-      console.log('Updated userTags after adding:', this.userTags);
-      this.renderUserTags();
+      
+      input.value = ''; // Clear input after processing
     }
   }
 
@@ -432,14 +396,14 @@ class EnhancedQuoteCollector {
         if (response && response.selectedText) {
           document.getElementById('content').value = response.selectedText;
           
-          // Auto-generate tags based on content
+          // Auto-generate suggested tags and add them as user tags
           this.generateSuggestedTags(response.selectedText);
         } else {
           // If no text selected, show sample content for demo
           document.getElementById('content').value = "Select text on the webpage to capture it here...";
         }
         
-        // Always try to get page metadata for suggested tags
+        // Always try to get page metadata and add as user tags
         this.extractPageMetadata();
       } catch (e) {
         // Could not get selected text, this is normal for some pages
@@ -459,12 +423,16 @@ class EnhancedQuoteCollector {
       
       if (result && result.categories && result.categories.length > 0) {
         console.log('Extracted page categories:', result.categories);
-        // Add page categories as suggested tags
-        const existingSuggested = this.suggestedTags || [];
-        const newSuggested = [...new Set([...existingSuggested, ...result.categories.slice(0, 3)])];
-        this.suggestedTags = newSuggested.slice(0, 5); // Limit to 5 total
-        console.log('Updated suggested tags:', this.suggestedTags);
-        this.renderSuggestedTags();
+        
+        // Add page categories directly as user tags (pre-added, removable)
+        result.categories.slice(0, 3).forEach(tag => {
+          if (!this.userTags.includes(tag)) {
+            this.userTags.push(tag);
+          }
+        });
+        
+        console.log('Added page categories to user tags:', this.userTags);
+        this.renderUserTags();
       }
     } catch (e) {
       console.log('Could not extract page metadata:', e);
@@ -483,7 +451,7 @@ class EnhancedQuoteCollector {
   }
 
   generateSuggestedTags(content) {
-    // Simple keyword extraction for suggested tags
+    // Simple keyword extraction - directly add as user tags
     const keywords = [];
     const text = content.toLowerCase();
     
@@ -503,10 +471,16 @@ class EnhancedQuoteCollector {
     if (text.includes('best practices')) keywords.push('best practices');
     if (text.includes('news') || text.includes('report')) keywords.push('news');
     
-    console.log('Generated suggested tags from content:', keywords);
-    this.suggestedTags = [...new Set(keywords)].slice(0, 4); // Max 4 tags
+    console.log('Generated tags from content:', keywords);
     
-    this.renderSuggestedTags();
+    // Add suggested tags directly to user tags (pre-added, removable)
+    keywords.slice(0, 4).forEach(tag => {
+      if (!this.userTags.includes(tag)) {
+        this.userTags.push(tag);
+      }
+    });
+    
+    this.renderUserTags();
   }
 
   async saveQuote() {
@@ -519,6 +493,9 @@ class EnhancedQuoteCollector {
       }
 
       console.log('Starting save process...');
+      
+      // Process any tags in the input field
+      this.processInputTags();
       
       // Ensure we have a spreadsheet ID
       if (!this.spreadsheetId) {
