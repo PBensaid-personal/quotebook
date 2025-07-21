@@ -387,7 +387,7 @@ class EnhancedQuoteCollector {
   }
 
   async addHeaders() {
-    const headers = ['Title', 'Content', 'URL', 'Tags', 'Date', 'Image', 'Categories'];
+    const headers = ['Title', 'Content', 'URL', 'Tags', 'Date', 'Image'];
 
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:G1?valueInputOption=RAW`, {
       method: 'PUT',
@@ -511,22 +511,21 @@ class EnhancedQuoteCollector {
         pageImage = tab.favIconUrl || '';
       }
       
-      // Combine only user tags (no defaults)
-      const uniqueTags = [...new Set(this.userTags)];
+      // Combine user tags with page categories - all become tags
+      const allTags = [...new Set([...this.userTags, ...pageCategories])];
       
       const row = [
         tab.title || 'Untitled',
         content,
         tab.url,
-        uniqueTags.join(', '),
+        allTags.join(', '),
         new Date().toISOString().split('T')[0],
-        pageImage,
-        pageCategories.join(', ')
+        pageImage
       ];
       
       console.log('Saving row data:', row);
 
-      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:F:append?valueInputOption=RAW`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,

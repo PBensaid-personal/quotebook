@@ -204,14 +204,14 @@ class FullPageCollector {
       const spreadsheetId = spreadsheet.spreadsheetId;
 
       // Add headers
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:G1?valueInputOption=RAW`, {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:F1?valueInputOption=RAW`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          values: [['Title', 'Content', 'URL', 'Tags', 'Date', 'Image', 'Categories']]
+          values: [['Title', 'Content', 'URL', 'Tags', 'Date', 'Image']]
         })
       });
 
@@ -242,7 +242,7 @@ class FullPageCollector {
         throw new Error(`Failed to verify spreadsheet: ${verifyResponse.status}`);
       }
 
-      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A2:G1000`, {
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A2:F1000`, {
         headers: {
           'Authorization': `Bearer ${this.accessToken}`
         }
@@ -268,8 +268,7 @@ class FullPageCollector {
         url: row[2] || '',
         tags: row[3] ? row[3].split(',').map(tag => tag.trim()).filter(tag => tag) : [],
         date: row[4] || new Date().toISOString().split('T')[0],
-        image: row[5] || '',
-        categories: row[6] ? row[6].split(',').map(cat => cat.trim()).filter(cat => cat) : []
+        image: row[5] || ''
       }));
 
       this.filteredData = [...this.contentData];
