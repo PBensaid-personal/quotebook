@@ -149,26 +149,45 @@ class EnhancedQuoteCollector {
     this.showStatus('Starting authentication...', 'info');
 
     try {
-      const redirectURL = chrome.identity.getRedirectURL();
-      const clientId = '184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com';
-      const scopes = ['https://www.googleapis.com/auth/spreadsheets'];
-      let authURL = 'https://accounts.google.com/oauth2/authorize';
-      authURL += `?client_id=${clientId}`;
-      authURL += `&response_type=token`;
-      authURL += `&redirect_uri=${encodeURIComponent(redirectURL)}`;
-      authURL += `&scope=${encodeURIComponent(scopes.join(' '))}`;
+      // Clear any existing tokens
+      try {
+        const oldToken = await chrome.identity.getAuthToken({ interactive: false });
+        if (oldToken) {
+          const tokenToRemove = typeof oldToken === 'object' ? oldToken.token : oldToken;
+          await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
+        }
+      } catch (e) {
+        // No cached token to remove
+      }
 
-      const result = await chrome.identity.launchWebAuthFlow({
-        url: authURL,
+      // Request new token using getAuthToken (the original working method)
+      const tokenResult = await chrome.identity.getAuthToken({ 
         interactive: true
       });
 
-      const url = new URL(result);
-      const params = new URLSearchParams(url.hash.substring(1));
-      const accessToken = params.get('access_token');
+      let accessToken;
 
-      if (!accessToken) {
-        throw new Error('No access token received');
+      // Handle both new object format and old string format
+      if (typeof tokenResult === 'object' && tokenResult !== null) {
+        if (tokenResult.token) {
+          accessToken = tokenResult.token;
+
+          // Verify we have the required scope
+          const grantedScopes = tokenResult.grantedScopes || [];
+          const hasSheetScope = grantedScopes.some(scope => 
+            scope.includes('spreadsheets') || scope.includes('sheets')
+          );
+
+          if (!hasSheetScope) {
+            throw new Error('Missing required Google Sheets permission');
+          }
+        } else {
+          throw new Error('Authentication failed - no token received');
+        }
+      } else if (typeof tokenResult === 'string' && tokenResult) {
+        accessToken = tokenResult;
+      } else {
+        throw new Error('Authentication failed - invalid response');
       }
 
       this.accessToken = accessToken;
