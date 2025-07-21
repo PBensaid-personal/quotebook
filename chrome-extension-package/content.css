@@ -1,32 +1,4 @@
-/* Content script styles for WebCapture extension */
-
-#webcapture-feedback {
-  position: fixed !important;
-  top: 20px !important;
-  right: 20px !important;
-  background: #1a1f36 !important;
-  color: white !important;
-  padding: 8px 16px !important;
-  border-radius: 6px !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  font-size: 13px !important;
-  z-index: 10000 !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-  border: 1px solid #4F7CAC !important;
-  animation: slideIn 0.3s ease-out !important;
-  pointer-events: none !important;
-}
-
-@keyframes slideIn {
-  from { 
-    transform: translateX(100%) !important; 
-    opacity: 0 !important; 
-  }
-  to { 
-    transform: translateX(0) !important; 
-    opacity: 1 !important; 
-  }
-}
+/* Content script styles for Quote Collector extension */
 
 /* Text selection highlight enhancement */
 ::selection {
