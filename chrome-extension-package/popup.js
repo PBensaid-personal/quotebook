@@ -30,7 +30,7 @@ class EnhancedQuoteCollector {
     });
 
     document.getElementById('view-all-button').addEventListener('click', () => {
-      chrome.tabs.create({ url: 'chrome-extension://' + chrome.runtime.id + '/fullpage.html' });
+      chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
 
     document.getElementById('tag-input').addEventListener('keydown', (e) => {
