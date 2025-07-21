@@ -30,6 +30,7 @@ class FullPageCollector {
     const searchInput = document.getElementById('searchInput');
     const tagFilter = document.getElementById('tagFilter');
     const dateFilter = document.getElementById('dateFilter');
+    const authButton = document.getElementById('auth-button');
 
     if (searchInput) {
       searchInput.addEventListener('input', () => this.applyFilters());
@@ -39,6 +40,9 @@ class FullPageCollector {
     }
     if (dateFilter) {
       dateFilter.addEventListener('change', () => this.applyFilters());
+    }
+    if (authButton) {
+      authButton.addEventListener('click', () => this.authenticateWithGoogle());
     }
   }
 
