@@ -363,23 +363,37 @@ class FullPageCollector {
         ${item.tags.length > 0 ? `
           <div class="content-tags">
             ${item.tags.map(tag => `
-              <span class="tag" onclick="window.selectTag('${tag}')">${this.escapeHtml(tag)}</span>
-            `).join('')}
+              <span class="tag-pill" onclick="document.getElementById('tagFilter').value='${this.escapeHtml(tag)}'; fullPageCollector.applyFilters()">
+                ${this.escapeHtml(tag)}
+              </span>`).join('')}
           </div>
         ` : ''}
         
         <div class="content-meta">
-          <span>${this.formatDate(item.date)}</span>
-          <span>${this.getDomain(item.url)}</span>
+          <time class="content-date">${item.date}</time>
+          <span class="content-domain">${this.getDomain(item.url)}</span>
         </div>
       </div>
     `).join('');
   }
 
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+  renderNoResults() {
+    return `
+      <div id="no-results" style="display: none;">
+        <div style="text-align: center; padding: 60px 20px; color: hsl(25, 5.3%, 44.7%);">
+          <h3 style="color: hsl(220, 30%, 18%); margin-bottom: 12px;">No content found</h3>
+          <p>Try adjusting your search terms or filters</p>
+        </div>
+      </div>
+    `;
+  }
+
+  getDomain(url) {
+    try {
+      return new URL(url).hostname.replace('www.', '');
+    } catch {
+      return 'Unknown';
+    }
   }
 
   formatDate(dateStr) {
@@ -394,12 +408,10 @@ class FullPageCollector {
     }
   }
 
-  getDomain(url) {
-    try {
-      return new URL(url).hostname;
-    } catch {
-      return 'Unknown source';
-    }
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   showLoading(show) {

@@ -372,9 +372,6 @@ class EnhancedQuoteCollector {
     if (text.includes('best practices')) keywords.push('best practices');
     
     this.suggestedTags = [...new Set(keywords)].slice(0, 4); // Max 4 tags
-    if (this.suggestedTags.length === 0) {
-      this.suggestedTags = ['web content', 'bookmark'];
-    }
     
     this.renderSuggestedTags();
   }
