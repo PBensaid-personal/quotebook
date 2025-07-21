@@ -6,6 +6,9 @@ class FullPageCollector {
     this.spreadsheetId = null;
     this.contentData = [];
     this.filteredData = [];
+    this.displayedItems = [];
+    this.itemsPerPage = 20;
+    this.currentPage = 1;
     this.init();
   }
 
@@ -153,6 +156,11 @@ class FullPageCollector {
           window.open(`https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit`, '_blank');
         }
       });
+    }
+
+    const loadMoreBtn = document.getElementById("load-more-btn");
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener("click", () => this.loadMoreItems());
     }
   }
 
@@ -365,7 +373,10 @@ class FullPageCollector {
         image: row[5] || "",
       }));
 
+      // Sort by date in reverse chronological order (newest first)
+      this.contentData.sort((a, b) => new Date(b.date) - new Date(a.date));
       this.filteredData = [...this.contentData];
+      this.currentPage = 1;
       this.renderStats();
       this.renderTagFilter();
       this.renderContent();
@@ -559,6 +570,8 @@ class FullPageCollector {
       return matchesSearch && matchesTag && matchesDate;
     });
 
+    // Reset pagination when filters change
+    this.currentPage = 1;
     this.renderContent();
   }
 
@@ -569,13 +582,19 @@ class FullPageCollector {
     if (this.filteredData.length === 0) {
       contentContainer.style.display = "none";
       noResults.style.display = "block";
+      this.hideLoadMoreButton();
       return;
     }
 
     contentContainer.style.display = "block";
     noResults.style.display = "none";
 
-    contentContainer.innerHTML = this.filteredData
+    // Calculate pagination
+    const startIndex = 0;
+    const endIndex = this.currentPage * this.itemsPerPage;
+    this.displayedItems = this.filteredData.slice(startIndex, endIndex);
+
+    contentContainer.innerHTML = this.displayedItems
       .map(
         (item) => `
       <div class="content-card" data-item-id="${item.id}">
@@ -620,6 +639,9 @@ class FullPageCollector {
     `,
       )
       .join("");
+
+    // Show/hide load more button
+    this.updateLoadMoreButton();
 
     // Add event listeners for delete buttons and tag pills
     this.attachEventListeners();
@@ -700,6 +722,35 @@ class FullPageCollector {
       spreadsheetLink.style.display = 'flex';
     } else if (spreadsheetLink) {
       spreadsheetLink.style.display = 'none';
+    }
+  }
+
+  loadMoreItems() {
+    this.currentPage++;
+    this.renderContent();
+  }
+
+  updateLoadMoreButton() {
+    const loadMoreContainer = document.getElementById('load-more-container');
+    const totalItems = this.filteredData.length;
+    const displayedItems = this.currentPage * this.itemsPerPage;
+
+    if (loadMoreContainer) {
+      if (displayedItems < totalItems) {
+        loadMoreContainer.style.display = 'block';
+        const remaining = totalItems - displayedItems;
+        const loadMoreBtn = document.getElementById('load-more-btn');
+        loadMoreBtn.textContent = `Load More (${remaining} remaining)`;
+      } else {
+        loadMoreContainer.style.display = 'none';
+      }
+    }
+  }
+
+  hideLoadMoreButton() {
+    const loadMoreContainer = document.getElementById('load-more-container');
+    if (loadMoreContainer) {
+      loadMoreContainer.style.display = 'none';
     }
   }
 }

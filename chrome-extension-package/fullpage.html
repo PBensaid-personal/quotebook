@@ -328,6 +328,12 @@
         transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
       }
+
+      #load-more-btn:hover {
+        background: hsl(207, 90%, 54%) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+      }
     </style>
   </head>
   <body>
@@ -382,6 +388,22 @@
 
       <div id="content" class="content-grid">
         <!-- Content will be populated by JavaScript -->
+      </div>
+
+      <div id="load-more-container" style="display: none; text-align: center; margin: 40px 0;">
+        <button id="load-more-btn" style="
+          background: hsl(220, 30%, 18%);
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        ">
+          Load More Quotes
+        </button>
       </div>
 
       <div id="loading" class="loading" style="display: none">
