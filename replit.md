@@ -127,11 +127,12 @@ The application is designed as a monorepo with shared TypeScript types and schem
 - Ready for unpacked testing and Chrome Web Store submission
 - All user-provided PNG icons properly integrated
 
-### Project Rebranding to Quote Collector (January 2025)
-- Updated project name from WebCapture to Quote Collector
-- Created proper Chrome Extension OAuth client in Google Cloud Console
+### Project Rebranding to Quotebook (January 2025)
+- Updated project name from WebCapture to Quotebook
+- Created proper Chrome Extension OAuth client in Google Cloud Console  
 - Generated stable extension key for consistent Extension ID: igokaadmgmnmbmclnbanjalaakhmghgb
 - Ready for OAuth authentication testing with Google Sheets integration
+- Extension package now named quotebook-extension.zip to match current project branding
 
 ### OAuth Authentication Resolution (January 2025)
 - Multiple failed attempts using Chrome Extension OAuth client type and chrome.identity.getAuthToken()
