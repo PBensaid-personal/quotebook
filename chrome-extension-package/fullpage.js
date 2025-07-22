@@ -362,7 +362,7 @@ class FullPageCollector {
 
       this.contentData = rows.map((row, index) => ({
         id: index, // 0-based index in the data array
-        rowNumber: index + 2, // Actual spreadsheet row number (row 1 is header, data starts at row 2)
+        originalRowIndex: index, // Original position in spreadsheet (before sorting)
         title: row[0] || "Untitled",
         content: row[1] || "",
         url: row[2] || "",
@@ -427,13 +427,17 @@ class FullPageCollector {
       const item = this.contentData.find((item) => item.id === itemId);
       if (!item) {
         console.error("Item not found:", itemId);
+        alert("Item not found. Please refresh and try again.");
         return;
       }
 
-      const rowNumber = item.rowNumber; // This is the actual spreadsheet row number
-      console.log("Deleting spreadsheet row:", rowNumber);
+      // Calculate the actual spreadsheet row number using originalRowIndex
+      // Row 1 has headers, so data starts at row 2
+      // originalRowIndex 0 = row 2, originalRowIndex 1 = row 3, etc.
+      const rowNumber = item.originalRowIndex + 2;
+      console.log("Deleting spreadsheet row:", rowNumber, "for original row index:", item.originalRowIndex);
 
-      // Delete row from spreadsheet (convert to 0-based index for API)
+      // Delete row from spreadsheet using batchUpdate
       const response = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`,
         {
@@ -460,17 +464,35 @@ class FullPageCollector {
       );
 
       if (response.ok) {
-        console.log("Item deleted successfully");
-        // Reload content to refresh the display
-        await this.loadContent();
+        console.log("Item deleted successfully from spreadsheet");
+        
+        // Remove item from local data arrays immediately for better UX
+        const localItemIndex = this.contentData.findIndex((item) => item.id === itemId);
+        if (localItemIndex !== -1) {
+          this.contentData.splice(localItemIndex, 1);
+          
+          // Update originalRowIndex for remaining items that were after the deleted item
+          this.contentData.forEach((remainingItem) => {
+            if (remainingItem.originalRowIndex > item.originalRowIndex) {
+              remainingItem.originalRowIndex--;
+            }
+          });
+        }
+        
+        this.applyFilters(); // This will update filteredData and re-render
+        
+        // Update stats
+        this.renderStats();
+        
+        console.log("Local data updated, remaining items:", this.contentData.length);
       } else {
         const errorData = await response.json();
         console.error("Delete failed:", errorData);
-        alert("Failed to delete item. Please try again.");
+        alert("Failed to delete item. Error: " + (errorData.error?.message || "Unknown error"));
       }
     } catch (error) {
       console.error("Failed to delete item:", error);
-      alert("Failed to delete item. Please try again.");
+      alert("Failed to delete item. Please try again. Error: " + error.message);
     }
   }
 
@@ -603,7 +625,10 @@ class FullPageCollector {
       <div class="content-card" data-item-id="${item.id}">
         <div class="content-actions">
           <button class="delete-btn" data-item-id="${item.id}" title="Delete">
-            🗑️
+            <svg width="19px" height="19px" viewBox="0 0 24 24" stroke-width="2" fill="none" xmlns="http://www.w3.org/2000/svg" color="#000000">
+              <path d="M20 9L18.005 20.3463C17.8369 21.3026 17.0062 22 16.0353 22H7.96474C6.99379 22 6.1631 21.3026 5.99496 20.3463L4 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M21 6L15.375 6M3 6L8.625 6M8.625 6V4C8.625 2.89543 9.52043 2 10.625 2H13.375C14.4796 2 15.375 2.89543 15.375 4V6M8.625 6L15.375 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
           </button>
         </div>
         
