@@ -254,9 +254,9 @@ class FullPageCollector {
     try {
       console.log("Looking for existing Quotebook spreadsheet...");
 
-      // Search for existing Quotebook spreadsheets
+      // Search for existing Quotebook spreadsheets with more specific query
       const searchResponse = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name contains 'Quotebook' and mimeType='application/vnd.google-apps.spreadsheet'&fields=files(id,name,createdTime)`,
+        `https://www.googleapis.com/drive/v3/files?q=name='Quotebook Collection' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name,createdTime)`,
         {
           headers: { Authorization: `Bearer ${this.accessToken}` },
         },
@@ -273,9 +273,24 @@ class FullPageCollector {
           );
 
           console.log(
-            `Found existing spreadsheet: "${existingSheets[0].name}"`,
+            `Found existing spreadsheet: "${existingSheets[0].name}" (${existingSheets[0].id})`,
           );
-          return existingSheets[0].id;
+          
+          // Verify the spreadsheet has the correct headers
+          try {
+            const sheetResponse = await fetch(
+              `https://sheets.googleapis.com/v4/spreadsheets/${existingSheets[0].id}/values/A1:F1`,
+              {
+                headers: { Authorization: `Bearer ${this.accessToken}` },
+              }
+            );
+            
+            if (sheetResponse.ok) {
+              return existingSheets[0].id;
+            }
+          } catch (error) {
+            console.log("Error verifying spreadsheet, will create new one:", error);
+          }
         }
       }
 
@@ -909,12 +924,29 @@ class FullPageCollector {
     // Ensure the auth button is functional
     const authButton = document.getElementById("auth-button");
     if (authButton) {
-      // Remove any existing listeners and add fresh one
+      // Remove any existing listeners and add fresh one with debouncing
       authButton.replaceWith(authButton.cloneNode(true));
       const newAuthButton = document.getElementById("auth-button");
-      newAuthButton.addEventListener("click", () => {
+      let isAuthenticating = false;
+      
+      newAuthButton.addEventListener("click", async () => {
+        if (isAuthenticating) {
+          console.log("Authentication already in progress, ignoring click");
+          return;
+        }
+        
         console.log("Auth button clicked");
-        this.authenticateWithGoogle();
+        isAuthenticating = true;
+        newAuthButton.disabled = true;
+        newAuthButton.textContent = "Authenticating...";
+        
+        try {
+          await this.authenticateWithGoogle();
+        } finally {
+          isAuthenticating = false;
+          newAuthButton.disabled = false;
+          newAuthButton.textContent = "Authenticate with Google";
+        }
       });
     }
   }
