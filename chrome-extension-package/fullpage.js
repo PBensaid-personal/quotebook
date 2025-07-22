@@ -707,10 +707,51 @@ class FullPageCollector {
     const endIndex = this.currentPage * this.itemsPerPage;
     this.displayedItems = this.filteredData.slice(startIndex, endIndex);
 
-    contentContainer.innerHTML = this.displayedItems
-      .map(
-        (item) => `
-      <div class="content-card" data-item-id="${item.id}" data-url="${this.escapeHtml(item.url)}">
+    // Create masonry layout
+    this.renderMasonryLayout();
+
+    // Show/hide load more button
+    this.updateLoadMoreButton();
+
+    // Add event listeners for delete buttons and tag pills
+    this.attachEventListeners();
+  }
+
+  renderMasonryLayout() {
+    const contentContainer = document.getElementById("content");
+    
+    // Determine number of columns based on screen width
+    const screenWidth = window.innerWidth;
+    let columnCount = 3;
+    if (screenWidth <= 600) {
+      columnCount = 1;
+    } else if (screenWidth <= 1000) {
+      columnCount = 2;
+    }
+
+    // Create column containers
+    const columns = [];
+    for (let i = 0; i < columnCount; i++) {
+      const column = document.createElement('div');
+      column.className = 'masonry-column';
+      columns.push(column);
+    }
+
+    // Track column heights for optimal placement
+    const columnHeights = new Array(columnCount).fill(0);
+
+    // Distribute items to columns
+    this.displayedItems.forEach((item, index) => {
+      // Find shortest column
+      const shortestColumnIndex = columnHeights.indexOf(Math.min(...columnHeights));
+      
+      // Create card element
+      const cardElement = document.createElement('div');
+      cardElement.className = 'content-card';
+      cardElement.setAttribute('data-item-id', item.id);
+      cardElement.setAttribute('data-url', this.escapeHtml(item.url));
+      
+      cardElement.innerHTML = `
         <div class="content-actions">
           <button class="delete-btn" data-item-id="${item.id}" title="Delete">
             <svg width="19px" height="19px" viewBox="0 0 24 24" stroke-width="2" fill="none" xmlns="http://www.w3.org/2000/svg" color="#000000">
@@ -751,16 +792,27 @@ class FullPageCollector {
           <span class="content-domain">${this.getDomain(item.url)}</span>
           <time class="content-date">${item.date}</time>
         </div>
-      </div>
-    `,
-      )
-      .join("");
+      `;
 
-    // Show/hide load more button
-    this.updateLoadMoreButton();
+      // Add to shortest column
+      columns[shortestColumnIndex].appendChild(cardElement);
+      
+      // Update column height (approximate - will be refined after DOM insertion)
+      columnHeights[shortestColumnIndex] += 200 + (item.content.length * 0.3); // Rough height estimation
+    });
 
-    // Add event listeners for delete buttons and tag pills
-    this.attachEventListeners();
+    // Clear container and add columns
+    contentContainer.innerHTML = '';
+    columns.forEach(column => {
+      contentContainer.appendChild(column);
+    });
+
+    // Set container height based on tallest column
+    setTimeout(() => {
+      const actualColumnHeights = columns.map(col => col.offsetHeight);
+      const maxHeight = Math.max(...actualColumnHeights);
+      contentContainer.style.height = maxHeight + 'px';
+    }, 0);
   }
 
   renderNoResults() {
