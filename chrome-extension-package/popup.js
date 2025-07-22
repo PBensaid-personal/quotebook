@@ -299,10 +299,10 @@ class EnhancedQuoteCollector {
         }
       }
 
-      this.showStatus('Looking for existing Quote Collector spreadsheet...', 'info');
+      this.showStatus('Looking for existing Quotebook spreadsheet...', 'info');
 
-      // Search for existing Quote Collector spreadsheets (excluding trashed files)
-      const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name contains 'Quote Collector' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name,createdTime)`, {
+      // Search for existing Quotebook Collection spreadsheet (exact match, excluding trashed files)
+      const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='Quotebook Collection' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name,createdTime)`, {
         headers: { 'Authorization': `Bearer ${this.accessToken}` }
       });
 
@@ -314,7 +314,7 @@ class EnhancedQuoteCollector {
           // Sort by creation date (newest first)
           existingSheets.sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime));
           
-          // Use the most recent Quote Collector spreadsheet
+          // Use the most recent Quotebook Collection spreadsheet
           this.spreadsheetId = existingSheets[0].id;
           
           // Store the found spreadsheet
@@ -329,7 +329,7 @@ class EnhancedQuoteCollector {
       }
 
       // No existing spreadsheet found, create a new one
-      this.showStatus('Creating new Quote Collector spreadsheet...', 'info');
+      this.showStatus('Creating new Quotebook spreadsheet...', 'info');
       
       const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
         method: 'POST',
@@ -339,7 +339,7 @@ class EnhancedQuoteCollector {
         },
         body: JSON.stringify({
           properties: {
-            title: 'Quote Collector Collection'
+            title: 'Quotebook Collection'
           },
           sheets: [{
             properties: {
@@ -362,7 +362,7 @@ class EnhancedQuoteCollector {
         // Add headers
         await this.addHeaders();
 
-        this.showStatus('New Quote Collector spreadsheet created!', 'success');
+        this.showStatus('New Quotebook spreadsheet created!', 'success');
       } else {
         const error = await response.text();
         this.showStatus(`Failed to create spreadsheet: ${response.status}`, 'error');
