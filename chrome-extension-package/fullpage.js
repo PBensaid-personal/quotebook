@@ -474,7 +474,9 @@ class FullPageCollector {
   }
 
   async deleteItem(itemId) {
-    if (!confirm("Are you sure you want to delete this item?")) {
+    // Show custom modal instead of ugly browser confirm
+    const confirmed = await this.showDeleteConfirmation();
+    if (!confirmed) {
       return;
     }
 
@@ -615,15 +617,118 @@ class FullPageCollector {
       } else {
         const errorData = await response.json();
         console.error("Delete failed:", errorData);
-        alert(
+        this.showErrorMessage(
           "Failed to delete item. Error: " +
-            (errorData.error?.message || "Unknown error"),
+            (errorData.error?.message || "Unknown error")
         );
       }
     } catch (error) {
       console.error("Failed to delete item:", error);
-      alert("Failed to delete item. Please try again. Error: " + error.message);
+      this.showErrorMessage("Failed to delete item. Please try again. Error: " + error.message);
     }
+  }
+
+  showDeleteConfirmation() {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('delete-modal');
+      const confirmBtn = document.getElementById('confirm-delete');
+      const cancelBtn = document.getElementById('cancel-delete');
+      
+      // Show modal
+      modal.style.display = 'flex';
+      
+      // Handle confirm
+      const handleConfirm = () => {
+        cleanup();
+        resolve(true);
+      };
+      
+      // Handle cancel
+      const handleCancel = () => {
+        cleanup();
+        resolve(false);
+      };
+      
+      // Handle clicking outside modal
+      const handleOverlayClick = (e) => {
+        if (e.target === modal) {
+          handleCancel();
+        }
+      };
+      
+      // Handle escape key
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          handleCancel();
+        }
+      };
+      
+      // Cleanup function
+      const cleanup = () => {
+        modal.style.display = 'none';
+        confirmBtn.removeEventListener('click', handleConfirm);
+        cancelBtn.removeEventListener('click', handleCancel);
+        modal.removeEventListener('click', handleOverlayClick);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+      
+      // Add event listeners
+      confirmBtn.addEventListener('click', handleConfirm);
+      cancelBtn.addEventListener('click', handleCancel);
+      modal.addEventListener('click', handleOverlayClick);
+      document.addEventListener('keydown', handleKeyDown);
+    });
+  }
+
+  showErrorMessage(message) {
+    // Create a simple toast-style error message
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #dc2626;
+      color: white;
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 10001;
+      max-width: 400px;
+      font-size: 14px;
+      line-height: 1.4;
+      animation: slideIn 0.3s ease-out;
+    `;
+    
+    // Add slide-in animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateX(100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => {
+          if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+          }
+        }, 300);
+      }
+    }, 5000);
   }
 
   renderStats() {
