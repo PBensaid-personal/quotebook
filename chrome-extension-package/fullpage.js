@@ -720,27 +720,25 @@ class FullPageCollector {
   renderMasonryLayout() {
     const contentContainer = document.getElementById("content");
     
-    // Determine number of columns based on screen width
-    const screenWidth = window.innerWidth;
-    let columnCount = 3;
-    if (screenWidth <= 600) {
-      columnCount = 1;
-    } else if (screenWidth <= 1000) {
-      columnCount = 2;
-    }
-
-    // Create column containers
+    // Number of columns based on screen size
+    const getColumnCount = () => {
+      if (window.innerWidth <= 600) return 1;
+      if (window.innerWidth <= 1000) return 2;
+      return 3;
+    };
+    
+    const columnCount = getColumnCount();
+    
+    // Create columns
     const columns = [];
+    const columnHeights = [];
+    
     for (let i = 0; i < columnCount; i++) {
       const column = document.createElement('div');
       column.className = 'masonry-column';
       columns.push(column);
+      columnHeights.push(0);
     }
-
-    // Track column heights for optimal placement
-    const columnHeights = new Array(columnCount).fill(0);
-
-    // Distribute items to columns
     this.displayedItems.forEach((item, index) => {
       // Find shortest column
       const shortestColumnIndex = columnHeights.indexOf(Math.min(...columnHeights));
