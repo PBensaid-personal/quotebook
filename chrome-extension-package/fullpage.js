@@ -398,13 +398,13 @@ class FullPageCollector {
     document.querySelectorAll(".content-card").forEach((card) => {
       card.addEventListener("click", (e) => {
         // Don't navigate if user clicked on delete button or tag
-        if (e.target.closest('.delete-btn') || e.target.closest('.tag-pill')) {
+        if (e.target.closest(".delete-btn") || e.target.closest(".tag-pill")) {
           return;
         }
-        
+
         const url = card.getAttribute("data-url");
         if (url) {
-          window.open(url, '_blank');
+          window.open(url, "_blank");
         }
       });
     });
@@ -722,12 +722,12 @@ class FullPageCollector {
         
         ${item.image ? `<img src="${item.image}" alt="" class="content-image">` : ""}
         
-        <div class="content-title">
-          ${this.escapeHtml(item.title)}
-        </div>
-        
         <div class="content-text">
           ${this.escapeHtml(item.content)}
+        </div>
+        
+        <div class="content-title">
+          ${this.escapeHtml(item.title)}
         </div>
         
         ${
