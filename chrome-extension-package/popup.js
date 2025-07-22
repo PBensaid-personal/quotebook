@@ -38,6 +38,12 @@ class EnhancedQuoteCollector {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
 
+    // Header brand (logo + title) opens full page view
+    document.getElementById('header-brand').addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
+    });
+
     // Remove Enter key handler - tags will be processed on Save
   }
 
