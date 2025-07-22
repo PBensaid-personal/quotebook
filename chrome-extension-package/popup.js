@@ -374,9 +374,9 @@ class EnhancedQuoteCollector {
   }
 
   async addHeaders() {
-    const headers = ['Title', 'Content', 'URL', 'Tags', 'Date', 'Image'];
+    const headers = ['Title', 'Content', 'URL', 'Tags', 'Timestamp', 'Image'];
 
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:G1?valueInputOption=RAW`, {
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:F1?valueInputOption=RAW`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${this.accessToken}`,
@@ -534,12 +534,13 @@ class EnhancedQuoteCollector {
       // ONLY save user-added tags
       console.log('Final user tags to save:', this.userTags);
       
+      const now = new Date();
       const row = [
         tab.title || 'Untitled',
         content,
         tab.url,
         this.userTags.join(', '),  // Only user tags
-        new Date().toISOString().split('T')[0],
+        now.toISOString(), // Full timestamp for accurate ordering
         pageImage
       ];
       

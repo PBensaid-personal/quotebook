@@ -333,7 +333,7 @@ class FullPageCollector {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            values: [["Title", "Content", "URL", "Tags", "Date", "Image"]],
+            values: [["Title", "Content", "URL", "Tags", "Timestamp", "Image"]],
           }),
         },
       );
@@ -829,7 +829,7 @@ class FullPageCollector {
         
         <div class="content-meta">
           <span class="content-domain">${this.getDomain(item.url)}</span>
-          <time class="content-date">${item.date}</time>
+          <time class="content-date">${this.formatDate(item.date)}</time>
         </div>
       `;
 
@@ -875,7 +875,8 @@ class FullPageCollector {
 
   formatDate(dateStr) {
     try {
-      return new Date(dateStr).toLocaleDateString("en-US", {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
