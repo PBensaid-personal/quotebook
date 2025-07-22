@@ -437,7 +437,30 @@ class FullPageCollector {
       const rowNumber = item.originalRowIndex + 2;
       console.log("Deleting spreadsheet row:", rowNumber, "for original row index:", item.originalRowIndex);
 
-      // Delete row from spreadsheet using batchUpdate
+      // First, get the correct sheet ID from the spreadsheet metadata
+      const metadataResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}?fields=sheets.properties`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+        }
+      );
+
+      if (!metadataResponse.ok) {
+        throw new Error("Failed to get spreadsheet metadata");
+      }
+
+      const metadata = await metadataResponse.json();
+      const firstSheet = metadata.sheets?.[0];
+      if (!firstSheet) {
+        throw new Error("No sheets found in spreadsheet");
+      }
+
+      const sheetId = firstSheet.properties.sheetId;
+      console.log("Using sheet ID:", sheetId, "for deletion");
+
+      // Delete row from spreadsheet using batchUpdate with correct sheet ID
       const response = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`,
         {
@@ -451,7 +474,7 @@ class FullPageCollector {
               {
                 deleteDimension: {
                   range: {
-                    sheetId: 0,
+                    sheetId: sheetId,
                     dimension: "ROWS",
                     startIndex: rowNumber - 1, // Convert to 0-based index for API
                     endIndex: rowNumber, // endIndex is exclusive
