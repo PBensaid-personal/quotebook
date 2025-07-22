@@ -118,7 +118,10 @@
         background: hsl(0, 0%, 100%);
         display: grid;
         padding-bottom: 20px;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: minmax(250px, 2fr) minmax(150px, 1fr) minmax(
+            150px,
+            1fr
+          );
         gap: 15px;
       }
 
@@ -139,6 +142,8 @@
         border-radius: 8px;
         color: hsl(20, 14.3%, 4.1%);
         font-size: 14px;
+        box-sizing: border-box;
+        min-width: 0;
       }
 
       .filter-group select {
@@ -188,11 +193,17 @@
         break-inside: avoid;
         transition: all 0.3s ease;
         position: relative;
+        cursor: pointer;
       }
 
       .content-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+      }
+
+      .content-card:hover .content-title {
+        text-decoration: underline;
+        text-decoration-color: rgb(255, 217, 16);
       }
 
       .content-actions {
@@ -238,18 +249,18 @@
       }
 
       .content-title {
-        color: hsl(220, 30%, 18%);
+        color: #666666;
         text-decoration: none;
         font-size: 16px;
-        font-weight: 600;
+        font-weight: 500;
         line-height: 1.4;
         margin-bottom: 12px;
         display: block;
       }
 
       .content-title:hover {
-        text-decoration: underline;
-        text-decoration-color: rgb(255, 217, 16);
+        text-decoration: underline solid rgb(255, 217, 16) 4px;
+        color: black;
       }
 
       .content-text {

@@ -394,6 +394,21 @@ class FullPageCollector {
   }
 
   attachEventListeners() {
+    // Card click listeners (entire card navigates to URL)
+    document.querySelectorAll(".content-card").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        // Don't navigate if user clicked on delete button or tag
+        if (e.target.closest('.delete-btn') || e.target.closest('.tag-pill')) {
+          return;
+        }
+        
+        const url = card.getAttribute("data-url");
+        if (url) {
+          window.open(url, '_blank');
+        }
+      });
+    });
+
     // Delete button event listeners
     document.querySelectorAll(".delete-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -408,6 +423,7 @@ class FullPageCollector {
     document.querySelectorAll(".tag-pill").forEach((pill) => {
       pill.addEventListener("click", (e) => {
         e.preventDefault();
+        e.stopPropagation(); // Prevent card click
         const tag = pill.getAttribute("data-tag");
         document.getElementById("tagFilter").value = tag;
         this.applyFilters();
@@ -435,7 +451,12 @@ class FullPageCollector {
       // Row 1 has headers, so data starts at row 2
       // originalRowIndex 0 = row 2, originalRowIndex 1 = row 3, etc.
       const rowNumber = item.originalRowIndex + 2;
-      console.log("Deleting spreadsheet row:", rowNumber, "for original row index:", item.originalRowIndex);
+      console.log(
+        "Deleting spreadsheet row:",
+        rowNumber,
+        "for original row index:",
+        item.originalRowIndex,
+      );
 
       // First, get the correct sheet ID from the spreadsheet metadata
       const metadataResponse = await fetch(
@@ -444,7 +465,7 @@ class FullPageCollector {
           headers: {
             Authorization: `Bearer ${this.accessToken}`,
           },
-        }
+        },
       );
 
       if (!metadataResponse.ok) {
@@ -488,63 +509,74 @@ class FullPageCollector {
 
       if (response.ok) {
         console.log("Item deleted successfully from spreadsheet");
-        
+
         // Store current pagination state to preserve user's position
         const currentPageBeforeDeletion = this.currentPage;
         const currentItemsPerPage = this.itemsPerPage;
         const currentScrollPosition = window.scrollY;
-        
+
         // Store current filter state
-        const currentSearchQuery = document.getElementById('searchInput').value;
-        const currentTagFilter = document.getElementById('tagFilter').value;
-        const currentDateFilter = document.getElementById('dateFilter').value;
-        
+        const currentSearchQuery = document.getElementById("searchInput").value;
+        const currentTagFilter = document.getElementById("tagFilter").value;
+        const currentDateFilter = document.getElementById("dateFilter").value;
+
         console.log("Preserving pagination state:", {
           page: currentPageBeforeDeletion,
           itemsPerPage: currentItemsPerPage,
           scroll: currentScrollPosition,
-          filters: { search: currentSearchQuery, tag: currentTagFilter, date: currentDateFilter }
+          filters: {
+            search: currentSearchQuery,
+            tag: currentTagFilter,
+            date: currentDateFilter,
+          },
         });
-        
+
         // Reload fresh data from spreadsheet to get correct row numbers
         await this.loadContent();
-        
+
         // Restore filter state after reload
-        document.getElementById('searchInput').value = currentSearchQuery;
-        document.getElementById('tagFilter').value = currentTagFilter;
-        document.getElementById('dateFilter').value = currentDateFilter;
-        
+        document.getElementById("searchInput").value = currentSearchQuery;
+        document.getElementById("tagFilter").value = currentTagFilter;
+        document.getElementById("dateFilter").value = currentDateFilter;
+
         // Reapply filters with preserved state
         this.applyFilters();
-        
+
         // Restore pagination state - but adjust if we deleted an item that affects current page
-        const itemsBeforePage = (currentPageBeforeDeletion - 1) * currentItemsPerPage;
+        const itemsBeforePage =
+          (currentPageBeforeDeletion - 1) * currentItemsPerPage;
         const totalItemsAfterDeletion = this.filteredData.length;
-        
-        if (itemsBeforePage >= totalItemsAfterDeletion && currentPageBeforeDeletion > 1) {
+
+        if (
+          itemsBeforePage >= totalItemsAfterDeletion &&
+          currentPageBeforeDeletion > 1
+        ) {
           // If current page would be empty after deletion, go back one page
           this.currentPage = Math.max(1, currentPageBeforeDeletion - 1);
         } else {
           // Keep the same page
           this.currentPage = currentPageBeforeDeletion;
         }
-        
+
         // Re-render with preserved pagination
         this.renderContent();
-        
+
         // Restore scroll position after a brief delay to allow rendering
         setTimeout(() => {
           window.scrollTo(0, currentScrollPosition);
         }, 100);
-        
+
         console.log("Deletion completed with preserved pagination state:", {
           newPage: this.currentPage,
-          totalItems: totalItemsAfterDeletion
+          totalItems: totalItemsAfterDeletion,
         });
       } else {
         const errorData = await response.json();
         console.error("Delete failed:", errorData);
-        alert("Failed to delete item. Error: " + (errorData.error?.message || "Unknown error"));
+        alert(
+          "Failed to delete item. Error: " +
+            (errorData.error?.message || "Unknown error"),
+        );
       }
     } catch (error) {
       console.error("Failed to delete item:", error);
@@ -678,7 +710,7 @@ class FullPageCollector {
     contentContainer.innerHTML = this.displayedItems
       .map(
         (item) => `
-      <div class="content-card" data-item-id="${item.id}">
+      <div class="content-card" data-item-id="${item.id}" data-url="${this.escapeHtml(item.url)}">
         <div class="content-actions">
           <button class="delete-btn" data-item-id="${item.id}" title="Delete">
             <svg width="19px" height="19px" viewBox="0 0 24 24" stroke-width="2" fill="none" xmlns="http://www.w3.org/2000/svg" color="#000000">
@@ -690,9 +722,9 @@ class FullPageCollector {
         
         ${item.image ? `<img src="${item.image}" alt="" class="content-image">` : ""}
         
-        <a href="${item.url}" target="_blank" class="content-title">
+        <div class="content-title">
           ${this.escapeHtml(item.title)}
-        </a>
+        </div>
         
         <div class="content-text">
           ${this.escapeHtml(item.content)}
