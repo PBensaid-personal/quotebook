@@ -61,18 +61,9 @@
       }
 
       .logo {
-        display: flex;
-        align-items: center;
-        gap: 12px;
         font-size: 24px;
         font-weight: 600;
         color: hsl(220, 30%, 18%);
-        flex-shrink: 0;
-      }
-
-      .logo-icon {
-        width: 36px;
-        height: 36px;
         flex-shrink: 0;
       }
 
@@ -384,28 +375,7 @@
   <body>
     <div class="container">
       <div class="header-row">
-        <div id="logo" class="logo">
-          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Notebook outline -->
-            <path d="M4 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H4z" stroke="hsl(220, 30%, 18%)" stroke-width="1.5" fill="hsl(220, 30%, 18%)"/>
-            <!-- Binding holes -->
-            <circle cx="1" cy="6" r="1" fill="hsl(220, 30%, 18%)"/>
-            <circle cx="1" cy="9" r="1" fill="hsl(220, 30%, 18%)"/>
-            <circle cx="1" cy="12" r="1" fill="hsl(220, 30%, 18%)"/>
-            <circle cx="1" cy="15" r="1" fill="hsl(220, 30%, 18%)"/>
-            <circle cx="1" cy="18" r="1" fill="hsl(220, 30%, 18%)"/>
-            <!-- Inner page -->
-            <rect x="5" y="4" width="14" height="16" rx="1" fill="white"/>
-            <!-- Quote marks -->
-            <path d="M14 14c-1.5 0-2.5-1-2.5-2.5S12.5 9 14 9c1.1 0 2 .9 2 2v2c0 .8-.7 1.5-1.5 1.5-.8 0-1.5-.7-1.5-1.5z" fill="rgb(255, 217, 16)"/>
-            <path d="M18 14c-1.5 0-2.5-1-2.5-2.5S16.5 9 18 9c1.1 0 2 .9 2 2v2c0 .8-.7 1.5-1.5 1.5-.8 0-1.5-.7-1.5-1.5z" fill="rgb(255, 217, 16)"/>
-            <!-- Text lines -->
-            <line x1="7" y1="7" x2="17" y2="7" stroke="hsl(220, 30%, 75%)" stroke-width="1"/>
-            <line x1="7" y1="10" x2="15" y2="10" stroke="hsl(220, 30%, 75%)" stroke-width="1"/>
-            <line x1="7" y1="17" x2="16" y2="17" stroke="hsl(220, 30%, 75%)" stroke-width="1"/>
-          </svg>
-          Quotebook
-        </div>
+        <div id="logo" class="logo">Quotebook</div>
         <div style="display: flex; align-items: center">
           <div id="stats" class="stats">
             <!-- Stats will be populated by JavaScript -->
