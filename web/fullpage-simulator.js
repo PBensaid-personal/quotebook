@@ -71,7 +71,7 @@ class FullPageSimulator {
         id: 1,
         title: "The Power of Simple Design",
         content: "Simplicity is the ultimate sophistication. Great design is not about adding more features, but about removing everything unnecessary while keeping what truly matters.",
-        url: "https://example.com/design-principles",
+        url: "https://medium.com/design-principles",
         tags: ["design", "simplicity", "ux"],
         date: new Date('2024-01-15').toISOString(),
         originalRowIndex: 0
@@ -80,7 +80,7 @@ class FullPageSimulator {
         id: 2,
         title: "Building Better Software",
         content: "The best software is written not just to work, but to be understood. Code readability and maintainability should be prioritized from day one of any project.",
-        url: "https://example.com/software-engineering",
+        url: "https://stackoverflow.com/software-engineering",
         tags: ["programming", "software", "best-practices"],
         date: new Date('2024-01-14').toISOString(),
         originalRowIndex: 1
@@ -89,7 +89,7 @@ class FullPageSimulator {
         id: 3,
         title: "The Art of Learning",
         content: "Learning how to learn is perhaps the most important skill in our rapidly changing world. Embrace curiosity, ask questions, and never stop growing.",
-        url: "https://example.com/learning",
+        url: "https://www.coursera.org/learning",
         tags: ["learning", "growth", "education"],
         date: new Date('2024-01-13').toISOString(),
         originalRowIndex: 2
@@ -98,7 +98,7 @@ class FullPageSimulator {
         id: 4,
         title: "Effective Communication",
         content: "Clear communication is not about using complex words, but about conveying ideas in the simplest way possible. Listen more than you speak.",
-        url: "https://example.com/communication",
+        url: "https://www.ted.com/communication",
         tags: ["communication", "leadership", "soft-skills"],
         date: new Date('2024-01-12').toISOString(),
         originalRowIndex: 3
@@ -107,7 +107,7 @@ class FullPageSimulator {
         id: 5,
         title: "Innovation Mindset",
         content: "Innovation doesn't always mean inventing something new. Often it means looking at existing problems from a different angle and finding better solutions.",
-        url: "https://example.com/innovation",
+        url: "https://www.harvard.edu/innovation",
         tags: ["innovation", "creativity", "problem-solving"],
         date: new Date('2024-01-11').toISOString(),
         originalRowIndex: 4
@@ -116,7 +116,7 @@ class FullPageSimulator {
         id: 6,
         title: "Digital Minimalism",
         content: "Technology should enhance our lives, not control them. Be intentional about your digital consumption and focus on tools that truly add value.",
-        url: "https://example.com/digital-minimalism",
+        url: "https://www.nytimes.com/digital-minimalism",
         tags: ["minimalism", "technology", "productivity"],
         date: new Date('2024-01-10').toISOString(),
         originalRowIndex: 5
@@ -295,17 +295,41 @@ class FullPageSimulator {
         <div class="content-actions">
           <button class="delete-btn" data-item-id="${item.id}" title="Delete">
             <svg width="19px" height="19px" stroke-width="2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#000000">
-              <path d="m3 6 2.5 14h13L21 6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m-6 5v6m4-6v6" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
           </button>
         </div>
-        <h3 class="content-title">${this.escapeHtml(item.title)}</h3>
-        <div class="content-text">${this.escapeHtml(item.content)}</div>
-        <div class="content-meta">
-          <div class="content-date">${this.formatDate(item.date)}</div>
+        
+        ${item.image ? `<img src="${item.image}" alt="" class="content-image">` : ""}
+        
+        <div class="content-text">
+          ${this.escapeHtml(item.content)}
+        </div>
+        
+        <div class="content-title">
+          ${this.escapeHtml(item.title)}
+        </div>
+        
+        ${
+          item.tags.length > 0
+            ? `
           <div class="content-tags">
-            ${item.tags.map(tag => `<span class="tag-pill" data-tag="${this.escapeHtml(tag)}">${this.escapeHtml(tag)}</span>`).join('')}
+            ${item.tags
+              .map(
+                (tag) => `
+              <span class="tag-pill" data-tag="${this.escapeHtml(tag)}">
+                ${this.escapeHtml(tag)}
+              </span>`,
+              )
+              .join("")}
           </div>
+        `
+            : ""
+        }
+        
+        <div class="content-meta">
+          <span class="content-domain">${this.getDomain(item.url)}</span>
+          <time class="content-date">${this.formatDate(item.date)}</time>
         </div>
       `;
       
@@ -547,6 +571,14 @@ class FullPageSimulator {
       day: 'numeric',
       year: 'numeric'
     });
+  }
+
+  getDomain(url) {
+    try {
+      return new URL(url).hostname.replace('www.', '');
+    } catch {
+      return 'Unknown';
+    }
   }
 
   escapeHtml(text) {

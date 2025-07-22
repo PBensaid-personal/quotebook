@@ -150,3 +150,13 @@ The application is designed as a monorepo with shared TypeScript types and schem
 - **CSP COMPLIANCE FIX**: Removed inline onclick handlers to comply with Chrome extension Content Security Policy, replaced with proper JavaScript event listeners (January 21, 2025)
 - **FEEDBACK REMOVAL**: Completely removed visual feedback mechanism (text selection popup) to eliminate page clutter and improve user experience (January 21, 2025)
 - **PERFORMANCE OPTIMIZATION**: Added reverse chronological sorting (newest first) and pagination system with 20 items per page and load more button for improved page load performance (January 21, 2025)
+
+### Project Architecture Transformation (January 21, 2025)
+- **COMPLETE REWRITE**: Transformed from complex full-stack React/Express/PostgreSQL application to simple static web simulator
+- **Infrastructure Removal**: Eliminated client/, server/, shared/, database/ORM dependencies, React framework, complex build tools
+- **Web Simulator Creation**: Built web/ directory with exact Chrome extension functionality replicas
+- **Extension-First Approach**: Chrome extension package remains unchanged as authoritative source of truth
+- **Static Hosting**: Simple Node.js static file server replaces complex Vite/Express setup
+- **Simulator Features**: popup-simulator.html and fullpage-simulator.html mirror extension exactly with OAuth simulation
+- **Layout Fix**: Corrected content card structure to match extension: content-text → content-title → content-tags → content-meta (with domain and date)
+- **Data Simulation**: Added realistic sample data with proper domain extraction and metadata display
