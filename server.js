@@ -1,11 +1,11 @@
+#!/usr/bin/env node
+
 import { createServer } from 'http';
 import { readFileSync } from 'fs';
-import { join, extname, dirname } from 'path';
+import { join, extname } from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const rootDir = join(__dirname, '..');
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const PORT = process.env.PORT || 5000;
 
 const mimeTypes = {
@@ -32,7 +32,7 @@ const server = createServer((req, res) => {
     filePath = `/web${filePath}`;
   }
   
-  const fullPath = join(rootDir, filePath.replace(/^\//, ''));
+  const fullPath = join(__dirname, filePath);
   const ext = extname(fullPath).toLowerCase();
   const contentType = mimeTypes[ext] || 'application/octet-stream';
 
@@ -49,14 +49,14 @@ const server = createServer((req, res) => {
           <head><title>404 - Not Found</title></head>
           <body>
             <h1>404 - Page Not Found</h1>
-            <p>The requested file was not found: ${req.url}</p>
+            <p>The requested file was not found.</p>
             <a href="/">Go to Home</a>
           </body>
         </html>
       `);
     } else {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('Internal Server Error: ' + error.message);
+      res.end('Internal Server Error');
     }
   }
 });
