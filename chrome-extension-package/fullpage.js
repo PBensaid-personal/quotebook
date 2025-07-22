@@ -190,18 +190,26 @@ class FullPageCollector {
       authURL += `&redirect_uri=${encodeURIComponent(redirectURL)}`;
       authURL += `&scope=${encodeURIComponent(scopes.join(" "))}`;
 
+      console.log("Launching authentication flow...");
       const result = await chrome.identity.launchWebAuthFlow({
         url: authURL,
         interactive: true,
       });
 
+      if (!result) {
+        throw new Error("Authentication was cancelled");
+      }
+
+      console.log("Processing authentication result...");
       const url = new URL(result);
       const params = new URLSearchParams(url.hash.substring(1));
       const accessToken = params.get("access_token");
 
       if (!accessToken) {
-        throw new Error("No access token received");
+        throw new Error("No access token received from Google");
       }
+
+      console.log("Access token received successfully");
 
       this.accessToken = accessToken;
 
@@ -219,7 +227,17 @@ class FullPageCollector {
       console.log("Authentication successful!");
     } catch (error) {
       console.error("Authentication failed:", error);
-      alert("Authentication failed. Please try again.");
+      
+      // Show user-friendly error message
+      const errorMessage = error.message || "Unknown error occurred";
+      if (errorMessage.includes("cancelled") || errorMessage.includes("rejected")) {
+        console.log("Authentication cancelled by user");
+      } else {
+        alert(`Authentication failed: ${errorMessage}\n\nPlease try again or check your internet connection.`);
+      }
+      
+      // Ensure auth screen is shown
+      this.showAuthRequired();
     }
   }
 
@@ -878,6 +896,18 @@ class FullPageCollector {
     stats.style.display = "none";
     authRequired.style.display = "block";
     if (spreadsheetLink) spreadsheetLink.style.display = "none";
+    
+    // Ensure the auth button is functional
+    const authButton = document.getElementById("auth-button");
+    if (authButton) {
+      // Remove any existing listeners and add fresh one
+      authButton.replaceWith(authButton.cloneNode(true));
+      const newAuthButton = document.getElementById("auth-button");
+      newAuthButton.addEventListener("click", () => {
+        console.log("Auth button clicked");
+        this.authenticateWithGoogle();
+      });
+    }
   }
 
   updateSpreadsheetLink() {
