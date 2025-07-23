@@ -85,14 +85,14 @@ class EnhancedQuoteCollector {
         this.updatePinIcon(true);
         
         // Show success message
-        this.showMessage('Extension pinned to toolbar!', 'success');
+        this.showStatus('Extension pinned to toolbar!', 'success');
       } else {
         // Fallback: Show instruction message
-        this.showMessage('Please pin this extension to your toolbar by clicking the puzzle icon in your browser and then the pin icon next to Quotebook', 'info');
+        this.showStatus('Please pin this extension to your toolbar by clicking the puzzle icon in your browser and then the pin icon next to Quotebook', 'info');
       }
     } catch (error) {
       console.error('Failed to pin extension:', error);
-      this.showMessage('Please pin this extension manually using the Extensions menu', 'info');
+      this.showStatus('Please pin this extension manually using the Extensions menu', 'info');
     }
   }
 

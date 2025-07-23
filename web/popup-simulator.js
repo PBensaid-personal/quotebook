@@ -41,7 +41,7 @@ class PopupSimulator {
 
     // Pin icon simulation (shows message since web version can't actually pin)
     document.getElementById('pin-icon').addEventListener('click', () => {
-      this.showMessage('This is a web simulation. Install the real Chrome extension to use pinning functionality.', 'info');
+      this.showStatus('This is a web simulation. Install the real Chrome extension to use pinning functionality.', 'info');
     });
   }
 
