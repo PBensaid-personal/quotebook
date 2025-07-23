@@ -39,10 +39,7 @@ class PopupSimulator {
       window.open('fullpage-simulator.html', '_blank');
     });
 
-    // Pin container simulation (shows message since web version can't actually pin)
-    document.querySelector('.pin-container').addEventListener('click', () => {
-      this.showStatus('This is a web simulation. Install the real Chrome extension to use pinning functionality.', 'info');
-    });
+    // No pin functionality in web simulator
   }
 
   setupTagInterface() {

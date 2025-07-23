@@ -150,7 +150,7 @@ The application is designed as a monorepo with shared TypeScript types and schem
 - **CSP COMPLIANCE FIX**: Removed inline onclick handlers to comply with Chrome extension Content Security Policy, replaced with proper JavaScript event listeners (January 21, 2025)
 - **FEEDBACK REMOVAL**: Completely removed visual feedback mechanism (text selection popup) to eliminate page clutter and improve user experience (January 21, 2025)
 - **PERFORMANCE OPTIMIZATION**: Added reverse chronological sorting (newest first) and pagination system with 20 items per page and load more button for improved page load performance (January 21, 2025)
-- **PIN FUNCTIONALITY**: Replaced bookmark icon with pushpin icon in extension popup header that enables toolbar pinning with hover tooltip "Keep the extension visible by pinning it to your toolbar" - icon disappears when extension is pinned (January 23, 2025)
+- **PIN FUNCTIONALITY CORRECTION**: Removed non-functional pin button after research revealed chrome.action.setUserSettings API doesn't exist - extensions cannot programmatically pin themselves. Replaced with subtle pin reminder that appears only when extension is not pinned, using chrome.action.getUserSettings() to check pin status (January 23, 2025)
 
 ### Project Architecture Transformation (January 21, 2025)
 - **COMPLETE REWRITE**: Transformed from complex full-stack React/Express/PostgreSQL application to simple static web simulator

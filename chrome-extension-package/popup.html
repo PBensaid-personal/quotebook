@@ -325,23 +325,20 @@
         opacity: 1;
       }
 
-      .pin-container {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        cursor: pointer;
-        opacity: 0.8;
-        transition: opacity 0.2s;
-      }
-
-      .pin-container:hover {
-        opacity: 1;
-      }
-
-      .pin-label {
-        font-size: 12px;
+      .pin-reminder {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 11px;
         color: #ffffff;
         font-weight: 500;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.7; }
+        50% { opacity: 1; }
       }
 
       .debug-info {
@@ -409,23 +406,9 @@
           </svg>
           <h2>Quotebook</h2>
         </a>
-        <span class="pin-container">
-          <span class="pin-label">Pin it</span>
-          <svg
-            id="pin-icon"
-            class="pin-icon"
-            width="19px"
-            height="19px"
-            viewBox="0 0 24 24"
-            stroke-width="2"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            color="#ffffff"
-          >
-            <path d="M9.5 14.5L3 21" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-            <path d="M5.00007 9.48528L14.1925 18.6777L15.8895 16.9806L15.4974 13.1944L21.0065 8.5211L15.1568 2.67141L10.4834 8.18034L6.69713 7.78823L5.00007 9.48528Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-          </svg>
-        </span>
+        <div id="pin-reminder" class="pin-reminder" style="display: none;">
+          <span class="pin-text">📌 Pin me for easy access!</span>
+        </div>
       </div>
 
       <!-- Auth Section -->
