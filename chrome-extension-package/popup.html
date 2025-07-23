@@ -310,35 +310,8 @@
       .pin-icon,
       .external-icon,
       .x-icon {
-        width: 19px;
-        height: 19px;
-        cursor: pointer;
-        opacity: 0.6;
-        transition: opacity 0.2s;
-        position: relative;
-      }
-
-      .save-icon:hover,
-      .pin-icon:hover,
-      .external-icon:hover,
-      .x-icon:hover {
-        opacity: 1;
-      }
-
-      .pin-reminder {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 6px;
-        padding: 4px 8px;
-        font-size: 11px;
-        color: #ffffff;
-        font-weight: 500;
-        animation: pulse 2s infinite;
-      }
-
-      @keyframes pulse {
-        0%, 100% { opacity: 0.7; }
-        50% { opacity: 1; }
+        width: 16px;
+        height: 16px;
       }
 
       .debug-info {
@@ -406,9 +379,20 @@
           </svg>
           <h2>Quotebook</h2>
         </a>
-        <div id="pin-reminder" class="pin-reminder" style="display: none;">
-          <span class="pin-text">📌 Pin me for easy access!</span>
-        </div>
+        <svg
+          id="pin-icon"
+          class="pin-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          title="Keep the extension visible by pinning it to your toolbar"
+        >
+          <path d="M12 17v5" />
+          <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 7.89 17H12" />
+          <path d="M15 10.76a2 2 0 0 0 1.11 1.79l1.78.9A2 2 0 0 1 16.11 17H12" />
+          <path d="M9 12.5V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5.5" />
+        </svg>
       </div>
 
       <!-- Auth Section -->

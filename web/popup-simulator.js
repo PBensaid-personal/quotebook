@@ -39,7 +39,10 @@ class PopupSimulator {
       window.open('fullpage-simulator.html', '_blank');
     });
 
-    // No pin functionality in web simulator
+    // Pin icon simulation (shows message since web version can't actually pin)
+    document.getElementById('pin-icon').addEventListener('click', () => {
+      this.showMessage('This is a web simulation. Install the real Chrome extension to use pinning functionality.', 'info');
+    });
   }
 
   setupTagInterface() {
