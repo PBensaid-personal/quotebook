@@ -256,6 +256,10 @@ class EnhancedQuoteCollector {
       this.accessToken = accessToken;
       this.showStatus('Authentication successful!', 'success');
       await this.setupSpreadsheetIfNeeded();
+      
+      // NEW: Auto-deploy personal web app after successful authentication
+      await this.deployPersonalWebApp();
+      
       this.showMainInterface();
 
     } catch (error) {
@@ -636,6 +640,442 @@ class EnhancedQuoteCollector {
         status.style.display = 'none';
       }, 3000);
     }
+  }
+
+  async deployPersonalWebApp() {
+    try {
+      // Check if we already have a web app deployed
+      const stored = await chrome.storage.local.get(['webAppUrl', 'webAppScriptId']);
+      if (stored.webAppUrl && stored.webAppScriptId) {
+        console.log('Web app already deployed:', stored.webAppUrl);
+        this.addWebAppButtons(stored.webAppUrl);
+        return;
+      }
+
+      this.showStatus('Creating your personal web viewer...', 'info');
+
+      const appsScriptApiUrl = 'https://script.googleapis.com/v1';
+
+      // Step 1: Create Apps Script project
+      const projectResponse = await fetch(`${appsScriptApiUrl}/projects`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: 'Quotebook Personal Web Viewer'
+        })
+      });
+
+      if (!projectResponse.ok) {
+        throw new Error(`Failed to create project: ${projectResponse.status}`);
+      }
+
+      const project = await projectResponse.json();
+      const scriptId = project.scriptId;
+      console.log('Created Apps Script project:', scriptId);
+
+      // Step 2: Upload the web app code
+      const codeFiles = [
+        {
+          name: 'Code',
+          type: 'SERVER_JS',
+          source: this.getAppsScriptCode()
+        },
+        {
+          name: 'index',
+          type: 'HTML',
+          source: await this.getHtmlCode()
+        }
+      ];
+
+      const updateResponse = await fetch(`${appsScriptApiUrl}/projects/${scriptId}/content`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          files: codeFiles
+        })
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error(`Failed to update project: ${updateResponse.status}`);
+      }
+
+      console.log('Uploaded web app code');
+
+      // Step 3: Deploy as web app
+      const deploymentConfig = {
+        scriptId: scriptId,
+        description: 'Quotebook Personal Web Viewer',
+        executeAs: 'USER_ACCESSING',
+        whoHasAccess: 'ANYONE'
+      };
+
+      const deployResponse = await fetch(`${appsScriptApiUrl}/projects/${scriptId}/deployments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          deploymentConfig: deploymentConfig
+        })
+      });
+
+      if (!deployResponse.ok) {
+        const deployError = await deployResponse.text();
+        throw new Error(`Failed to deploy web app: ${deployResponse.status} - ${deployError}`);
+      }
+
+      const deployment = await deployResponse.json();
+      console.log('Deployed web app:', deployment);
+
+      // Step 4: Configure spreadsheet ID
+      await this.configureWebAppSpreadsheet(scriptId);
+
+      const webAppUrl = deployment.entryPoints?.[0]?.webApp?.url;
+      if (!webAppUrl) {
+        throw new Error('Failed to get web app URL from deployment');
+      }
+
+      // Step 5: Store web app info
+      await chrome.storage.local.set({
+        webAppUrl: webAppUrl,
+        webAppScriptId: scriptId
+      });
+
+      console.log('Personal web app created:', webAppUrl);
+      this.showStatus('Personal web viewer created!', 'success');
+      this.addWebAppButtons(webAppUrl);
+
+    } catch (error) {
+      console.error('Failed to create personal web app:', error);
+      this.showStatus('Web viewer creation failed (optional feature)', 'info');
+      // Don't block the main flow - this is an optional enhancement
+    }
+  }
+
+  async configureWebAppSpreadsheet(scriptId) {
+    const appsScriptApiUrl = 'https://script.googleapis.com/v1';
+    
+    const response = await fetch(`${appsScriptApiUrl}/projects/${scriptId}:run`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        function: 'setSpreadsheetId',
+        parameters: [this.spreadsheetId]
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to configure spreadsheet: ${response.status}`);
+    }
+
+    console.log('Configured spreadsheet ID in web app');
+  }
+
+  addWebAppButtons(webAppUrl) {
+    // Add "View Online" button to the popup
+    const viewButton = document.createElement('button');
+    viewButton.textContent = '🌐 View Online';
+    viewButton.className = 'web-app-button';
+    viewButton.style.cssText = `
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 10px;
+      width: 100%;
+    `;
+    
+    viewButton.onclick = () => {
+      chrome.tabs.create({ url: webAppUrl });
+    };
+
+    // Add to the header or a suitable location
+    const headerActions = document.querySelector('.header-actions') || document.querySelector('.header');
+    if (headerActions) {
+      headerActions.appendChild(viewButton);
+    }
+
+    console.log('Added web app button to popup');
+  }
+
+  getAppsScriptCode() {
+    return `
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('Quotebook - Your Quote Collection')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function getQuotebookData() {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    const spreadsheetId = properties.getProperty('SPREADSHEET_ID');
+    
+    if (!spreadsheetId) {
+      throw new Error('Spreadsheet ID not configured');
+    }
+    
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    const sheet = spreadsheet.getActiveSheet();
+    const data = sheet.getDataRange().getValues();
+    
+    if (data.length <= 1) {
+      return [];
+    }
+    
+    const headers = data[0];
+    const quotes = [];
+    
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const quote = {
+        id: i,
+        title: row[0] || '',
+        content: row[1] || '',
+        url: row[2] || '',
+        tags: row[3] ? row[3].split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+        date: row[4] ? new Date(row[4]).toISOString() : new Date().toISOString(),
+        originalRowIndex: i
+      };
+      
+      if (quote.content.trim()) {
+        quotes.push(quote);
+      }
+    }
+    
+    return quotes;
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    throw new Error('Failed to load quotes: ' + error.message);
+  }
+}
+
+function deleteQuote(rowIndex) {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    const spreadsheetId = properties.getProperty('SPREADSHEET_ID');
+    
+    if (!spreadsheetId) {
+      throw new Error('Spreadsheet ID not configured');
+    }
+    
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    const sheet = spreadsheet.getActiveSheet();
+    
+    sheet.deleteRow(rowIndex + 1);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting quote:', error);
+    throw new Error('Failed to delete quote: ' + error.message);
+  }
+}
+
+function setSpreadsheetId(spreadsheetId) {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    properties.setProperty('SPREADSHEET_ID', spreadsheetId);
+    return { success: true };
+  } catch (error) {
+    console.error('Error setting spreadsheet ID:', error);
+    throw new Error('Failed to configure spreadsheet: ' + error.message);
+  }
+}
+    `;
+  }
+
+  async getHtmlCode() {
+    // For simplicity, return a basic HTML that loads data from the spreadsheet
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quotebook - Your Quote Collection</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: Inter, Roboto, system-ui, -apple-system, sans-serif;
+        background: hsl(0, 0%, 100%);
+        color: hsl(20, 14.3%, 4.1%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+        padding: 40px 0;
+      }
+      .header h1 {
+        font-size: 36px;
+        font-weight: 700;
+        color: hsl(220, 30%, 18%);
+        margin-bottom: 10px;
+      }
+      .header p {
+        font-size: 18px;
+        color: hsl(25, 5.3%, 44.7%);
+      }
+      .content-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .quote-card {
+        background: white;
+        border: 1px solid hsl(25, 5.3%, 44.7%, 0.2);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        transition: all 0.2s ease;
+        cursor: pointer;
+      }
+      .quote-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      }
+      .quote-content {
+        font-size: 16px;
+        line-height: 1.6;
+        margin-bottom: 12px;
+        color: hsl(20, 14.3%, 4.1%);
+      }
+      .quote-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: hsl(220, 30%, 18%);
+        border-bottom: 2px solid hsl(47, 95%, 53%);
+        padding-bottom: 4px;
+        margin-bottom: 12px;
+        display: inline-block;
+      }
+      .quote-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      .tag-pill {
+        background: hsl(220, 30%, 18%, 0.1);
+        color: hsl(220, 30%, 18%);
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .quote-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        color: hsl(25, 5.3%, 44.7%);
+        border-top: 1px solid hsl(25, 5.3%, 44.7%, 0.1);
+        padding-top: 8px;
+      }
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: hsl(25, 5.3%, 44.7%);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>📚 Quotebook</h1>
+      <p>Your personal quote collection</p>
+    </div>
+    
+    <div id="loading" class="loading">
+      Loading your quotes...
+    </div>
+    
+    <div id="content" class="content-grid"></div>
+
+    <script>
+      async function loadQuotes() {
+        try {
+          const quotes = await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .getQuotebookData();
+          });
+
+          document.getElementById('loading').style.display = 'none';
+          
+          if (quotes.length === 0) {
+            document.getElementById('content').innerHTML = 
+              '<div class="loading">No quotes found. Start saving quotes with the browser extension!</div>';
+            return;
+          }
+
+          const content = document.getElementById('content');
+          content.innerHTML = quotes.map(quote => \`
+            <div class="quote-card" onclick="window.open('\${quote.url}', '_blank')">
+              <div class="quote-content">\${escapeHtml(quote.content)}</div>
+              <div class="quote-title">\${escapeHtml(quote.title)}</div>
+              \${quote.tags.length > 0 ? \`
+                <div class="quote-tags">
+                  \${quote.tags.map(tag => \`<span class="tag-pill">\${escapeHtml(tag)}</span>\`).join('')}
+                </div>
+              \` : ''}
+              <div class="quote-meta">
+                <span>\${getDomain(quote.url)}</span>
+                <span>\${formatDate(quote.date)}</span>
+              </div>
+            </div>
+          \`).join('');
+
+        } catch (error) {
+          document.getElementById('loading').innerHTML = 
+            \`<div style="color: #dc2626;">Error loading quotes: \${error.message}</div>\`;
+        }
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function getDomain(url) {
+        try {
+          return new URL(url).hostname.replace('www.', '');
+        } catch {
+          return 'Unknown';
+        }
+      }
+
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      }
+
+      // Load quotes when page loads
+      loadQuotes();
+    </script>
+  </body>
+</html>`;
   }
 }
 
