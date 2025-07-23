@@ -92,12 +92,13 @@ class EnhancedQuoteCollector {
     // Update visual feedback
     this.updatePinIcon();
     
-    // Show message
+    // Show message using your existing method
     const message = this.isPinned ? 
       "Extension marked as pinned! 📌" : 
       "Pin reminder enabled. Please pin the extension to your toolbar.";
     
-    this.showStatus(message, this.isPinned ? 'success' : 'info');
+    // Use showStatusMain instead of showMessage
+    this.showStatusMain(message, this.isPinned ? 'success' : 'info');
   }
 
   async checkShowReminder() {
