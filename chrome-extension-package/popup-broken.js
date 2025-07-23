@@ -1,0 +1,1105 @@
+// Enhanced Quote Collector with Beautiful UI and Working OAuth
+class EnhancedQuoteCollector {
+  constructor() {
+    this.clientId = '184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com';
+    this.accessToken = null;
+    this.spreadsheetId = null;
+    this.userTags = [];
+    this.suggestedTags = [];
+    this.init();
+  }
+
+  async init() {
+    this.setupEventListeners();
+    await this.checkWebAppCreationRequest();
+    await this.checkExistingAuth();
+    await this.loadSelectedText();
+    this.setupTagInterface();
+  }
+
+  setupEventListeners() {
+    document.getElementById('auth-button').addEventListener('click', () => {
+      this.authenticateFixed();
+    });
+
+    document.getElementById('save-button').addEventListener('click', () => {
+      this.saveQuote();
+    });
+
+    document.getElementById('cancel-button').addEventListener('click', () => {
+      window.close();
+    });
+
+    document.getElementById('view-all-button').addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
+    });
+
+    document.getElementById('create-web-viewer-button').addEventListener('click', async () => {
+      await this.deployPersonalWebApp();
+    });
+
+    // Bookmark icon in header also opens full page view
+    document.querySelector('.bookmark-icon').addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
+    });
+
+    // Header brand (logo + title) opens full page view
+    document.getElementById('header-brand').addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
+    });
+
+    // Remove Enter key handler - tags will be processed on Save
+  }
+
+  async checkWebAppCreationRequest() {
+    try {
+      const stored = await chrome.storage.local.get(['webAppCreationRequested']);
+      if (stored.webAppCreationRequested) {
+        // Clear the flag
+        await chrome.storage.local.remove(['webAppCreationRequested']);
+        
+        // Check if we have authentication and can create web app
+        const authStored = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
+        if (authStored.googleAccessToken && authStored.googleSpreadsheetId) {
+          this.accessToken = authStored.googleAccessToken;
+          this.spreadsheetId = authStored.googleSpreadsheetId;
+          
+          // Trigger web app creation
+          await this.deployPersonalWebApp();
+          this.showMainInterface();
+        } else {
+          // Need to authenticate first
+          this.showStatus('Please connect to Google Sheets first', 'info');
+        }
+      }
+    } catch (error) {
+      console.log('No web app creation request pending');
+    }
+  }
+
+  setupTagInterface() {
+    // Initialize with empty user tags
+    this.userTags = [];
+    this.renderUserTags();
+  }
+
+  // Remove renderSuggestedTags - no longer needed
+
+  renderUserTags() {
+    // Render user-added tags - all with X to delete
+    const container = document.getElementById('user-tags');
+    container.innerHTML = '';
+    
+    console.log('Rendering user tags:', this.userTags);
+    
+    this.userTags.forEach(tag => {
+      const tagElement = document.createElement('div');
+      tagElement.className = 'tag tag-user';
+      tagElement.innerHTML = `
+        ${tag}
+        <button class="tag-remove" data-tag="${tag}">×</button>
+      `;
+      
+      tagElement.querySelector('.tag-remove').addEventListener('click', () => {
+        this.removeUserTag(tag);
+      });
+      
+      container.appendChild(tagElement);
+    });
+  }
+
+  processInputTags() {
+    // Process tags from input field during save
+    const input = document.getElementById('tag-input');
+    const inputValue = input.value.trim();
+    
+    if (inputValue) {
+      const newTags = inputValue.split(',').map(tag => tag.trim()).filter(Boolean);
+      console.log('Processing input tags:', newTags);
+      
+      // Add new tags, avoiding duplicates
+      newTags.forEach(tag => {
+        if (!this.userTags.includes(tag)) {
+          this.userTags.push(tag);
+        }
+      });
+      
+      input.value = ''; // Clear input after processing
+    }
+  }
+
+  removeUserTag(tagToRemove) {
+    console.log('Removing tag:', tagToRemove);
+    this.userTags = this.userTags.filter(tag => tag !== tagToRemove);
+    console.log('Updated userTags after removal:', this.userTags);
+    this.renderUserTags();
+  }
+
+  async checkExistingAuth() {
+    try {
+      // First check if we have cached spreadsheet data
+      const stored = await chrome.storage.local.get(['googleSpreadsheetId', 'googleAccessToken']);
+      console.log('Cached data found:', { 
+        hasSpreadsheetId: !!stored.googleSpreadsheetId, 
+        hasAccessToken: !!stored.googleAccessToken 
+      });
+      
+      if (stored.googleSpreadsheetId && stored.googleAccessToken) {
+        console.log('Testing cached spreadsheet:', stored.googleSpreadsheetId);
+        // We have cached data, but let's verify the spreadsheet still exists and is not trashed
+        try {
+          // Check if file is trashed using Drive API
+          const driveResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${stored.googleSpreadsheetId}?fields=trashed,name`, {
+            headers: { 'Authorization': `Bearer ${stored.googleAccessToken}` }
+          });
+          
+          console.log('Drive API test response:', driveResponse.status);
+          
+          if (driveResponse.ok) {
+            const fileInfo = await driveResponse.json();
+            console.log('File info:', fileInfo);
+            
+            if (fileInfo.trashed === true) {
+              console.log('Spreadsheet is in trash, clearing cache');
+              await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+            } else {
+              // File exists and is not trashed, verify it's still accessible via Sheets API
+              const sheetsResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
+                headers: { 'Authorization': `Bearer ${stored.googleAccessToken}` }
+              });
+              
+              if (sheetsResponse.ok) {
+                console.log('Spreadsheet verified and accessible, showing main interface');
+                this.accessToken = stored.googleAccessToken;
+                this.spreadsheetId = stored.googleSpreadsheetId;
+                this.showMainInterface();
+                return;
+              } else {
+                console.log('Spreadsheet not accessible via Sheets API, clearing cache');
+                await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+              }
+            }
+          } else {
+            // File not found or not accessible, clear cache
+            console.log('File not accessible via Drive API, clearing cache');
+            await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+          }
+        } catch (error) {
+          // Error accessing spreadsheet, clear cache
+          console.log('Error testing spreadsheet:', error);
+          await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+        }
+      }
+
+      // No valid cached data, try to get fresh auth token
+      const tokenResult = await chrome.identity.getAuthToken({ interactive: false });
+
+      if (tokenResult) {
+        let accessToken;
+
+        // Handle both new object format and old string format
+        if (typeof tokenResult === 'object' && tokenResult !== null && tokenResult.token) {
+          accessToken = tokenResult.token;
+        } else if (typeof tokenResult === 'string') {
+          accessToken = tokenResult;
+        }
+
+        if (accessToken) {
+          this.accessToken = accessToken;
+
+          const isValid = await this.validateToken();
+          if (isValid) {
+            await this.setupSpreadsheetIfNeeded();
+            this.showMainInterface();
+            return;
+          } else {
+            // Remove invalid token
+            const tokenToRemove = typeof tokenResult === 'object' ? tokenResult.token : tokenResult;
+            await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
+          }
+        }
+      }
+    } catch (error) {
+      // No existing auth found, continue to show auth interface
+    }
+
+    this.showAuthInterface();
+  }
+
+  async validateToken() {
+    try {
+      const response = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${this.accessToken}`);
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async authenticateFixed() {
+    this.showStatus('Starting authentication...', 'info');
+
+    try {
+      // Clear any existing cached data when re-authenticating
+      await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+
+      // Clear any existing tokens
+      try {
+        const oldToken = await chrome.identity.getAuthToken({ interactive: false });
+        if (oldToken) {
+          const tokenToRemove = typeof oldToken === 'object' ? oldToken.token : oldToken;
+          await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
+        }
+      } catch (e) {
+        // No cached token to remove
+      }
+
+      // Request new token using getAuthToken (the original working method)
+      const tokenResult = await chrome.identity.getAuthToken({ 
+        interactive: true
+      });
+
+      let accessToken;
+
+      // Handle both new object format and old string format
+      if (typeof tokenResult === 'object' && tokenResult !== null) {
+        if (tokenResult.token) {
+          accessToken = tokenResult.token;
+
+          // Verify we have the required scope
+          const grantedScopes = tokenResult.grantedScopes || [];
+          const hasSheetScope = grantedScopes.some(scope => 
+            scope.includes('spreadsheets') || scope.includes('sheets')
+          );
+
+          if (!hasSheetScope) {
+            throw new Error('Missing required Google Sheets permission');
+          }
+        } else {
+          throw new Error('Authentication failed - no token received');
+        }
+      } else if (typeof tokenResult === 'string' && tokenResult) {
+        accessToken = tokenResult;
+      } else {
+        throw new Error('Authentication failed - invalid response');
+      }
+
+      this.accessToken = accessToken;
+      this.showStatus('Authentication successful!', 'success');
+      await this.setupSpreadsheetIfNeeded();
+      
+      // NEW: Auto-deploy personal web app after successful authentication
+      await this.deployPersonalWebApp();
+      
+      this.showMainInterface();
+
+    } catch (error) {
+      this.showStatus(`Auth error: ${error.message}`, 'error');
+    }
+  }
+
+  async setupSpreadsheetIfNeeded() {
+    try {
+      // Check for existing spreadsheet in storage
+      const stored = await chrome.storage.local.get(['googleSpreadsheetId']);
+      if (stored.googleSpreadsheetId) {
+        // Verify the spreadsheet still exists and is not trashed
+        try {
+          // Check if file is trashed using Drive API first
+          const driveResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${stored.googleSpreadsheetId}?fields=trashed,name`, {
+            headers: { 'Authorization': `Bearer ${this.accessToken}` }
+          });
+          
+          if (driveResponse.ok) {
+            const fileInfo = await driveResponse.json();
+            if (fileInfo.trashed === true) {
+              console.log('Stored spreadsheet is trashed, clearing cache');
+              await chrome.storage.local.remove(['googleSpreadsheetId']);
+            } else {
+              // Not trashed, test Sheets API access
+              const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
+                headers: { 'Authorization': `Bearer ${this.accessToken}` }
+              });
+              
+              if (testResponse.ok) {
+                this.spreadsheetId = stored.googleSpreadsheetId;
+                this.showStatus('Connected to existing spreadsheet', 'success');
+                return;
+              } else {
+                // Sheets API failed, clear cache
+                await chrome.storage.local.remove(['googleSpreadsheetId']);
+              }
+            }
+          } else {
+            // Drive API failed, clear cache
+            await chrome.storage.local.remove(['googleSpreadsheetId']);
+          }
+        } catch (error) {
+          // Error accessing stored spreadsheet, clear it
+          await chrome.storage.local.remove(['googleSpreadsheetId']);
+        }
+      }
+
+      this.showStatus('Looking for existing Quotebook spreadsheet...', 'info');
+
+      // Search for existing Quotebook Collection spreadsheet (exact match, excluding trashed files)
+      const searchResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='Quotebook Collection' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name,createdTime)`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }
+      });
+
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        const existingSheets = searchData.files || [];
+
+        if (existingSheets.length > 0) {
+          // Sort by creation date (newest first)
+          existingSheets.sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime));
+          
+          // Use the most recent Quotebook Collection spreadsheet
+          this.spreadsheetId = existingSheets[0].id;
+          
+          // Store the found spreadsheet
+          await chrome.storage.local.set({
+            googleAccessToken: this.accessToken,
+            googleSpreadsheetId: this.spreadsheetId
+          });
+
+          this.showStatus(`Connected to existing "${existingSheets[0].name}"`, 'success');
+          return;
+        }
+      }
+
+      // No existing spreadsheet found, create a new one
+      this.showStatus('Creating new Quotebook spreadsheet...', 'info');
+      
+      const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          properties: {
+            title: 'Quotebook Collection'
+          },
+          sheets: [{
+            properties: {
+              title: 'Saved Quotes'
+            }
+          }]
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        this.spreadsheetId = data.spreadsheetId;
+
+        // Store credentials
+        await chrome.storage.local.set({
+          googleAccessToken: this.accessToken,
+          googleSpreadsheetId: this.spreadsheetId
+        });
+
+        // Add headers
+        await this.addHeaders();
+
+        this.showStatus('New Quotebook spreadsheet created!', 'success');
+      } else {
+        const error = await response.text();
+        this.showStatus(`Failed to create spreadsheet: ${response.status}`, 'error');
+      }
+
+    } catch (error) {
+      this.showStatus(`Setup error: ${error.message}`, 'error');
+    }
+  }
+
+  async addHeaders() {
+    const headers = ['Title', 'Content', 'URL', 'Tags', 'Timestamp', 'Image'];
+
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:F1?valueInputOption=RAW`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        values: [headers]
+      })
+    });
+  }
+
+  async loadSelectedText() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      // Update page preview
+      this.updatePagePreview(tab);
+
+      try {
+        // Try to inject content script if not already present
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content.js']
+          });
+        } catch (injectionError) {
+          // Content script might already be injected, continue
+        }
+
+        const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSelectedText' });
+
+        if (response && response.selectedText) {
+          document.getElementById('content').value = response.selectedText;
+          
+          // Auto-generate suggested tags and add them as user tags
+          this.generateSuggestedTags(response.selectedText);
+        } else {
+          // If no text selected, show sample content for demo
+          document.getElementById('content').value = "Select text on the webpage to capture it here...";
+        }
+        
+        // Always try to get page metadata and add as user tags
+        this.extractPageMetadata();
+      } catch (e) {
+        // Could not get selected text, this is normal for some pages
+        document.getElementById('content').value = "Select text on the webpage to capture it here...";
+        // Still try to get page metadata
+        this.extractPageMetadata();
+      }
+    } catch (error) {
+      // Could not access tab, this is normal
+    }
+  }
+
+  async extractPageMetadata() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) return;
+
+      // Try to inject content script if not already present
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js']
+        });
+      } catch (injectionError) {
+        // Content script might already be injected, continue
+      }
+
+      const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
+      
+      if (result && result.categories && result.categories.length > 0) {
+        console.log('Extracted page categories:', result.categories);
+        
+        // Add page categories directly as user tags (pre-added, removable)
+        result.categories.slice(0, 3).forEach(tag => {
+          if (!this.userTags.includes(tag)) {
+            this.userTags.push(tag);
+          }
+        });
+        
+        console.log('Added page categories to user tags:', this.userTags);
+        this.renderUserTags();
+      }
+    } catch (e) {
+      console.log('Could not extract page metadata:', e);
+    }
+  }
+
+  updatePagePreview(tab) {
+    // Update preview image (favicon or default)
+    const previewImg = document.getElementById('preview-image');
+    const favicon = tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23e2e8f0"/><text y="50" x="50" text-anchor="middle" dy=".3em" font-size="40">📄</text></svg>';
+    previewImg.src = favicon;
+    
+    // Update title and URL
+    document.getElementById('preview-title').textContent = tab.title || 'Untitled Page';
+    document.getElementById('preview-url').textContent = tab.url || '';
+  }
+
+  generateSuggestedTags(content) {
+    // Simple keyword extraction - directly add as user tags
+    const keywords = [];
+    const text = content.toLowerCase();
+    
+    // Technology keywords
+    if (text.includes('javascript') || text.includes('js')) keywords.push('javascript');
+    if (text.includes('python')) keywords.push('python');
+    if (text.includes('react')) keywords.push('react');
+    if (text.includes('api')) keywords.push('api');
+    if (text.includes('database')) keywords.push('database');
+    if (text.includes('hospital') || text.includes('medical')) keywords.push('healthcare');
+    if (text.includes('security') || text.includes('cyber')) keywords.push('security');
+    if (text.includes('research') || text.includes('study')) keywords.push('research');
+    
+    // General categories
+    if (text.includes('tutorial') || text.includes('guide')) keywords.push('tutorial');
+    if (text.includes('tips') || text.includes('advice')) keywords.push('tips');
+    if (text.includes('best practices')) keywords.push('best practices');
+    if (text.includes('news') || text.includes('report')) keywords.push('news');
+    
+    console.log('Generated tags from content:', keywords);
+    
+    // Add suggested tags directly to user tags (pre-added, removable)
+    keywords.slice(0, 4).forEach(tag => {
+      if (!this.userTags.includes(tag)) {
+        this.userTags.push(tag);
+      }
+    });
+    
+    this.renderUserTags();
+  }
+
+  async saveQuote() {
+    try {
+      const content = document.getElementById('content').value;
+
+      if (!content.trim() || content === "Select text on the webpage to capture it here...") {
+        this.showStatusMain('Please select some text on the webpage first', 'error');
+        return;
+      }
+
+      console.log('Starting save process...');
+      
+      // Process any tags in the input field
+      this.processInputTags();
+      
+      // Ensure we have a spreadsheet ID
+      if (!this.spreadsheetId) {
+        console.log('No spreadsheet ID, setting up spreadsheet...');
+        await this.setupSpreadsheetIfNeeded();
+      }
+      
+      if (!this.spreadsheetId) {
+        throw new Error('Failed to setup spreadsheet');
+      }
+      
+      console.log('Using spreadsheet ID:', this.spreadsheetId);
+      
+      this.showStatusMain('Saving to Google Sheets...', 'info');
+      document.getElementById('save-button').disabled = true;
+
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      // Extract page image only (don't mess with tags during save)
+      let pageImage = '';
+      try {
+        const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
+        if (result) {
+          pageImage = result.image || '';
+        }
+      } catch (e) {
+        // Fallback to basic image extraction
+        pageImage = tab.favIconUrl || '';
+      }
+      
+      // ONLY save user-added tags
+      console.log('Final user tags to save:', this.userTags);
+      
+      const now = new Date();
+      const row = [
+        tab.title || 'Untitled',
+        content,
+        tab.url,
+        this.userTags.join(', '),  // Only user tags
+        now.toISOString(), // Full timestamp for accurate ordering
+        pageImage
+      ];
+      
+      console.log('Saving row data:', row);
+
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:F:append?valueInputOption=RAW`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          values: [row]
+        })
+      });
+
+      console.log('Save response status:', response.status);
+
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('Save successful:', responseData);
+        
+        // Make sure storage is up to date with current spreadsheet
+        await chrome.storage.local.set({
+          googleAccessToken: this.accessToken,
+          googleSpreadsheetId: this.spreadsheetId
+        });
+        console.log('Storage updated with:', { 
+          hasAccessToken: !!this.accessToken, 
+          spreadsheetId: this.spreadsheetId 
+        });
+        
+        this.showStatusMain('Content saved successfully!', 'success');
+
+        // Clear content and reset
+        document.getElementById('content').value = 'Select text on the webpage to capture it here...';
+        this.userTags = [];
+        this.renderUserTags();
+        
+        setTimeout(() => {
+          window.close();
+        }, 1500);
+      } else {
+        const errorData = await response.json();
+        console.error('Save failed:', errorData);
+        this.showStatusMain(`Save failed: ${errorData.error?.message || 'Unknown error'}`, 'error');
+      }
+
+    } catch (error) {
+      this.showStatusMain(`Error: ${error.message}`, 'error');
+    } finally {
+      document.getElementById('save-button').disabled = false;
+    }
+  }
+
+  showAuthInterface() {
+    document.getElementById('auth-section').style.display = 'block';
+    document.getElementById('main-section').classList.remove('active');
+  }
+
+  showMainInterface() {
+    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('main-section').classList.add('active');
+    
+    // Show "Create Web Viewer" button if no web app exists yet
+    this.checkAndShowWebViewerButton();
+  }
+
+  async checkAndShowWebViewerButton() {
+    try {
+      const stored = await chrome.storage.local.get(['webAppUrl']);
+      const createButton = document.getElementById('create-web-viewer-button');
+      
+      if (!stored.webAppUrl) {
+        // No web app created yet, show the create button
+        createButton.style.display = 'block';
+      } else {
+        // Web app exists, hide create button and show the existing web app button
+        createButton.style.display = 'none';
+        this.addWebAppButtons(stored.webAppUrl);
+      }
+    } catch (error) {
+      console.log('Could not check web app status');
+    }
+  }
+
+  showStatus(message, type) {
+    const status = document.getElementById('status');
+    status.textContent = message;
+    status.className = `status ${type}`;
+    status.style.display = 'block';
+
+    if (type === 'success') {
+      setTimeout(() => {
+        status.style.display = 'none';
+      }, 3000);
+    }
+  }
+
+  showStatusMain(message, type) {
+    const status = document.getElementById('status-main');
+    status.textContent = message;
+    status.className = `status ${type}`;
+    status.style.display = 'block';
+
+    if (type === 'success') {
+      setTimeout(() => {
+        status.style.display = 'none';
+      }, 3000);
+    }
+  }
+
+  async deployPersonalWebApp() {
+    try {
+      // Check if we already have a web app deployed
+      const stored = await chrome.storage.local.get(['webAppUrl', 'webAppScriptId']);
+      if (stored.webAppUrl && stored.webAppScriptId) {
+        console.log('Web app already deployed:', stored.webAppUrl);
+        this.addWebAppButtons(stored.webAppUrl);
+        return;
+      }
+
+      // Create a simple online viewer using Google Sheets directly
+      // This is more reliable than trying to create Apps Script projects
+      this.createSimpleWebViewer();
+      
+    } catch (error) {
+      console.error('Failed to create personal web app:', error);
+      this.showStatusMain('Unable to create web viewer automatically. You can view your quotes in Google Sheets directly.', 'info');
+      this.addGoogleSheetsButton();
+    }
+  }
+
+  createSimpleWebViewer() {
+    try {
+      // Create a direct link to the Google Sheets with a better view
+      const sheetsViewUrl = `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit#gid=0`;
+      
+      // Store this as our "web app" URL
+      chrome.storage.local.set({ 
+        webAppUrl: sheetsViewUrl,
+        webAppType: 'sheets_direct' 
+      });
+
+      this.showStatusMain('Web viewer created! Click "View Online" to see your quotes.', 'success');
+      this.addWebAppButtons(sheetsViewUrl);
+      
+    } catch (error) {
+      console.error('Failed to create simple web viewer:', error);
+      this.showStatusMain('Added direct Google Sheets access instead.', 'info');
+      this.addGoogleSheetsButton();
+    }
+  }
+
+  addGoogleSheetsButton() {
+    // Add a button to open Google Sheets directly
+    const createButton = document.getElementById('create-web-viewer-button');
+    if (createButton) {
+      createButton.style.display = 'none';
+    }
+
+    // Create Google Sheets button if it doesn't exist
+    const existingButton = document.querySelector('.google-sheets-button');
+    if (!existingButton) {
+      const sheetsButton = document.createElement('button');
+      sheetsButton.className = 'btn google-sheets-button';
+      sheetsButton.style.cssText = 'background: #0f9d58; color: white; margin-top: 8px; font-size: 12px;';
+      sheetsButton.innerHTML = '📊 View in Google Sheets';
+      sheetsButton.onclick = () => {
+        const sheetsUrl = `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit#gid=0`;
+        chrome.tabs.create({ url: sheetsUrl });
+      };
+      
+      document.querySelector('.actions').appendChild(sheetsButton);
+    }
+  }
+
+  async configureWebAppSpreadsheet(scriptId) {
+    const appsScriptApiUrl = 'https://script.googleapis.com/v1';
+    
+    const response = await fetch(`${appsScriptApiUrl}/projects/${scriptId}:run`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        function: 'setSpreadsheetId',
+        parameters: [this.spreadsheetId]
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to configure spreadsheet: ${response.status}`);
+    }
+
+    console.log('Configured spreadsheet ID in web app');
+  }
+
+  addWebAppButtons(webAppUrl) {
+    // Add "View Online" button to the popup
+    const viewButton = document.createElement('button');
+    viewButton.textContent = '🌐 View Online';
+    viewButton.className = 'web-app-button';
+    viewButton.style.cssText = `
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 10px;
+      width: 100%;
+    `;
+    
+    viewButton.onclick = () => {
+      chrome.tabs.create({ url: webAppUrl });
+    };
+
+    // Add to the header or a suitable location
+    const headerActions = document.querySelector('.header-actions') || document.querySelector('.header');
+    if (headerActions) {
+      headerActions.appendChild(viewButton);
+    }
+
+    console.log('Added web app button to popup');
+  }
+
+  getAppsScriptCode() {
+    return `
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('Quotebook - Your Quote Collection')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function getQuotebookData() {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    const spreadsheetId = properties.getProperty('SPREADSHEET_ID');
+    
+    if (!spreadsheetId) {
+      throw new Error('Spreadsheet ID not configured');
+    }
+    
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    const sheet = spreadsheet.getActiveSheet();
+    const data = sheet.getDataRange().getValues();
+    
+    if (data.length <= 1) {
+      return [];
+    }
+    
+    const headers = data[0];
+    const quotes = [];
+    
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const quote = {
+        id: i,
+        title: row[0] || '',
+        content: row[1] || '',
+        url: row[2] || '',
+        tags: row[3] ? row[3].split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+        date: row[4] ? new Date(row[4]).toISOString() : new Date().toISOString(),
+        originalRowIndex: i
+      };
+      
+      if (quote.content.trim()) {
+        quotes.push(quote);
+      }
+    }
+    
+    return quotes;
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    throw new Error('Failed to load quotes: ' + error.message);
+  }
+}
+
+function deleteQuote(rowIndex) {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    const spreadsheetId = properties.getProperty('SPREADSHEET_ID');
+    
+    if (!spreadsheetId) {
+      throw new Error('Spreadsheet ID not configured');
+    }
+    
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    const sheet = spreadsheet.getActiveSheet();
+    
+    sheet.deleteRow(rowIndex + 1);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting quote:', error);
+    throw new Error('Failed to delete quote: ' + error.message);
+  }
+}
+
+function setSpreadsheetId(spreadsheetId) {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    properties.setProperty('SPREADSHEET_ID', spreadsheetId);
+    return { success: true };
+  } catch (error) {
+    console.error('Error setting spreadsheet ID:', error);
+    throw new Error('Failed to configure spreadsheet: ' + error.message);
+  }
+}
+    `;
+  }
+
+  async getHtmlCode() {
+    // For simplicity, return a basic HTML that loads data from the spreadsheet
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quotebook - Your Quote Collection</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: Inter, Roboto, system-ui, -apple-system, sans-serif;
+        background: hsl(0, 0%, 100%);
+        color: hsl(20, 14.3%, 4.1%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 40px;
+        padding: 40px 0;
+      }
+      .header h1 {
+        font-size: 36px;
+        font-weight: 700;
+        color: hsl(220, 30%, 18%);
+        margin-bottom: 10px;
+      }
+      .header p {
+        font-size: 18px;
+        color: hsl(25, 5.3%, 44.7%);
+      }
+      .content-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .quote-card {
+        background: white;
+        border: 1px solid hsl(25, 5.3%, 44.7%, 0.2);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        transition: all 0.2s ease;
+        cursor: pointer;
+      }
+      .quote-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      }
+      .quote-content {
+        font-size: 16px;
+        line-height: 1.6;
+        margin-bottom: 12px;
+        color: hsl(20, 14.3%, 4.1%);
+      }
+      .quote-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: hsl(220, 30%, 18%);
+        border-bottom: 2px solid hsl(47, 95%, 53%);
+        padding-bottom: 4px;
+        margin-bottom: 12px;
+        display: inline-block;
+      }
+      .quote-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      .tag-pill {
+        background: hsl(220, 30%, 18%, 0.1);
+        color: hsl(220, 30%, 18%);
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .quote-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        color: hsl(25, 5.3%, 44.7%);
+        border-top: 1px solid hsl(25, 5.3%, 44.7%, 0.1);
+        padding-top: 8px;
+      }
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: hsl(25, 5.3%, 44.7%);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>📚 Quotebook</h1>
+      <p>Your personal quote collection</p>
+    </div>
+    
+    <div id="loading" class="loading">
+      Loading your quotes...
+    </div>
+    
+    <div id="content" class="content-grid"></div>
+
+    <script>
+      async function loadQuotes() {
+        try {
+          const quotes = await new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .getQuotebookData();
+          });
+
+          document.getElementById('loading').style.display = 'none';
+          
+          if (quotes.length === 0) {
+            document.getElementById('content').innerHTML = 
+              '<div class="loading">No quotes found. Start saving quotes with the browser extension!</div>';
+            return;
+          }
+
+          const content = document.getElementById('content');
+          content.innerHTML = quotes.map(quote => \`
+            <div class="quote-card" onclick="window.open('\${quote.url}', '_blank')">
+              <div class="quote-content">\${escapeHtml(quote.content)}</div>
+              <div class="quote-title">\${escapeHtml(quote.title)}</div>
+              \${quote.tags.length > 0 ? \`
+                <div class="quote-tags">
+                  \${quote.tags.map(tag => \`<span class="tag-pill">\${escapeHtml(tag)}</span>\`).join('')}
+                </div>
+              \` : ''}
+              <div class="quote-meta">
+                <span>\${getDomain(quote.url)}</span>
+                <span>\${formatDate(quote.date)}</span>
+              </div>
+            </div>
+          \`).join('');
+
+        } catch (error) {
+          document.getElementById('loading').innerHTML = 
+            \`<div style="color: #dc2626;">Error loading quotes: \${error.message}</div>\`;
+        }
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function getDomain(url) {
+        try {
+          return new URL(url).hostname.replace('www.', '');
+        } catch {
+          return 'Unknown';
+        }
+      }
+
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      }
+
+      // Load quotes when page loads
+      loadQuotes();
+    </script>
+  </body>
+</html>`;
+  }
+}
+
+// Initialize the extension
+new EnhancedQuoteCollector();
