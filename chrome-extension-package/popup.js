@@ -53,8 +53,11 @@ class EnhancedQuoteCollector {
       // Check if extension is pinned using chrome.action.getUserSettings
       if (chrome.action && chrome.action.getUserSettings) {
         const settings = await chrome.action.getUserSettings();
+        console.log('Pin status check:', settings);
         const isPinned = settings.isOnToolbar;
         this.updatePinIcon(isPinned);
+      } else {
+        console.log('chrome.action.getUserSettings not available');
       }
     } catch (error) {
       console.log('Pin status check not available:', error);
@@ -64,29 +67,38 @@ class EnhancedQuoteCollector {
 
   updatePinIcon(isPinned) {
     const pinContainer = document.querySelector('.pin-container');
-    if (isPinned) {
-      // Hide the pin container when extension is already pinned
-      pinContainer.style.display = 'none';
-    } else {
-      // Show the pin container when extension is not pinned
-      pinContainer.style.display = 'flex';
+    if (pinContainer) {
+      if (isPinned) {
+        // Hide the pin container when extension is already pinned
+        pinContainer.style.display = 'none';
+        console.log('Hiding pin container - extension is pinned');
+      } else {
+        // Show the pin container when extension is not pinned
+        pinContainer.style.display = 'flex';
+        console.log('Showing pin container - extension not pinned');
+      }
     }
   }
 
   async togglePin() {
+    console.log('togglePin called');
     try {
-      // Use chrome.action.setUserSettings to suggest pinning
+      // Use chrome.action.setUserSettings to pin extension
       if (chrome.action && chrome.action.setUserSettings) {
+        console.log('Attempting to pin extension...');
         await chrome.action.setUserSettings({
           userSettings: { isOnToolbar: true }
         });
         
-        // Hide the pin icon after successful pinning
+        console.log('Pin request sent successfully');
+        
+        // Hide the pin container after successful pinning
         this.updatePinIcon(true);
         
         // Show success message
         this.showStatus('Extension pinned to toolbar!', 'success');
       } else {
+        console.log('chrome.action.setUserSettings not available, showing fallback');
         // Fallback: Show instruction message
         this.showStatus('Please pin this extension to your toolbar by clicking the puzzle icon in your browser and then the pin icon next to Quotebook', 'info');
       }
