@@ -34,10 +34,7 @@ class EnhancedQuoteCollector {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
 
-    // Pin icon to pin/unpin extension in toolbar
-    document.getElementById('pin-icon').addEventListener('click', () => {
-      this.togglePin();
-    });
+    // No pin button - extensions cannot programmatically pin themselves
 
     // Header brand (logo + title) opens full page view
     document.getElementById('header-brand').addEventListener('click', (e) => {
@@ -50,49 +47,23 @@ class EnhancedQuoteCollector {
 
   async checkPinStatus() {
     try {
-      // Check if extension is pinned using chrome.action.getUserSettings
+      // Check if extension is pinned using chrome.action.getUserSettings (read-only)
       if (chrome.action && chrome.action.getUserSettings) {
         const settings = await chrome.action.getUserSettings();
         const isPinned = settings.isOnToolbar;
-        this.updatePinIcon(isPinned);
+        this.showPinReminder(!isPinned);
       }
     } catch (error) {
       console.log('Pin status check not available:', error);
-      // Pin icon will remain visible by default
+      // Show reminder by default if we can't check
+      this.showPinReminder(true);
     }
   }
 
-  updatePinIcon(isPinned) {
-    const pinIcon = document.getElementById('pin-icon');
-    if (isPinned) {
-      // Hide the pin icon when extension is already pinned
-      pinIcon.style.display = 'none';
-    } else {
-      // Show the pin icon when extension is not pinned
-      pinIcon.style.display = 'block';
-    }
-  }
-
-  async togglePin() {
-    try {
-      // Use chrome.action.setUserSettings to suggest pinning
-      if (chrome.action && chrome.action.setUserSettings) {
-        await chrome.action.setUserSettings({
-          userSettings: { isOnToolbar: true }
-        });
-        
-        // Hide the pin icon after successful pinning
-        this.updatePinIcon(true);
-        
-        // Show success message
-        this.showMessage('Extension pinned to toolbar!', 'success');
-      } else {
-        // Fallback: Show instruction message
-        this.showMessage('Please pin this extension to your toolbar by clicking the puzzle icon in your browser and then the pin icon next to Quotebook', 'info');
-      }
-    } catch (error) {
-      console.error('Failed to pin extension:', error);
-      this.showMessage('Please pin this extension manually using the Extensions menu', 'info');
+  showPinReminder(show) {
+    const pinReminder = document.getElementById('pin-reminder');
+    if (pinReminder) {
+      pinReminder.style.display = show ? 'block' : 'none';
     }
   }
 
