@@ -34,8 +34,8 @@ class EnhancedQuoteCollector {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
 
-    // Pin icon to pin/unpin extension in toolbar
-    document.getElementById('pin-icon').addEventListener('click', () => {
+    // Pin container to pin/unpin extension in toolbar
+    document.querySelector('.pin-container').addEventListener('click', () => {
       this.togglePin();
     });
 
@@ -63,13 +63,13 @@ class EnhancedQuoteCollector {
   }
 
   updatePinIcon(isPinned) {
-    const pinIcon = document.getElementById('pin-icon');
+    const pinContainer = document.querySelector('.pin-container');
     if (isPinned) {
-      // Hide the pin icon when extension is already pinned
-      pinIcon.style.display = 'none';
+      // Hide the pin container when extension is already pinned
+      pinContainer.style.display = 'none';
     } else {
-      // Show the pin icon when extension is not pinned
-      pinIcon.style.display = 'block';
+      // Show the pin container when extension is not pinned
+      pinContainer.style.display = 'flex';
     }
   }
 
@@ -85,14 +85,14 @@ class EnhancedQuoteCollector {
         this.updatePinIcon(true);
         
         // Show success message
-        this.showMessage('Extension pinned to toolbar!', 'success');
+        this.showStatus('Extension pinned to toolbar!', 'success');
       } else {
         // Fallback: Show instruction message
-        this.showMessage('Please pin this extension to your toolbar by clicking the puzzle icon in your browser and then the pin icon next to Quotebook', 'info');
+        this.showStatus('Please pin this extension to your toolbar by clicking the puzzle icon in your browser and then the pin icon next to Quotebook', 'info');
       }
     } catch (error) {
       console.error('Failed to pin extension:', error);
-      this.showMessage('Please pin this extension manually using the Extensions menu', 'info');
+      this.showStatus('Please pin this extension manually using the Extensions menu', 'info');
     }
   }
 
