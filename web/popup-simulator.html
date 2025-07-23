@@ -310,8 +310,12 @@
       .pin-icon,
       .external-icon,
       .x-icon {
-        width: 16px;
-        height: 16px;
+        width: 19px;
+        height: 19px;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: opacity 0.2s;
+        position: relative;
       }
 
       .debug-info {
@@ -339,6 +343,38 @@
 
       .coffee-link:hover {
         color: rgb(255, 217, 16);
+      }
+
+      .save-icon:hover,
+      .pin-icon:hover,
+      .external-icon:hover,
+      .x-icon:hover {
+        opacity: 1;
+      }
+
+      /* Tooltip styles */
+      .pin-icon::after {
+        content: 'Keep the extension visible by pinning it to your toolbar';
+        position: absolute;
+        bottom: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s, visibility 0.3s;
+        z-index: 1000;
+        pointer-events: none;
+      }
+
+      .pin-icon:hover::after {
+        opacity: 1;
+        visibility: visible;
       }
     </style>
   </head>
@@ -382,16 +418,17 @@
         <svg
           id="pin-icon"
           class="pin-icon"
+          width="19px"
+          height="19px"
           viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
           stroke-width="2"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          color="#000000"
           title="Keep the extension visible by pinning it to your toolbar"
         >
-          <path d="M12 17v5" />
-          <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 7.89 17H12" />
-          <path d="M15 10.76a2 2 0 0 0 1.11 1.79l1.78.9A2 2 0 0 1 16.11 17H12" />
-          <path d="M9 12.5V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5.5" />
+          <path d="M9.5 14.5L3 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path d="M5.00007 9.48528L14.1925 18.6777L15.8895 16.9806L15.4974 13.1944L21.0065 8.5211L15.1568 2.67141L10.4834 8.18034L6.69713 7.78823L5.00007 9.48528Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
         </svg>
       </div>
 
