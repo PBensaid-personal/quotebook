@@ -6,6 +6,7 @@ class EnhancedQuoteCollector {
     this.spreadsheetId = null;
     this.userTags = [];
     this.suggestedTags = [];
+    this.isPinned = false;
     this.init();
   }
 
@@ -49,50 +50,64 @@ class EnhancedQuoteCollector {
   }
 
   async checkPinStatus() {
-    try {
-      // Check if extension is pinned using chrome.action.getUserSettings
-      if (chrome.action && chrome.action.getUserSettings) {
-        const settings = await chrome.action.getUserSettings();
-        const isPinned = settings.isOnToolbar;
-        this.updatePinIcon(isPinned);
-      }
-    } catch (error) {
-      console.log('Pin status check not available:', error);
-      // Pin icon will remain visible by default
+    // Check current pin status from storage
+    const result = await chrome.storage.local.get(['isPinned']);
+    this.isPinned = result.isPinned || false;
+    
+    // Update icon based on status
+    this.updatePinIcon();
+    
+    // Show reminder if not pinned and not dismissed
+    if (!this.isPinned) {
+      this.checkShowReminder();
     }
   }
 
-  updatePinIcon(isPinned) {
+  updatePinIcon() {
     const pinIcon = document.getElementById('pin-icon');
-    if (isPinned) {
-      // Hide the pin icon when extension is already pinned
+    if (this.isPinned) {
+      // Hide pin icon when marked as pinned
       pinIcon.style.display = 'none';
+      // Clear any badge when pinned
+      if (chrome.action && chrome.action.setBadgeText) {
+        chrome.action.setBadgeText({ text: "" });
+      }
     } else {
-      // Show the pin icon when extension is not pinned
+      // Show pin icon when not pinned
       pinIcon.style.display = 'block';
+      // Show pin indicator badge when not pinned
+      if (chrome.action && chrome.action.setBadgeText) {
+        chrome.action.setBadgeText({ text: "📌" });
+        chrome.action.setBadgeBackgroundColor({ color: "#4285f4" });
+      }
     }
   }
 
   async togglePin() {
-    try {
-      // Use chrome.action.setUserSettings to suggest pinning
-      if (chrome.action && chrome.action.setUserSettings) {
-        await chrome.action.setUserSettings({
-          userSettings: { isOnToolbar: true }
-        });
-        
-        // Hide the pin icon after successful pinning
-        this.updatePinIcon(true);
-        
-        // Show success message
-        this.showStatus('Extension pinned to toolbar!', 'success');
-      } else {
-        // Fallback: Show instruction message
-        this.showStatus('Please pin this extension to your toolbar by clicking the puzzle icon in your browser and then the pin icon next to Quotebook', 'info');
-      }
-    } catch (error) {
-      console.error('Failed to pin extension:', error);
-      this.showStatus('Please pin this extension manually using the Extensions menu', 'info');
+    this.isPinned = !this.isPinned;
+    
+    // Save status
+    await chrome.storage.local.set({ isPinned: this.isPinned });
+    
+    // Update visual feedback
+    this.updatePinIcon();
+    
+    // Show message
+    const message = this.isPinned ? 
+      "Extension marked as pinned! 📌" : 
+      "Pin reminder enabled. Please pin the extension to your toolbar.";
+    
+    this.showStatus(message, this.isPinned ? 'success' : 'info');
+  }
+
+  async checkShowReminder() {
+    const result = await chrome.storage.local.get(['reminderDismissed', 'usageCount']);
+    
+    if (result.reminderDismissed) return;
+    
+    const count = result.usageCount || 0;
+    if (count < 5) { // Show for first 5 uses
+      await chrome.storage.local.set({ usageCount: count + 1 });
     }
   }
 

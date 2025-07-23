@@ -1,0 +1,130 @@
+// Enhanced pin reminder with visual feedback
+class PinManager {
+  constructor() {
+    this.isPinned = false;
+    this.init();
+  }
+
+  async init() {
+    // Check current pin status from storage
+    const result = await chrome.storage.local.get(['isPinned']);
+    this.isPinned = result.isPinned || false;
+    
+    // Update icon based on status
+    this.updateIcon();
+    
+    // Show reminder if not pinned and not dismissed
+    if (!this.isPinned) {
+      this.checkShowReminder();
+    }
+  }
+
+  async togglePin() {
+    this.isPinned = !this.isPinned;
+    
+    // Save status
+    await chrome.storage.local.set({ isPinned: this.isPinned });
+    
+    // Update visual feedback
+    this.updateIcon();
+    this.updateUI();
+    
+    // Show message
+    const message = this.isPinned ? 
+      "Extension marked as pinned! 📌" : 
+      "Pin reminder enabled. Please pin the extension to your toolbar.";
+    
+    this.showNotification(message, this.isPinned ? 'success' : 'info');
+  }
+
+  updateIcon() {
+    if (this.isPinned) {
+      // Clear any badge when pinned
+      chrome.action.setBadgeText({ text: "" });
+    } else {
+      // Show pin indicator when not pinned
+      chrome.action.setBadgeText({ text: "📌" });
+      chrome.action.setBadgeBackgroundColor({ color: "#4285f4" });
+    }
+  }
+
+  updateUI() {
+    const pinButton = document.getElementById('pinToggle');
+    const reminder = document.getElementById('pinReminder');
+    
+    if (pinButton) {
+      pinButton.innerHTML = this.isPinned ? 
+        '📌 Unpin Reminder' : 
+        '📌 Mark as Pinned';
+      pinButton.style.background = this.isPinned ? '#f44336' : '#4285f4';
+    }
+    
+    if (reminder) {
+      reminder.style.display = this.isPinned ? 'none' : 'block';
+    }
+  }
+
+  async checkShowReminder() {
+    const result = await chrome.storage.local.get(['reminderDismissed', 'usageCount']);
+    
+    if (result.reminderDismissed) return;
+    
+    const count = result.usageCount || 0;
+    if (count < 5) { // Show for first 5 uses
+      this.showReminder();
+      await chrome.storage.local.set({ usageCount: count + 1 });
+    }
+  }
+
+  showReminder() {
+    const reminder = document.getElementById('pinReminder');
+    if (reminder) {
+      reminder.style.display = 'block';
+    }
+  }
+
+  async dismissReminder() {
+    const reminder = document.getElementById('pinReminder');
+    if (reminder) {
+      reminder.style.display = 'none';
+    }
+    await chrome.storage.local.set({ reminderDismissed: true });
+  }
+
+  showNotification(message, type = 'info') {
+    const colors = {
+      success: '#4CAF50',
+      info: '#2196F3',
+      error: '#f44336'
+    };
+    
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+      padding: 8px 16px; border-radius: 4px; z-index: 1000;
+      background: ${colors[type]}; color: white; font-size: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    `;
+    
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 2500);
+  }
+}
+
+// Initialize when popup loads
+document.addEventListener('DOMContentLoaded', () => {
+  const pinManager = new PinManager();
+  
+  // Bind toggle button
+  const toggleBtn = document.getElementById('pinToggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => pinManager.togglePin());
+  }
+  
+  // Bind dismiss button
+  const dismissBtn = document.getElementById('dismissReminder');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => pinManager.dismissReminder());
+  }
+});

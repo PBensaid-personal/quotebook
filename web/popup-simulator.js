@@ -40,14 +40,38 @@ class PopupSimulator {
     });
 
     // Pin icon simulation (shows message since web version can't actually pin)
-    document.getElementById('pin-icon').addEventListener('click', () => {
-      this.showStatus('This is a web simulation. Install the real Chrome extension to use pinning functionality.', 'info');
-    });
+    const pinIcon = document.getElementById('pin-icon');
+    if (pinIcon) {
+      pinIcon.addEventListener('click', () => {
+        // Show notification for web simulator
+        this.showNotification('This is a web simulation. Install the real Chrome extension to use pinning functionality.', 'info');
+      });
+    }
   }
 
   setupTagInterface() {
     this.userTags = [];
     this.renderUserTags();
+  }
+
+  showNotification(message, type = 'info') {
+    const colors = {
+      success: '#4CAF50',
+      info: '#2196F3',
+      error: '#f44336'
+    };
+    
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+      padding: 8px 16px; border-radius: 4px; z-index: 1000;
+      background: ${colors[type]}; color: white; font-size: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    `;
+    
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 2500);
   }
 
   renderUserTags() {
