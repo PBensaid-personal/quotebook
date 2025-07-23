@@ -437,6 +437,16 @@ class EnhancedQuoteCollector {
       this.updatePagePreview(tab);
 
       try {
+        // Try to inject content script if not already present
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content.js']
+          });
+        } catch (injectionError) {
+          // Content script might already be injected, continue
+        }
+
         const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSelectedText' });
 
         if (response && response.selectedText) {
@@ -465,6 +475,18 @@ class EnhancedQuoteCollector {
   async extractPageMetadata() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) return;
+
+      // Try to inject content script if not already present
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content.js']
+        });
+      } catch (injectionError) {
+        // Content script might already be injected, continue
+      }
+
       const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
       
       if (result && result.categories && result.categories.length > 0) {

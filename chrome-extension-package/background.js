@@ -129,12 +129,16 @@ class QuoteCollectorBackground {
       console.log('Disconnected from Google successfully');
       
       // Show notification
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icon-48.png',
-        title: 'Quotebook',
-        message: 'Disconnected from Google Sheets. Click the extension to reconnect.'
-      });
+      try {
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icon-48.png',
+          title: 'Quotebook',
+          message: 'Disconnected from Google Sheets. Click the extension to reconnect.'
+        });
+      } catch (notificationError) {
+        console.log('Could not show notification, but disconnect was successful');
+      }
       
     } catch (error) {
       console.error('Failed to disconnect from Google:', error);
