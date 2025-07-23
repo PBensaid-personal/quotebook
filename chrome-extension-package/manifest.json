@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Save quotes from across the web to Google Sheets - Private and no other account needed",
 
-  "permissions": ["identity", "activeTab", "storage", "contextMenus"],
+  "permissions": ["identity", "activeTab", "storage", "contextMenus", "notifications"],
 
   "host_permissions": [
     "https://accounts.google.com/*",

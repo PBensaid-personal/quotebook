@@ -11,6 +11,7 @@ class EnhancedQuoteCollector {
 
   async init() {
     this.setupEventListeners();
+    await this.checkWebAppCreationRequest();
     await this.checkExistingAuth();
     await this.loadSelectedText();
     this.setupTagInterface();
@@ -33,6 +34,10 @@ class EnhancedQuoteCollector {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
 
+    document.getElementById('create-web-viewer-button').addEventListener('click', async () => {
+      await this.deployPersonalWebApp();
+    });
+
     // Bookmark icon in header also opens full page view
     document.querySelector('.bookmark-icon').addEventListener('click', () => {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
@@ -45,6 +50,32 @@ class EnhancedQuoteCollector {
     });
 
     // Remove Enter key handler - tags will be processed on Save
+  }
+
+  async checkWebAppCreationRequest() {
+    try {
+      const stored = await chrome.storage.local.get(['webAppCreationRequested']);
+      if (stored.webAppCreationRequested) {
+        // Clear the flag
+        await chrome.storage.local.remove(['webAppCreationRequested']);
+        
+        // Check if we have authentication and can create web app
+        const authStored = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
+        if (authStored.googleAccessToken && authStored.googleSpreadsheetId) {
+          this.accessToken = authStored.googleAccessToken;
+          this.spreadsheetId = authStored.googleSpreadsheetId;
+          
+          // Trigger web app creation
+          await this.deployPersonalWebApp();
+          this.showMainInterface();
+        } else {
+          // Need to authenticate first
+          this.showStatus('Please connect to Google Sheets first', 'info');
+        }
+      }
+    } catch (error) {
+      console.log('No web app creation request pending');
+    }
   }
 
   setupTagInterface() {
@@ -614,6 +645,27 @@ class EnhancedQuoteCollector {
   showMainInterface() {
     document.getElementById('auth-section').style.display = 'none';
     document.getElementById('main-section').classList.add('active');
+    
+    // Show "Create Web Viewer" button if no web app exists yet
+    this.checkAndShowWebViewerButton();
+  }
+
+  async checkAndShowWebViewerButton() {
+    try {
+      const stored = await chrome.storage.local.get(['webAppUrl']);
+      const createButton = document.getElementById('create-web-viewer-button');
+      
+      if (!stored.webAppUrl) {
+        // No web app created yet, show the create button
+        createButton.style.display = 'block';
+      } else {
+        // Web app exists, hide create button and show the existing web app button
+        createButton.style.display = 'none';
+        this.addWebAppButtons(stored.webAppUrl);
+      }
+    } catch (error) {
+      console.log('Could not check web app status');
+    }
   }
 
   showStatus(message, type) {
