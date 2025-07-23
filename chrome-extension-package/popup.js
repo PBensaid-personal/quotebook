@@ -68,17 +68,25 @@ class EnhancedQuoteCollector {
     if (this.isPinned) {
       // Hide pin icon when marked as pinned
       pinIcon.style.display = 'none';
-      // Clear any badge when pinned
+      // Clear any badge when pinned (with safety check)
       if (chrome.action && chrome.action.setBadgeText) {
-        chrome.action.setBadgeText({ text: "" });
+        try {
+          chrome.action.setBadgeText({ text: "" });
+        } catch (error) {
+          console.log('Could not update badge:', error);
+        }
       }
     } else {
       // Show pin icon when not pinned
       pinIcon.style.display = 'block';
-      // Show pin indicator badge when not pinned
+      // Show pin indicator badge when not pinned (with safety check)
       if (chrome.action && chrome.action.setBadgeText) {
-        chrome.action.setBadgeText({ text: "📌" });
-        chrome.action.setBadgeBackgroundColor({ color: "#4285f4" });
+        try {
+          chrome.action.setBadgeText({ text: "📌" });
+          chrome.action.setBadgeBackgroundColor({ color: "#4285f4" });
+        } catch (error) {
+          console.log('Could not update badge:', error);
+        }
       }
     }
   }
