@@ -160,3 +160,13 @@ The application is designed as a monorepo with shared TypeScript types and schem
 - **Simulator Features**: popup-simulator.html and fullpage-simulator.html mirror extension exactly with OAuth simulation
 - **Layout Fix**: Corrected content card structure to match extension: content-text → content-title → content-tags → content-meta (with domain and date)
 - **Data Simulation**: Added realistic sample data with proper domain extraction and metadata display
+
+### Personal Web App Auto-Deployment (January 21, 2025)
+- **Automatic Web App Creation**: Extension now auto-creates personal Google Apps Script web apps during authentication
+- **Zero-Setup Experience**: Users get personal web viewer without any technical setup
+- **Live Data Integration**: Web app pulls real quotes directly from user's Google Sheets
+- **Seamless Integration**: Extension provides direct links to user's personal web app
+- **Complete Feature Parity**: Web app includes search, filter, delete, statistics - all extension features
+- **Google Apps Script Backend**: Uses Apps Script API for automatic project creation and deployment
+- **Enhanced OAuth**: Added script.projects and script.deployments scopes for web app creation
+- **Error Handling**: Comprehensive error handling and retry mechanisms for deployment process
