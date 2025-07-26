@@ -296,9 +296,10 @@ class EnhancedQuoteCollector {
         // No cached token to remove
       }
 
-      // Request new token using getAuthToken (the original working method)
+      // Request new token using getAuthToken with account selection
       const tokenResult = await chrome.identity.getAuthToken({ 
-        interactive: true
+        interactive: true,
+        account: { anyAccount: true }
       });
 
       let accessToken;
