@@ -296,65 +296,43 @@ class EnhancedQuoteCollector {
         // No cached token to remove
       }
 
-      // Try getAuthToken first (simpler method)
-      try {
-        const tokenResult = await chrome.identity.getAuthToken({ 
-          interactive: true
-        });
+      // Request new token using getAuthToken with account selection
+      const tokenResult = await chrome.identity.getAuthToken({ 
+        interactive: true,
+        account: { anyAccount: true }
+      });
 
-        let accessToken;
+      let accessToken;
 
-        // Handle both new object format and old string format
-        if (typeof tokenResult === 'object' && tokenResult !== null) {
-          if (tokenResult.token) {
-            accessToken = tokenResult.token;
-          } else {
-            throw new Error('Authentication failed - no token received');
+      // Handle both new object format and old string format
+      if (typeof tokenResult === 'object' && tokenResult !== null) {
+        if (tokenResult.token) {
+          accessToken = tokenResult.token;
+
+          // Verify we have the required scope
+          const grantedScopes = tokenResult.grantedScopes || [];
+          const hasSheetScope = grantedScopes.some(scope => 
+            scope.includes('spreadsheets') || scope.includes('sheets')
+          );
+
+          if (!hasSheetScope) {
+            throw new Error('Missing required Google Sheets permission');
           }
-        } else if (typeof tokenResult === 'string' && tokenResult) {
-          accessToken = tokenResult;
         } else {
-          throw new Error('Authentication failed - invalid response');
+          throw new Error('Authentication failed - no token received');
         }
-
-        this.accessToken = accessToken;
-        this.showStatus('Authentication successful!', 'success');
-        await this.setupSpreadsheetIfNeeded();
-        this.showMainInterface();
-        return;
-
-      } catch (getAuthError) {
-        console.log('getAuthToken failed, trying launchWebAuthFlow:', getAuthError);
-        
-        // Fallback to launchWebAuthFlow for published extensions
-        const redirectUrl = chrome.identity.getRedirectURL();
-        const authUrl = `https://accounts.google.com/oauth/authorize?` +
-          `client_id=${this.clientId}&` +
-          `response_type=token&` +
-          `redirect_uri=${encodeURIComponent(redirectUrl)}&` +
-          `scope=${encodeURIComponent('https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly')}`;
-
-        const responseUrl = await chrome.identity.launchWebAuthFlow({
-          url: authUrl,
-          interactive: true
-        });
-
-        // Extract access token from response URL
-        const urlParams = new URLSearchParams(responseUrl.split('#')[1]);
-        const accessToken = urlParams.get('access_token');
-
-        if (!accessToken) {
-          throw new Error('No access token received from OAuth flow');
-        }
-
-        this.accessToken = accessToken;
-        this.showStatus('Authentication successful!', 'success');
-        await this.setupSpreadsheetIfNeeded();
-        this.showMainInterface();
+      } else if (typeof tokenResult === 'string' && tokenResult) {
+        accessToken = tokenResult;
+      } else {
+        throw new Error('Authentication failed - invalid response');
       }
 
+      this.accessToken = accessToken;
+      this.showStatus('Authentication successful!', 'success');
+      await this.setupSpreadsheetIfNeeded();
+      this.showMainInterface();
+
     } catch (error) {
-      console.error('Full auth error:', error);
       this.showStatus(`Auth error: ${error.message}`, 'error');
     }
   }
