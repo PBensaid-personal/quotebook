@@ -3,9 +3,8 @@
   "name": "Quotebook",
   "version": "1.0.0",
   "description": "Save quotes from across the web to Google Sheets - Private and no other account needed",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqslDuQgkzU04EOb77YVTQ6L/QFDnEvsEUHaFr+Z9Mn8qAYsXicKsttAn2yCvnta3TzFcBe/EjRLxhxkkv+nK/02Xm0ZUda+BN9pk7QV5eCn1R2yBgkeG9dWoQ4oGjpYdWJlyk89q19yUooeJLEx83Ok14FtNLOQPoRC9qPikQ1ilSLRMp3AOL44yLuprcCuMSItE8Lr9EVo4dqn/SChW7GfN9pKQcPNZKyEuLhjfWWjdZFwHFpFjOn4cLrp1+ecbVoe1TgJ54jgyBSMQRDKroXFF9rEJbwP/yXW6KNxcqTljIHULqNjdPhQW0OU8OsXTlprU5m+yRN6ZUcGlEYacIwIDAQAB",
 
-  "permissions": ["identity", "activeTab", "storage", "action", "contextMenus"],
+  "permissions": ["identity", "activeTab", "storage", "contextMenus", "action"],
 
   "host_permissions": [
     "https://accounts.google.com/*",
