@@ -38,15 +38,6 @@ class PopupSimulator {
       e.preventDefault();
       window.open('fullpage-simulator.html', '_blank');
     });
-
-    // Pin icon simulation (shows message since web version can't actually pin)
-    const pinIcon = document.getElementById('pin-icon');
-    if (pinIcon) {
-      pinIcon.addEventListener('click', () => {
-        // Show notification for web simulator
-        this.showNotification('This is a web simulation. Install the real Chrome extension to use pinning functionality.', 'info');
-      });
-    }
   }
 
   setupTagInterface() {

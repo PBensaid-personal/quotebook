@@ -6,7 +6,6 @@ class EnhancedQuoteCollector {
     this.spreadsheetId = null;
     this.userTags = [];
     this.suggestedTags = [];
-    this.isPinned = false;
     this.init();
   }
 
@@ -15,7 +14,6 @@ class EnhancedQuoteCollector {
     await this.checkExistingAuth();
     await this.loadSelectedText();
     this.setupTagInterface();
-    await this.checkPinStatus();
   }
 
   setupEventListeners() {
@@ -35,11 +33,6 @@ class EnhancedQuoteCollector {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
 
-    // Pin icon to pin/unpin extension in toolbar
-    document.getElementById('pin-icon').addEventListener('click', () => {
-      this.togglePin();
-    });
-
     // Header brand (logo + title) opens full page view
     document.getElementById('header-brand').addEventListener('click', (e) => {
       e.preventDefault();
@@ -47,77 +40,6 @@ class EnhancedQuoteCollector {
     });
 
     // Remove Enter key handler - tags will be processed on Save
-  }
-
-  async checkPinStatus() {
-    // Check current pin status from storage
-    const result = await chrome.storage.local.get(['isPinned']);
-    this.isPinned = result.isPinned || false;
-    
-    // Update icon based on status
-    this.updatePinIcon();
-    
-    // Show reminder if not pinned and not dismissed
-    if (!this.isPinned) {
-      this.checkShowReminder();
-    }
-  }
-
-  updatePinIcon() {
-    const pinIcon = document.getElementById('pin-icon');
-    if (this.isPinned) {
-      // Hide pin icon when marked as pinned
-      pinIcon.style.display = 'none';
-      // Clear any badge when pinned (with safety check)
-      if (chrome.action && chrome.action.setBadgeText) {
-        try {
-          chrome.action.setBadgeText({ text: "" });
-        } catch (error) {
-          console.log('Could not update badge:', error);
-        }
-      }
-    } else {
-      // Show pin icon when not pinned
-      pinIcon.style.display = 'block';
-      // Show pin indicator badge when not pinned (with safety check)
-      if (chrome.action && chrome.action.setBadgeText) {
-        try {
-          chrome.action.setBadgeText({ text: "📌" });
-          chrome.action.setBadgeBackgroundColor({ color: "#4285f4" });
-        } catch (error) {
-          console.log('Could not update badge:', error);
-        }
-      }
-    }
-  }
-
-  async togglePin() {
-    this.isPinned = !this.isPinned;
-    
-    // Save status
-    await chrome.storage.local.set({ isPinned: this.isPinned });
-    
-    // Update visual feedback
-    this.updatePinIcon();
-    
-    // Show message using your existing method
-    const message = this.isPinned ? 
-      "Extension marked as pinned! 📌" : 
-      "Pin reminder enabled. Please pin the extension to your toolbar.";
-    
-    // Use showStatusMain instead of showMessage
-    this.showStatusMain(message, this.isPinned ? 'success' : 'info');
-  }
-
-  async checkShowReminder() {
-    const result = await chrome.storage.local.get(['reminderDismissed', 'usageCount']);
-    
-    if (result.reminderDismissed) return;
-    
-    const count = result.usageCount || 0;
-    if (count < 5) { // Show for first 5 uses
-      await chrome.storage.local.set({ usageCount: count + 1 });
-    }
   }
 
   setupTagInterface() {
