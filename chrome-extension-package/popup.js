@@ -2,6 +2,7 @@
 class EnhancedQuoteCollector {
   constructor() {
     this.clientId = '184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com';
+    this.redirectUri = chrome.identity.getRedirectURL();
     this.accessToken = null;
     this.spreadsheetId = null;
     this.userTags = [];
@@ -102,7 +103,7 @@ class EnhancedQuoteCollector {
 
   async checkExistingAuth() {
     try {
-      // First check if we have cached spreadsheet data
+      // Check if we have cached spreadsheet data
       const stored = await chrome.storage.local.get(['googleSpreadsheetId', 'googleAccessToken']);
       console.log('Cached data found:', { 
         hasSpreadsheetId: !!stored.googleSpreadsheetId, 
@@ -155,35 +156,6 @@ class EnhancedQuoteCollector {
           await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
         }
       }
-
-      // No valid cached data, try to get fresh auth token
-      const tokenResult = await chrome.identity.getAuthToken({ interactive: false });
-
-      if (tokenResult) {
-        let accessToken;
-
-        // Handle both new object format and old string format
-        if (typeof tokenResult === 'object' && tokenResult !== null && tokenResult.token) {
-          accessToken = tokenResult.token;
-        } else if (typeof tokenResult === 'string') {
-          accessToken = tokenResult;
-        }
-
-        if (accessToken) {
-          this.accessToken = accessToken;
-
-          const isValid = await this.validateToken();
-          if (isValid) {
-            await this.setupSpreadsheetIfNeeded();
-            this.showMainInterface();
-            return;
-          } else {
-            // Remove invalid token
-            const tokenToRemove = typeof tokenResult === 'object' ? tokenResult.token : tokenResult;
-            await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
-          }
-        }
-      }
     } catch (error) {
       // No existing auth found, continue to show auth interface
     }
@@ -207,46 +179,35 @@ class EnhancedQuoteCollector {
       // Clear any existing cached data when re-authenticating
       await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
 
-      // Clear any existing tokens
-      try {
-        const oldToken = await chrome.identity.getAuthToken({ interactive: false });
-        if (oldToken) {
-          const tokenToRemove = typeof oldToken === 'object' ? oldToken.token : oldToken;
-          await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
-        }
-      } catch (e) {
-        // No cached token to remove
-      }
+      // Build OAuth URL
+      const scopes = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive.file'
+      ];
+      
+      const authUrl = new URL('https://accounts.google.com/oauth/authorize');
+      authUrl.searchParams.set('client_id', this.clientId);
+      authUrl.searchParams.set('redirect_uri', this.redirectUri);
+      authUrl.searchParams.set('response_type', 'token');
+      authUrl.searchParams.set('scope', scopes.join(' '));
+      authUrl.searchParams.set('access_type', 'online');
 
-      // Request new token using getAuthToken with account selection
-      const tokenResult = await chrome.identity.getAuthToken({ 
-        interactive: true,
-        account: { anyAccount: true }
+      console.log('Launching auth flow with URL:', authUrl.toString());
+
+      // Use launchWebAuthFlow instead of getAuthToken
+      const responseUrl = await chrome.identity.launchWebAuthFlow({
+        url: authUrl.toString(),
+        interactive: true
       });
 
-      let accessToken;
+      console.log('Auth flow completed, response URL:', responseUrl);
 
-      // Handle both new object format and old string format
-      if (typeof tokenResult === 'object' && tokenResult !== null) {
-        if (tokenResult.token) {
-          accessToken = tokenResult.token;
-
-          // Verify we have the required scope
-          const grantedScopes = tokenResult.grantedScopes || [];
-          const hasSheetScope = grantedScopes.some(scope => 
-            scope.includes('spreadsheets') || scope.includes('sheets')
-          );
-
-          if (!hasSheetScope) {
-            throw new Error('Missing required Google Sheets permission');
-          }
-        } else {
-          throw new Error('Authentication failed - no token received');
-        }
-      } else if (typeof tokenResult === 'string' && tokenResult) {
-        accessToken = tokenResult;
-      } else {
-        throw new Error('Authentication failed - invalid response');
+      // Extract access token from response URL
+      const urlParams = new URLSearchParams(responseUrl.split('#')[1]);
+      const accessToken = urlParams.get('access_token');
+      
+      if (!accessToken) {
+        throw new Error('No access token received from Google');
       }
 
       this.accessToken = accessToken;
@@ -255,6 +216,7 @@ class EnhancedQuoteCollector {
       this.showMainInterface();
 
     } catch (error) {
+      console.error('Authentication error:', error);
       this.showStatus(`Auth error: ${error.message}`, 'error');
     }
   }
