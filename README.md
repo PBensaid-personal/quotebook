@@ -7,6 +7,8 @@
 
 Save interesting bits across the web with their source, an image if available and tags. I wanted a way to easily save things as I browsed the web so I made this. I'm so tired of creating accounts for things and giving everyone my data so I made it on Google Sheets. No account or data sharing. Everything is private and yours to control. 
 
+Install it here: https://chromewebstore.google.com/detail/quotebook/mcbjgbahgdnlcbohibbogajggabkleec
+
 ★ ITS YOUR DATA
 Everything saves to your own Google Drive - no subscriptions, no other account. Other than Google that is :)
 
