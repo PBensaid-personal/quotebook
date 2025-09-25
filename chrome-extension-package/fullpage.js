@@ -128,6 +128,7 @@ class FullPageCollector {
     }
 
     this.setupEventListeners();
+    this.initTooltips();
   }
 
   setupEventListeners() {
@@ -1094,6 +1095,45 @@ class FullPageCollector {
     if (loadMoreContainer) {
       loadMoreContainer.style.display = "none";
     }
+  }
+  initTooltips() {
+    const elementsWithTooltips = document.querySelectorAll('[title]');
+    let tooltip = null;
+
+    elementsWithTooltips.forEach(element => {
+      element.addEventListener('mouseenter', (e) => {
+        // Remove existing tooltip
+        if (tooltip) {
+          tooltip.remove();
+        }
+
+        // Create new tooltip
+        tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        tooltip.textContent = e.target.getAttribute('title');
+        document.body.appendChild(tooltip);
+
+        // Position tooltip
+        const rect = e.target.getBoundingClientRect();
+        tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+        tooltip.style.top = (rect.bottom + 8) + 'px';
+
+        // Show tooltip
+        setTimeout(() => tooltip.classList.add('show'), 10);
+      });
+
+      element.addEventListener('mouseleave', () => {
+        if (tooltip) {
+          tooltip.classList.remove('show');
+          setTimeout(() => {
+            if (tooltip) {
+              tooltip.remove();
+              tooltip = null;
+            }
+          }, 200);
+        }
+      });
+    });
   }
 }
 

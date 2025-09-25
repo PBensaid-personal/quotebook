@@ -40,13 +40,16 @@ class EnhancedQuoteCollector {
       this.saveQuote();
     });
 
-    document.getElementById('cancel-button').addEventListener('click', () => {
+    document.getElementById('cancel-icon').addEventListener('click', () => {
       window.close();
     });
 
-    document.getElementById('view-all-button').addEventListener('click', () => {
+    document.getElementById('view-all-icon').addEventListener('click', () => {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
+
+    // Add tooltip functionality
+    this.initTooltips();
 
     // Header brand (logo + title) opens full page view
     document.getElementById('header-brand').addEventListener('click', (e) => {
@@ -584,7 +587,7 @@ class EnhancedQuoteCollector {
         });
         console.log('Storage updated with spreadsheet ID:', this.spreadsheetId);
         
-        this.showStatusMain('Content saved successfully!', 'success');
+        this.showStatusMain('Saved!', 'success');
 
         // Clear content and reset
         document.getElementById('content').value = 'Select text on the webpage to capture it here...';
@@ -641,6 +644,46 @@ class EnhancedQuoteCollector {
         status.style.display = 'none';
       }, 3000);
     }
+  }
+
+  initTooltips() {
+    const icons = document.querySelectorAll('.header-icon[title]');
+    let tooltip = null;
+
+    icons.forEach(icon => {
+      icon.addEventListener('mouseenter', (e) => {
+        // Remove existing tooltip
+        if (tooltip) {
+          tooltip.remove();
+        }
+
+        // Create new tooltip
+        tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        tooltip.textContent = e.target.getAttribute('title');
+        document.body.appendChild(tooltip);
+
+        // Position tooltip
+        const rect = e.target.getBoundingClientRect();
+        tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+        tooltip.style.top = (rect.bottom + 8) + 'px';
+
+        // Show tooltip
+        setTimeout(() => tooltip.classList.add('show'), 10);
+      });
+
+      icon.addEventListener('mouseleave', () => {
+        if (tooltip) {
+          tooltip.classList.remove('show');
+          setTimeout(() => {
+            if (tooltip) {
+              tooltip.remove();
+              tooltip = null;
+            }
+          }, 200);
+        }
+      });
+    });
   }
 }
 
