@@ -33,7 +33,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["fullpage.html", "fullpage.js"],
+      "resources": ["fullpage.html", "fullpage.js", "privacy-policy.html"],
       "matches": ["<all_urls>"]
     }
   ],
@@ -54,5 +54,9 @@
 
   "background": {
     "service_worker": "background.js"
+  },
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://www.googleapis.com https://sheets.googleapis.com https://accounts.google.com https://oauth2.googleapis.com;"
   }
 }
