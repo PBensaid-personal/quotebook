@@ -1,16 +1,25 @@
 {
   "manifest_version": 3,
   "name": "Quotebook",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Save quotes from across the web to Google Sheets - Private and no other account needed",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvPGp5mxnOL9SkagQTWDQwa+Tbo7qiBO69LD51QCMgLShfMIOEQjhSVhIWkW2lKdtJPwTK2h36dEt11gVcEONr4p4JKksoXPH4v58OIgAMlOsx7vRs7fshrw3V6ari0hpopaC4AahmF9Z5UzyYlUehzT2l03i2cU78x30vzX7Z58RweTGHmwx2EXiWFjIA4wXNQ+NusFAhIEbLRPDipavCU6XqBSntogIS3l69XTbQyh4WMdNwHnubMpisqxJhTT++eg46eLbSs6wYiCOtshXBM4R5R20w9iQjZimYM/eDzzl28/uQV8RsHVp/n90pFAQrSQJyV5SarVpF6NivznVkwIDAQAB",
 
-  "permissions": ["identity", "activeTab", "storage", "contextMenus", "action"],
+  "permissions": ["identity", "activeTab", "storage", "contextMenus"],
 
   "host_permissions": [
     "https://accounts.google.com/*",
     "https://sheets.googleapis.com/*",
     "https://www.googleapis.com/*"
   ],
+
+  "oauth2": {
+    "client_id": "184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.file"
+    ]
+  },
 
   "action": {
     "default_popup": "popup.html",

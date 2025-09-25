@@ -1,20 +1,34 @@
 // Enhanced Quote Collector with Beautiful UI and Working OAuth
 class EnhancedQuoteCollector {
   constructor() {
-    this.clientId = '184152653641-m443n0obiua9uotnkts6lsbbo8ikks80.apps.googleusercontent.com';
-    this.redirectUri = chrome.identity.getRedirectURL();
     this.accessToken = null;
     this.spreadsheetId = null;
     this.userTags = [];
-    this.suggestedTags = [];
+    this.isLoggedOut = false; // Track logout state
     this.init();
   }
 
   async init() {
     this.setupEventListeners();
+    this.setupMessageListener();
     await this.checkExistingAuth();
     await this.loadSelectedText();
     this.setupTagInterface();
+  }
+
+  setupMessageListener() {
+    // Listen for logout messages from background script
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.action === 'logout') {
+        console.log('Received logout message, resetting popup');
+        this.accessToken = null;
+        this.spreadsheetId = null;
+        this.userTags = [];
+        this.isLoggedOut = true;
+        this.showAuthInterface();
+        return true;
+      }
+    });
   }
 
   setupEventListeners() {
@@ -103,63 +117,81 @@ class EnhancedQuoteCollector {
 
   async checkExistingAuth() {
     try {
-      // Check if we have cached spreadsheet data
-      const stored = await chrome.storage.local.get(['googleSpreadsheetId', 'googleAccessToken']);
-      console.log('Cached data found:', { 
-        hasSpreadsheetId: !!stored.googleSpreadsheetId, 
-        hasAccessToken: !!stored.googleAccessToken 
-      });
+      console.log('Checking existing authentication...');
       
-      if (stored.googleSpreadsheetId && stored.googleAccessToken) {
-        console.log('Testing cached spreadsheet:', stored.googleSpreadsheetId);
-        // We have cached data, but let's verify the spreadsheet still exists and is not trashed
-        try {
-          // Check if file is trashed using Drive API
-          const driveResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${stored.googleSpreadsheetId}?fields=trashed,name`, {
-            headers: { 'Authorization': `Bearer ${stored.googleAccessToken}` }
-          });
-          
-          console.log('Drive API test response:', driveResponse.status);
-          
-          if (driveResponse.ok) {
-            const fileInfo = await driveResponse.json();
-            console.log('File info:', fileInfo);
-            
-            if (fileInfo.trashed === true) {
-              console.log('Spreadsheet is in trash, clearing cache');
-              await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
-            } else {
-              // File exists and is not trashed, verify it's still accessible via Sheets API
-              const sheetsResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
-                headers: { 'Authorization': `Bearer ${stored.googleAccessToken}` }
-              });
-              
-              if (sheetsResponse.ok) {
-                console.log('Spreadsheet verified and accessible, showing main interface');
-                this.accessToken = stored.googleAccessToken;
-                this.spreadsheetId = stored.googleSpreadsheetId;
-                this.showMainInterface();
-                return;
-              } else {
-                console.log('Spreadsheet not accessible via Sheets API, clearing cache');
-                await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
-              }
-            }
-          } else {
-            // File not found or not accessible, clear cache
-            console.log('File not accessible via Drive API, clearing cache');
-            await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
-          }
-        } catch (error) {
-          // Error accessing spreadsheet, clear cache
-          console.log('Error testing spreadsheet:', error);
-          await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
+      // Check if user explicitly logged out
+      const logoutState = await chrome.storage.local.get(['userLoggedOut']);
+      if (logoutState.userLoggedOut) {
+        console.log('User previously logged out, showing auth interface');
+        this.isLoggedOut = true;
+        this.showAuthInterface();
+        return;
+      }
+      
+      // Try to get existing token from Chrome Identity (non-interactive first)
+      const accessToken = await chrome.identity.getAuthToken({ interactive: false });
+      
+      if (accessToken) {
+        console.log('Found existing Chrome Identity token');
+        // Handle both string and object token formats
+        this.accessToken = typeof accessToken === 'object' ? accessToken.token : accessToken;
+        
+        // Validate token by testing API access
+        const isValid = await this.validateToken();
+        if (!isValid) {
+          console.log('Token invalid, removing cached token');
+          const tokenToRemove = typeof accessToken === 'object' ? accessToken.token : accessToken;
+          await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
+          this.showAuthInterface();
+          return;
         }
+        
+        // Check if we have cached spreadsheet ID
+        const stored = await chrome.storage.local.get(['googleSpreadsheetId']);
+        
+        if (stored.googleSpreadsheetId) {
+          console.log('Testing cached spreadsheet:', stored.googleSpreadsheetId);
+          
+          try {
+            // Quick test if spreadsheet is still accessible
+            const sheetsResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
+              headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            
+            if (sheetsResponse.ok) {
+              console.log('Spreadsheet verified, showing main interface');
+              this.spreadsheetId = stored.googleSpreadsheetId;
+              this.showMainInterface();
+              return;
+            } else {
+              console.log('Spreadsheet not accessible, will create/find one');
+              await chrome.storage.local.remove(['googleSpreadsheetId']);
+            }
+          } catch (error) {
+            console.log('Error testing spreadsheet, will create/find one:', error);
+            await chrome.storage.local.remove(['googleSpreadsheetId']);
+          }
+        }
+        
+        // Have token but need to setup spreadsheet
+        console.log('Have auth token, setting up spreadsheet...');
+        try {
+          await this.setupSpreadsheetIfNeeded();
+          this.showMainInterface();
+          return;
+        } catch (error) {
+          console.error('Spreadsheet setup failed:', error);
+          this.showStatus(`Setup error: ${error.message}`, 'error');
+        }
+      } else {
+        console.log('No existing Chrome Identity token found');
       }
     } catch (error) {
-      // No existing auth found, continue to show auth interface
+      console.log('Error checking existing auth:', error);
+      this.showStatus(`Auth check error: ${error.message}`, 'error');
     }
 
+    // Show auth interface if no valid token or setup failed
     this.showAuthInterface();
   }
 
@@ -176,50 +208,60 @@ class EnhancedQuoteCollector {
     this.showStatus('Starting authentication...', 'info');
 
     try {
-      // Clear any existing cached data when re-authenticating
-      await chrome.storage.local.remove(['googleSpreadsheetId', 'googleAccessToken']);
-
-      // Build OAuth URL
-      const scopes = [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive.file'
-      ];
+      console.log('Requesting authentication token...');
       
-      const authUrl = new URL('https://accounts.google.com/oauth/authorize');
-      authUrl.searchParams.set('client_id', this.clientId);
-      authUrl.searchParams.set('redirect_uri', this.redirectUri);
-      authUrl.searchParams.set('response_type', 'token');
-      authUrl.searchParams.set('scope', scopes.join(' '));
-      authUrl.searchParams.set('access_type', 'online');
-
-      console.log('Launching auth flow with URL:', authUrl.toString());
-
-      // Use launchWebAuthFlow instead of getAuthToken
-      const responseUrl = await chrome.identity.launchWebAuthFlow({
-        url: authUrl.toString(),
+      // Clear any cached tokens first to force fresh auth
+      try {
+        const existingToken = await chrome.identity.getAuthToken({ interactive: false });
+        if (existingToken) {
+          const tokenToRemove = typeof existingToken === 'object' ? existingToken.token : existingToken;
+          await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
+          console.log('Cleared existing cached token');
+        }
+      } catch (e) {
+        console.log('No existing token to clear');
+      }
+      
+      // Use Chrome Identity API with interactive flow
+      const accessToken = await chrome.identity.getAuthToken({ 
         interactive: true
       });
 
-      console.log('Auth flow completed, response URL:', responseUrl);
-
-      // Extract access token from response URL
-      const urlParams = new URLSearchParams(responseUrl.split('#')[1]);
-      const accessToken = urlParams.get('access_token');
-      
       if (!accessToken) {
-        throw new Error('No access token received from Google');
+        throw new Error('No access token received from Chrome Identity API');
       }
 
-      this.accessToken = accessToken;
+      console.log('Authentication successful, got access token');
+      
+      // Handle both string and object token formats
+      this.accessToken = typeof accessToken === 'object' ? accessToken.token : accessToken;
+      this.isLoggedOut = false; // Clear logout state
+      
+      // Clear the logout flag from storage
+      await chrome.storage.local.remove(['userLoggedOut']);
+      
       this.showStatus('Authentication successful!', 'success');
+      
+      // Test the token immediately
+      const isValid = await this.validateToken();
+      if (!isValid) {
+        throw new Error('Received token is invalid');
+      }
+      
       await this.setupSpreadsheetIfNeeded();
       this.showMainInterface();
 
     } catch (error) {
       console.error('Authentication error:', error);
-      this.showStatus(`Auth error: ${error.message}`, 'error');
+      this.showStatus(`Authentication failed: ${error.message}`, 'error');
+      
+      // If auth fails, ensure we're showing the auth interface
+      setTimeout(() => {
+        this.showAuthInterface();
+      }, 2000);
     }
   }
+
 
   async setupSpreadsheetIfNeeded() {
     try {
@@ -281,9 +323,8 @@ class EnhancedQuoteCollector {
           // Use the most recent Quotebook Collection spreadsheet
           this.spreadsheetId = existingSheets[0].id;
           
-          // Store the found spreadsheet
+          // Store only spreadsheet ID (Chrome Identity handles tokens)
           await chrome.storage.local.set({
-            googleAccessToken: this.accessToken,
             googleSpreadsheetId: this.spreadsheetId
           });
 
@@ -317,9 +358,8 @@ class EnhancedQuoteCollector {
         const data = await response.json();
         this.spreadsheetId = data.spreadsheetId;
 
-        // Store credentials
+        // Store only spreadsheet ID (Chrome Identity handles tokens)
         await chrome.storage.local.set({
-          googleAccessToken: this.accessToken,
           googleSpreadsheetId: this.spreadsheetId
         });
 
@@ -329,11 +369,15 @@ class EnhancedQuoteCollector {
         this.showStatus('New Quotebook spreadsheet created!', 'success');
       } else {
         const error = await response.text();
-        this.showStatus(`Failed to create spreadsheet: ${response.status}`, 'error');
+        const errorMsg = `Failed to create spreadsheet: ${response.status}`;
+        this.showStatus(errorMsg, 'error');
+        throw new Error(errorMsg);
       }
 
     } catch (error) {
-      this.showStatus(`Setup error: ${error.message}`, 'error');
+      const errorMsg = `Setup error: ${error.message}`;
+      this.showStatus(errorMsg, 'error');
+      throw error;
     }
   }
 
@@ -359,29 +403,36 @@ class EnhancedQuoteCollector {
       // Update page preview
       this.updatePagePreview(tab);
 
-      try {
-        const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSelectedText' });
+      // Only try to get selected text from content pages (not chrome:// or extension pages)
+      if (tab && tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+        try {
+          const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSelectedText' });
 
-        if (response && response.selectedText) {
-          document.getElementById('content').value = response.selectedText;
-          
-          // Auto-generate suggested tags and add them as user tags
-          this.generateSuggestedTags(response.selectedText);
-        } else {
-          // If no text selected, show sample content for demo
+          if (response && response.selectedText && response.selectedText.trim()) {
+            document.getElementById('content').value = response.selectedText.trim();
+            
+            // Auto-generate suggested tags and add them as user tags
+            this.generateSuggestedTags(response.selectedText.trim());
+          } else {
+            // If no text selected, show instruction
+            document.getElementById('content').value = "Select text on the webpage to capture it here...";
+          }
+        } catch (error) {
+          console.log('Could not get selected text from tab:', error.message);
           document.getElementById('content').value = "Select text on the webpage to capture it here...";
         }
-        
-        // Always try to get page metadata and add as user tags
-        this.extractPageMetadata();
-      } catch (e) {
-        // Could not get selected text, this is normal for some pages
-        document.getElementById('content').value = "Select text on the webpage to capture it here...";
-        // Still try to get page metadata
-        this.extractPageMetadata();
+      } else {
+        // Invalid tab or special page
+        document.getElementById('content').value = "Select text on a webpage to capture it here...";
       }
+        
+      // Always try to get page metadata and add as user tags
+      this.extractPageMetadata();
+        
     } catch (error) {
       // Could not access tab, this is normal
+      console.log('Could not access tab:', error.message);
+      document.getElementById('content').value = "Select text on the webpage to capture it here...";
     }
   }
 
@@ -527,15 +578,11 @@ class EnhancedQuoteCollector {
         const responseData = await response.json();
         console.log('Save successful:', responseData);
         
-        // Make sure storage is up to date with current spreadsheet
+        // Store only spreadsheet ID (Chrome Identity API handles tokens)
         await chrome.storage.local.set({
-          googleAccessToken: this.accessToken,
           googleSpreadsheetId: this.spreadsheetId
         });
-        console.log('Storage updated with:', { 
-          hasAccessToken: !!this.accessToken, 
-          spreadsheetId: this.spreadsheetId 
-        });
+        console.log('Storage updated with spreadsheet ID:', this.spreadsheetId);
         
         this.showStatusMain('Content saved successfully!', 'success');
 
