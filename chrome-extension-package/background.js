@@ -46,13 +46,6 @@ class QuoteCollectorBackground {
         contexts: ["action"] // This targets the extension icon specifically
       });
 
-      // Create "Privacy Policy" context menu item
-      chrome.contextMenus.create({
-        id: "privacy-policy",
-        title: "Privacy Policy",
-        contexts: ["action"]
-      });
-
       // Create "Disconnect" context menu item
       chrome.contextMenus.create({
         id: "logout",
@@ -69,11 +62,6 @@ class QuoteCollectorBackground {
       // Open the full page view in a new tab
       chrome.tabs.create({ 
         url: chrome.runtime.getURL('fullpage.html')
-      });
-    } else if (info.menuItemId === "privacy-policy") {
-      // Open the privacy policy in a new tab
-      chrome.tabs.create({ 
-        url: chrome.runtime.getURL('privacy-policy.html')
       });
     } else if (info.menuItemId === "logout") {
       this.performLogout();

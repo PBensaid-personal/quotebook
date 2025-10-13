@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phillip Bensaid - Designer, Entrepreneur, Founder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      font-size: 16px;
+    }
+
+    body {
+      animation: colorShift 30s infinite;
+      font-size: 1rem;
+      margin: 0;
+    }
+
+    .hello {
+      max-width: 1400px;
+      width: 85%;
+      margin: 7rem auto;
+      padding: 0 2rem;
+      font-family: "Roboto Slab", "Helvetica Neue", "Helvetica", Arial;
+      font-weight: 100;
+      font-size: clamp(1.5rem, 4vw, 3rem);
+      line-height: 1.35;
+      color: rgba(255, 255, 255, 0.8);
+      letter-spacing: -0.01rem;
+      animation: fadeIn 2s ease-in;
+    }
+
+    p {
+      margin: 0 0 2rem 0;
+    }
+
+    a {
+      font-weight: 700;
+      font-size: 78%;
+      color: rgba(255, 255, 255, 1);
+      letter-spacing: 0.1rem;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: #fff;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+    }
+
+    @keyframes colorShift {
+      0% { background: #8DC63F; }
+      25% { background: #4A9E9B; }
+      50% { background: #5B003C; }
+      75% { background: #DE1637; }
+      100% { background: #8DC63F; }
+    }
+
+    @keyframes fadeIn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+
+    /* Responsive Design */
+    @media screen and (max-width: 768px) {
+      .hello {
+        width: 90%;
+        margin: clamp(3rem, 8vw, 7rem) auto;
+        padding: 0 1rem;
+      }
+    }
+    
+    @media screen and (max-width: 480px) {
+      .hello {
+        padding: 0 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="hello">
+    <p>
+      Hello, I'm <a href="https://www.linkedin.com/in/phillipbensaid">Phillip</a>.
+    </p>
+    <p>
+      UX problem solver, designer, and entrepreneur. My focus is finding a unique voice, a clear user path, and creating standout digital designs. 
+      I head up design at <a href="http://mintmcp.com/">MintMCP</a> and advise several startups. I also like to <a href="quotebook.html">make things</a>.  
+    </p>
+    <p>
+      I believe we create more with fewer boundaries between disciplines. <span id="deets"><a href="javascript:void(0)" onclick="showContact()">Contact me</a></span> and let's build something together. 
+    </p>
+  </div>
+
+  <script>
+    function showContact() {
+      document.getElementById('deets').innerHTML = '<a href="mailto:phillip.bensaid@gmail.com">phillip@mintmcp.com</a>';
+    }
+  </script>
+</body>
+</html>

@@ -40,16 +40,13 @@ class EnhancedQuoteCollector {
       this.saveQuote();
     });
 
-    document.getElementById('cancel-icon').addEventListener('click', () => {
+    document.getElementById('cancel-button').addEventListener('click', () => {
       window.close();
     });
 
-    document.getElementById('view-all-icon').addEventListener('click', () => {
+    document.getElementById('view-all-button').addEventListener('click', () => {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
-
-    // Add tooltip functionality
-    this.initTooltips();
 
     // Header brand (logo + title) opens full page view
     document.getElementById('header-brand').addEventListener('click', (e) => {
@@ -132,8 +129,14 @@ class EnhancedQuoteCollector {
       }
       
       // Try to get existing token from Chrome Identity (non-interactive first)
-      const accessToken = await chrome.identity.getAuthToken({ interactive: false });
-      
+      let accessToken = null;
+      try {
+        accessToken = await chrome.identity.getAuthToken({ interactive: false });
+      } catch (e) {
+        // Expected on first load - user hasn't granted permissions yet
+        console.log('No existing token (expected on first load):', e.message);
+      }
+
       if (accessToken) {
         console.log('Found existing Chrome Identity token');
         // Handle both string and object token formats
@@ -184,6 +187,7 @@ class EnhancedQuoteCollector {
           return;
         } catch (error) {
           console.error('Spreadsheet setup failed:', error);
+          // Only show error if we actually had a token and tried to setup
           this.showStatus(`Setup error: ${error.message}`, 'error');
         }
       } else {
@@ -191,10 +195,14 @@ class EnhancedQuoteCollector {
       }
     } catch (error) {
       console.log('Error checking existing auth:', error);
-      this.showStatus(`Auth check error: ${error.message}`, 'error');
+      // Don't show error on first load - it's expected to not have auth yet
+      // Only show error if we have indications this was a real connection failure
+      if (this.accessToken || this.spreadsheetId) {
+        this.showStatus(`Auth check error: ${error.message}`, 'error');
+      }
     }
 
-    // Show auth interface if no valid token or setup failed
+    // Show auth interface if no valid token or setup failed (no error message)
     this.showAuthInterface();
   }
 
@@ -587,7 +595,7 @@ class EnhancedQuoteCollector {
         });
         console.log('Storage updated with spreadsheet ID:', this.spreadsheetId);
         
-        this.showStatusMain('Saved!', 'success');
+        this.showStatusMain('Content saved successfully!', 'success');
 
         // Clear content and reset
         document.getElementById('content').value = 'Select text on the webpage to capture it here...';
@@ -644,46 +652,6 @@ class EnhancedQuoteCollector {
         status.style.display = 'none';
       }, 3000);
     }
-  }
-
-  initTooltips() {
-    const icons = document.querySelectorAll('.header-icon[title]');
-    let tooltip = null;
-
-    icons.forEach(icon => {
-      icon.addEventListener('mouseenter', (e) => {
-        // Remove existing tooltip
-        if (tooltip) {
-          tooltip.remove();
-        }
-
-        // Create new tooltip
-        tooltip = document.createElement('div');
-        tooltip.className = 'tooltip';
-        tooltip.textContent = e.target.getAttribute('title');
-        document.body.appendChild(tooltip);
-
-        // Position tooltip
-        const rect = e.target.getBoundingClientRect();
-        tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
-        tooltip.style.top = (rect.bottom + 8) + 'px';
-
-        // Show tooltip
-        setTimeout(() => tooltip.classList.add('show'), 10);
-      });
-
-      icon.addEventListener('mouseleave', () => {
-        if (tooltip) {
-          tooltip.classList.remove('show');
-          setTimeout(() => {
-            if (tooltip) {
-              tooltip.remove();
-              tooltip = null;
-            }
-          }, 200);
-        }
-      });
-    });
   }
 }
 
