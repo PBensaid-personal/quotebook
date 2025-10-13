@@ -17,8 +17,6 @@
 
       body {
         font-family:
-          "Inter",
-          "Roboto",
           system-ui,
           -apple-system,
           sans-serif;
@@ -68,6 +66,14 @@
         font-weight: 600;
         color: hsl(220, 30%, 18%);
         flex-shrink: 0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+      }
+
+      .logo:hover {
+        color: rgb(255, 217, 16);
+        transform: translateY(-1px);
       }
 
       .logo-icon {
@@ -116,16 +122,15 @@
         gap: 4px;
         flex-shrink: 0;
         white-space: nowrap;
+        color: hsl(20, 6%, 70%);
       }
 
       .stat-number {
         font-size: 16px;
         font-weight: bold;
-        color: hsl(220, 30%, 18%);
       }
 
       .stat-label {
-        color: hsl(25, 5.3%, 44.7%);
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -290,7 +295,7 @@
         width: 100%;
         height: 150px;
         object-fit: cover;
-        border-radius: 12px;
+        border-radius: 8px;
         margin-bottom: 16px;
       }
 
@@ -389,13 +394,15 @@
       }
 
       .auth-required button:hover {
-        background: hsl(207, 90%, 54%);
+        background: rgb(255, 217, 16);
+        color: hsl(220, 30%, 18%);
         transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
       }
 
       #load-more-btn:hover {
-        background: hsl(207, 90%, 54%) !important;
+        background: rgb(255, 217, 16) !important;
+        color: hsl(220, 30%, 18%);
         transform: translateY(-1px) !important;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
       }
@@ -507,6 +514,25 @@
         transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(220, 38, 38, 0.25);
       }
+
+      .tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 10000;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .tooltip.show {
+        opacity: 1;
+      }
     </style>
   </head>
   <body>
@@ -573,7 +599,7 @@
           <input
             type="text"
             id="searchInput"
-            placeholder="Search your content..."
+            placeholder="Search your quotes..."
           />
         </div>
         <div class="filter-group">

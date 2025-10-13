@@ -15,20 +15,19 @@
         min-height: 500px;
         font-family:
           -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-        background: hsl(0, 0%, 100%);
+          background: hsl(220, 30%, 18%);
       }
 
       .card {
-        background: white;
+        background: hsl(220, 30%, 18%);
         border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         overflow: hidden;
       }
 
       .card-header {
         background: hsl(220, 30%, 18%);
         color: white;
-        padding: 16px;
+        padding: 12px 16px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -66,6 +65,71 @@
         transform: scale(1.1);
       }
 
+      .header-icons {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .header-icon {
+        width: 27px;
+        height: 27px;
+        color: #888;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 4px;
+        border-radius: 4px;
+      }
+
+      .header-icon:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        transform: scale(1.1);
+      }
+
+      .header-icon-with-text {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        color: #888;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 4px 4px 4px 8px;
+        border-radius: 4px;
+      }
+
+      .header-icon-with-text:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+      }
+
+      .icon-text {
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 10000;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .tooltip.show {
+        opacity: 1;
+      }
+
+
+
       .card-header h2 {
         font-size: 18px;
         font-weight: 500;
@@ -79,22 +143,13 @@
       }
 
       .content-preview {
-        padding: 16px 16px 0;
+        padding: 0 16px 16px;
       }
 
       .preview-row {
         display: flex;
         align-items: flex-start;
         gap: 12px;
-      }
-
-      .preview-image {
-        width: 64px;
-        height: 48px;
-        border-radius: 6px;
-        object-fit: cover;
-        flex-shrink: 0;
-        background: #f1f5f9;
       }
 
       .preview-text {
@@ -105,7 +160,7 @@
       .preview-title {
         font-size: 14px;
         font-weight: 500;
-        color: #1e293b;
+        color: #e2e8f0;
         margin-bottom: 4px;
         white-space: nowrap;
         overflow: hidden;
@@ -114,37 +169,44 @@
 
       .preview-url {
         font-size: 12px;
-        color: #64748b;
+        color: #94a3b8;
+        height: 14px;
+        overflow: hidden;
       }
 
       .content-section {
         padding: 16px 16px 0;
+      }
+      .content-section textarea:focus {
+        outline: none;
+        border-color: rgb(255, 217, 16);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
       }
 
       .section-label {
         display: block;
         font-size: 12px;
         font-weight: 500;
-        color: #374151;
+        color: #cbd5e1;
         margin-bottom: 8px;
       }
 
       .content-textarea {
         width: 100%;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        background: white;
+        border: 1px solid #475569;
         border-radius: 6px;
         padding: 8px 12px;
-        font-size: 16px;
+        font-size: 18px;
         font-family: "Libre Baskerville", Georgia, serif;
         line-height: 1.3;
-        color: #374151;
+        color: #1e293b;
         resize: auto;
         max-height: 120px;
       }
 
       .tags-section {
-        padding: 16px;
+        padding: 16px 16px 2px;
       }
 
       .tags-container {
@@ -164,26 +226,28 @@
         font-weight: 500;
       }
 
-      .tag-suggested {
-        background: hsl(220, 30%, 92%);
-        color: hsl(220, 30%, 18%);
-        border: 1px solid hsl(220, 30%, 85%);
+      .tag-user {
+        color: #cbd5e1;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid #64748b;
+        transition: all 0.2s ease;
       }
 
-      .tag-user {
-        background: #f1f5f9;
-        color: #475569;
-        border: 1px solid #e2e8f0;
+      .tag-user:hover {
+        background: rgb(255, 217, 16);
+        color: black;
+        border-color: rgb(255, 217, 16);
       }
 
       .tag-remove {
         background: none;
         border: none;
-        color: #64748b;
+        color: inherit;
         cursor: pointer;
         padding: 0;
         margin-left: 4px;
         font-size: 14px;
+        transition: color 0.2s ease;
       }
 
       .tag-remove:hover {
@@ -193,15 +257,65 @@
       .tag-input {
         width: 100%;
         padding: 8px 12px;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
+        border: 1px solid #475569;
+        border-radius: 6px 6px 0 0;
         font-size: 14px;
-        margin-bottom: 8px;
+        background: white;
+        color: #1e293b;
+      }
+
+      .tag-input::placeholder {
+        color: #94a3b8;
+      }
+
+      /* Tag Pills Autocomplete Styles */
+      .tag-autocomplete {
+        position: relative;
+      }
+
+      .tag-pills-container {
+        max-height: 120px;
+        overflow-y: auto;
+        padding: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid #494b50;
+        border-radius: 0 0 6px 6px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .tag-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        background: #8c9096;
+        border: 1px solid #8c9096;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #374151;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+      }
+
+      .tag-pill:hover {
+        background: rgb(255, 217, 16);
+        border-color: rgb(255, 217, 16);
+        color: black;
+        transform: translateY(-1px);
+      }
+
+      .tag-pill.filtered {
+        background: rgb(255, 217, 16);
+        border-color: rgb(255, 217, 16);
+        color: black;
       }
 
       .tag-input:focus {
         outline: none;
-        border-color: #3b82f6;
+        border-color: rgb(255, 217, 16);
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
       }
 
@@ -225,20 +339,26 @@
       }
 
       .btn-primary {
-        background: hsl(220, 30%, 18%);
-        color: white;
+        background: #f8fafc;
+        border: 1px solid hsl(220, 30%, 85%);
+        color: black;
         width: 100%;
         margin-bottom: 8px;
       }
 
       .btn-primary:hover {
         background: rgb(255, 217, 16);
+        border: 1px solid rgb(255, 217, 16);
         color: black;
       }
 
       .btn-primary:disabled {
         background: #94a3b8;
         cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        padding:8px 16px;
       }
 
       .btn-outline {
@@ -266,21 +386,18 @@
       }
 
       .status.success {
-        background: #dcfce7;
-        color: #166534;
-        border: 1px solid #bbf7d0;
+        background: #f0f1f3;
+        color: #999999;
       }
 
       .status.error {
-        background: #fef2f2;
+        background: #f0f1f3;
         color: #dc2626;
-        border: 1px solid #fecaca;
       }
 
       .status.info {
-        background: #eff6ff;
-        color: #1d4ed8;
-        border: 1px solid #bfdbfe;
+        background: #f0f1f3;
+        color: #999999;
       }
 
       .auth-section {
@@ -295,10 +412,12 @@
 
       .main-section {
         display: none;
+        background: hsl(220, 30%, 18%);
       }
 
       .main-section.active {
         display: block;
+        background: hsl(220, 30%, 18%);
       }
 
       .sparkles-icon {
@@ -307,37 +426,102 @@
       }
 
       .save-icon,
-      .external-icon,
-      .x-icon {
+      .external-icon {
         width: 16px;
         height: 16px;
       }
 
-      .debug-info {
-        background: white;
-        padding: 10px;
-        border-radius: 4px;
-        font-family: "Consolas", "Monaco", monospace;
-        font-size: 11px;
-        margin-top: 10px;
-        white-space: pre-wrap;
-        color: #475569;
-      }
 
       .coffee-link {
         display: block;
-        text-align: center;
-        margin-top: 16px;
-        padding: 8px;
-        color: #64748b;
+        text-align: left;
+        padding: 16px;
+        color: #94a3b8;
         text-decoration: none;
         font-size: 12px;
-        border-top: 1px solid #e2e8f0;
         transition: color 0.2s ease;
       }
 
-      .coffee-link:hover {
-        color: rgb(255, 217, 16);
+      /* Image Carousel Styles */
+      .image-selector {
+        padding: 12px 16px;
+        border-top: 1px solid #475569;
+      }
+
+      .selector-header {
+        font-size: 12px;
+        font-weight: 500;
+        color: #cbd5e1;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .no-image-indicator {
+        font-size: 11px;
+        color: #94a3b8;
+        font-weight: normal;
+      }
+
+      .image-carousel {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: flex-start;
+      }
+
+      .carousel-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid #475569;
+        border-radius: 4px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+        color: #cbd5e1;
+      }
+
+      .carousel-btn:hover {
+        background: rgb(255, 217, 16);
+        border-color: rgb(255, 217, 16);
+        color: hsl(220, 30%, 18%);
+      }
+
+      .carousel-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .image-options {
+        display: flex;
+        gap: 8px;
+        overflow: hidden;
+        flex: 1;
+      }
+
+      .image-option {
+        width: 72px;
+        height: 54px;
+        border-radius: 6px;
+        object-fit: cover;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      }
+
+      .image-option:hover {
+        border-color: rgb(255, 217, 16);
+      }
+
+      .image-option.selected {
+        border-color: rgb(255, 217, 16);
+        box-shadow: 0 0 0 1px rgb(255, 217, 16);
       }
     </style>
   </head>
@@ -378,6 +562,27 @@
           </svg>
           <h2>Quotebook</h2>
         </a>
+        
+        <div class="header-icons">
+          <div id="view-all-icon" class="header-icon-with-text" title="View your collection">
+            <span class="icon-text">View all</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 7h10v10"/>
+              <path d="M7 17 17 7"/>
+            </svg>
+          </div>
+          <svg id="spreadsheet-icon" class="header-icon" title="Open Google Sheet">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19,3H5C3.9,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.9 20.1,3 19,3M19,19H5V5H19V19Z"/>
+              <path d="M14,17H16V15H14V17M10,17H12V15H10V17M6,17H8V15H6V17M14,13H16V11H14V13M10,13H12V11H10V13M6,13H8V11H6V13M14,9H16V7H14V9M10,9H12V7H10V9M6,9H8V7H6V9"/>
+            </svg>
+          </svg>
+          <a href="https://coff.ee/phillipbensaid" target="_blank" class="header-icon" data-tooltip="Buy me a coffee?">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/>
+            </svg>
+          </a>
+        </div>
 
       </div>
 
@@ -402,15 +607,27 @@
           ></textarea>
         </div>
 
+        <!-- Tags Section -->
+        <div class="tags-section">
+          <div class="tag-autocomplete">
+            <input
+              type="text"
+              id="tag-input"
+              class="tag-input"
+              placeholder="Add custom tags (comma-separated)..."
+            />
+            <div id="tag-pills-container" class="tag-pills-container">
+              <!-- Populated by JavaScript -->
+            </div>
+          </div>
+
+          <!-- User Tags -->
+          <div id="user-tags" class="tags-container"></div>
+        </div>
+
         <!-- Content Preview -->
         <div class="content-preview">
           <div class="preview-row">
-            <img
-              id="preview-image"
-              src=""
-              alt="Page preview"
-              class="preview-image"
-            />
             <div class="preview-text">
               <div id="preview-title" class="preview-title">Loading...</div>
               <div id="preview-url" class="preview-url">...</div>
@@ -418,70 +635,28 @@
           </div>
         </div>
 
-        <!-- Tags Section -->
-        <div class="tags-section">
-          <label class="section-label">Tags</label>
-
-          <!-- Tag Input -->
-          <input
-            type="text"
-            id="tag-input"
-            class="tag-input"
-            placeholder="Add custom tags (comma-separated)..."
-          />
-
-          <!-- All Tags (suggested + user) -->
-          <div id="user-tags" class="tags-container"></div>
+      <!-- Image Selection (if multiple available) -->
+      <div id="image-selector" class="image-selector" style="display: none;">
+        <div class="selector-header">
+          <span id="no-image-indicator" class="no-image-indicator" style="display: none;">No image selected</span>
         </div>
+        <div class="image-carousel">
+          <button class="carousel-btn" id="carousel-prev">‹</button>
+          <div class="image-options" id="image-options">
+            <!-- Populated by JS -->
+          </div>
+          <button class="carousel-btn" id="carousel-next">›</button>
+        </div>
+      </div>
 
         <!-- Action Buttons -->
         <div class="actions">
           <button id="save-button" class="btn btn-primary">
-            <svg
-              class="save-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
-              />
-              <polyline points="17,21 17,13 7,13 7,21" />
-              <polyline points="7,3 7,8 15,8" />
-            </svg>
-            Save to Collection
+            Save
           </button>
-          <div class="btn-row">
-            <button id="cancel-button" class="btn btn-outline">Cancel</button>
-            <button id="view-all-button" class="btn btn-outline">
-              <svg
-                class="external-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <rect width="18" height="18" x="3" y="3" rx="2" />
-                <path d="M9 3v18" />
-                <path d="m16 15-3-3 3-3" />
-              </svg>
-              View All
-            </button>
-          </div>
           <div id="status-main" class="status"></div>
         </div>
       </div>
-
-      <div id="debug" class="debug-info"></div>
-
-      <a
-        href="https://coff.ee/phillipbensaid"
-        target="_blank"
-        class="coffee-link"
-      >
-        ☕ Buy me a coffee
-      </a>
     </div>
 
     <script src="popup.js"></script>
