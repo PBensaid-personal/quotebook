@@ -25,15 +25,30 @@ class QuoteCollectorBackground {
     });
   }
 
-  handleFirstInstall() {
+  async handleFirstInstall() {
     // Set default settings
-    chrome.storage.local.set({
+    await chrome.storage.local.set({
       autoCapture: true,
       showNotifications: true,
       defaultTags: []
     });
 
     console.log('Extension installed successfully');
+    
+    // Auto-open popup for first-time users
+    try {
+      // Open the popup in a new tab for first-time users
+      // This provides a better welcome experience
+      chrome.tabs.create({ 
+        url: chrome.runtime.getURL('popup.html'),
+        active: true
+      });
+      
+      
+    } catch (error) {
+      console.log('Could not auto-open popup:', error);
+      // This is not critical - the user can still click the extension icon
+    }
   }
 
   createContextMenus() {
