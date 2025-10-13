@@ -128,7 +128,6 @@ class FullPageCollector {
     }
 
     this.setupEventListeners();
-    this.initTooltips();
   }
 
   setupEventListeners() {
@@ -201,16 +200,6 @@ class FullPageCollector {
       if (typeof tokenResult === 'object' && tokenResult !== null) {
         if (tokenResult.token) {
           accessToken = tokenResult.token;
-
-          // Verify we have the required scope
-          const grantedScopes = tokenResult.grantedScopes || [];
-          const hasSheetScope = grantedScopes.some(scope => 
-            scope.includes('spreadsheets') || scope.includes('sheets')
-          );
-
-          if (!hasSheetScope) {
-            throw new Error('Missing required Google Sheets permission');
-          }
         } else {
           throw new Error('Authentication failed - no token received');
         }
@@ -1095,45 +1084,6 @@ class FullPageCollector {
     if (loadMoreContainer) {
       loadMoreContainer.style.display = "none";
     }
-  }
-  initTooltips() {
-    const elementsWithTooltips = document.querySelectorAll('[title]');
-    let tooltip = null;
-
-    elementsWithTooltips.forEach(element => {
-      element.addEventListener('mouseenter', (e) => {
-        // Remove existing tooltip
-        if (tooltip) {
-          tooltip.remove();
-        }
-
-        // Create new tooltip
-        tooltip = document.createElement('div');
-        tooltip.className = 'tooltip';
-        tooltip.textContent = e.target.getAttribute('title');
-        document.body.appendChild(tooltip);
-
-        // Position tooltip
-        const rect = e.target.getBoundingClientRect();
-        tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
-        tooltip.style.top = (rect.bottom + 8) + 'px';
-
-        // Show tooltip
-        setTimeout(() => tooltip.classList.add('show'), 10);
-      });
-
-      element.addEventListener('mouseleave', () => {
-        if (tooltip) {
-          tooltip.classList.remove('show');
-          setTimeout(() => {
-            if (tooltip) {
-              tooltip.remove();
-              tooltip = null;
-            }
-          }, 200);
-        }
-      });
-    });
   }
 }
 

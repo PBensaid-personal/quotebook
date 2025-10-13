@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quotebook - Save quotes from across the web to Google Sheets</title>
+    <meta name="description" content="Save quotes from across the web to Google Sheets - Private and no other account needed. Simple Chrome extension for researchers, students, and content creators.">
+    <style>
+        /* Font faces */
+        @font-face {
+            font-family: 'Libre Baskerville';
+            font-style: italic;
+            font-weight: 400;
+            font-display: swap;
+            src: url(https://fonts.gstatic.com/s/librebaskerville/v17/kmKhZrc3Hgbbcjq75U4uslyuy4kn0qNcWx8QDO-WyrubOA.woff2) format('woff2');
+            unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+        }
+        @font-face {
+            font-family: 'Libre Baskerville';
+            font-style: italic;
+            font-weight: 400;
+            font-display: swap;
+            src: url(https://fonts.gstatic.com/s/librebaskerville/v17/kmKhZrc3Hgbbcjq75U4uslyuy4kn0qNcWxEQDO-Wyrs.woff2) format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+        @font-face {
+            font-family: 'Libre Baskerville';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url(https://fonts.gstatic.com/s/librebaskerville/v17/kmKnZrc3Hgbbcjq75U4uslyuy4kn0qNXaxMaC82U-ro.woff2) format('woff2');
+            unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+        }
+        @font-face {
+            font-family: 'Libre Baskerville';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url(https://fonts.gstatic.com/s/librebaskerville/v17/kmKnZrc3Hgbbcjq75U4uslyuy4kn0qNZaxMaC82U.woff2) format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+        @font-face {
+            font-family: 'Libre Baskerville';
+            font-style: normal;
+            font-weight: 700;
+            font-display: swap;
+            src: url(https://fonts.gstatic.com/s/librebaskerville/v17/kmKiZrc3Hgbbcjq75U4uslyuy4kn0qviTgY5KcC-wLOjAUw.woff2) format('woff2');
+            unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+        }
+        @font-face {
+            font-family: 'Libre Baskerville';
+            font-style: normal;
+            font-weight: 700;
+            font-display: swap;
+            src: url(https://fonts.gstatic.com/s/librebaskerville/v17/kmKiZrc3Hgbbcjq75U4uslyuy4kn0qviTgY3KcC-wLOj.woff2) format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: hsl(0, 0%, 100%);
+            color: hsl(20, 14.3%, 4.1%);
+            line-height: 1.6;
+        }
+
+        h1, h2 {
+            font-family: 'Libre Baskerville', Georgia, serif;
+            font-weight: 500;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        .header {
+            background: hsl(0, 0%, 100%);
+            padding: 30px 0 60px;        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            color: hsl(220, 30%, 18%);
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+        }
+
+        .logo-icon #notepad path {
+            fill: hsl(220, 30%, 18%);
+        }
+
+        .logo-icon #quotes path {
+            fill: rgb(255, 217, 16);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: hsl(25, 5.3%, 44.7%);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            color: hsl(220, 30%, 18%);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 40px 0 60px;
+            text-align: center;
+            background: hsl(0, 0%, 100%);
+        }
+
+        .hero h1 {
+            font-size: 32px;
+            font-weight: 500;
+            font-family: 'Libre Baskerville', Georgia, serif;
+            color: hsl(220, 30%, 18%);
+            margin-bottom: 16px;
+            line-height: 1.3;
+        }
+
+        .hero .subtitle {
+            font-size: 18px;
+            color: hsl(27, 5%, 56%);
+            margin-bottom: 32px;
+            font-weight: 400;
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background:rgb(255, 217, 16);
+            color: black;
+            padding: 12px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .cta-button:hover {
+            background: hsl(220, 30%, 18%);
+            color: white;
+        }
+
+        .quotebook-icon {
+            width: 24px;
+            height: 24px;
+            color: white;
+        }
+
+        .quotebook-icon #notepad path {
+            fill: black;
+        }
+
+        .quotebook-icon #quotes path {
+            fill: black;
+        }
+
+        .cta-button:hover .quotebook-icon #notepad path {
+            fill: white;
+        }
+
+        .cta-button:hover .quotebook-icon #quotes path {
+            fill: rgb(255, 217, 16);
+        }
+
+        /* Screenshot Section */
+        .screenshot {
+            padding: 60px 0;
+            background: hsl(220, 30%, 98%);
+        }
+
+        .screenshot-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 0 20px;
+            background-color: white;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            
+        }
+
+        .screenshot-image {
+            width: 100%;
+            height: auto;
+        }
+
+
+        /* How it Works */
+        .how-it-works {
+            padding: 60px 0;
+            background: hsl(0, 0%, 100%);
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 28px;
+            color: hsl(220, 30%, 18%);
+            margin-bottom: 16px;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            font-size: 16px;
+            color: hsl(25, 5.3%, 44.7%);
+            margin-bottom: 40px;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-top: 36px;
+        }
+
+        .step {
+            text-align: center;
+            border: 1px solid hsl(20, 5.9%, 90%);
+            border-radius: 8px;
+            padding: 24px;
+        }
+
+        .step-number {
+            width: 48px;
+            height: 48px;
+            color: rgb(255, 217, 16);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: 100;
+            margin: 0 auto 24px;
+        }
+
+        .step h3 {
+            font-size: 20px;
+            font-weight: 600;
+            color: hsl(220, 30%, 18%);
+            margin-bottom: 16px;
+        }
+
+        .step p {
+            color: hsl(25, 5.3%, 44.7%);
+            font-size: 16px;
+        }
+
+        /* Features List */
+        .features {
+            padding: 60px 0;
+            background: hsl(220, 30%, 98%);
+        }
+
+        .features-list {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .features-list ul {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0 40px;
+        }
+
+        @media (max-width: 768px) {
+            .features-list ul {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+        }
+
+        .features-list li {
+            padding: 12px 0;
+            color: hsl(25, 5.3%, 44.7%);
+            font-size: 16px;
+            border-bottom: 1px solid hsl(20, 5.9%, 90%);
+        }
+
+        .features-list li:last-child {
+            border-bottom: none;
+        }
+
+        .features-list li::before {
+            content: "•";
+            color: rgb(255, 217, 16);
+            font-weight: bold;
+            margin-right: 12px;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 60px 0;
+            background: hsl(0, 0%, 100%);
+            color: hsl(20, 14.3%, 4.1%);
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            font-size: 28px;
+            margin-bottom: 16px;
+            color: hsl(220, 30%, 18%);
+        }
+
+        .cta-section p {
+            font-size: 16px;
+            margin-bottom: 32px;
+            color: hsl(25, 5.3%, 44.7%);
+        }
+
+        .cta-button-white {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: white;
+            color: hsl(220, 30%, 18%);
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .cta-button-white:hover {
+            background: rgb(255, 217, 16);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Footer */
+        .footer {
+            padding: 40px 0;
+            background: hsl(0, 0%, 100%);
+            color: hsl(20, 14.3%, 4.1%);
+            text-align: center;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 24px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 32px;
+        }
+
+        .footer-links a {
+            color: hsl(25, 5.3%, 44.7%);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .footer-links a:hover {
+            color: hsl(220, 30%, 18%);
+            text-decoration: underline;
+        }
+
+        .footer-text {
+            color: hsl(25, 5.3%, 44.7%);
+            font-size: 14px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 36px;
+            }
+
+            .hero .subtitle {
+                font-size: 20px;
+            }
+
+            .section-title {
+                font-size: 28px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .header-content {
+                justify-content: center;
+            }
+
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .benefits-list {
+                grid-template-columns: 1fr;
+            }
+
+            .benefit {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        /* Quote styling for testimonial */
+        .quote-text {
+            font-family: 'Libre Baskerville', Georgia, serif;
+            font-style: italic;
+            font-size: 20px;
+            line-height: 1.6;
+            color: hsl(25, 5.3%, 44.7%);
+            margin: 32px 0;
+            text-align: center;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="#" class="logo">
+                    <svg class="logo-icon" id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 333.8 336.3">
+                        <g id="quotes">
+                            <path d="M259.4,178.3c-3.5,3.4-10.5,3.9-15.2,6.5-8,4.3-17,11.8-18.1,24.1s0,.7.8.8c2.1.3,4.3,0,6.7.3,30.1,4.4,30,53.5,2.4,59.2-18.5,3.8-42.4-.7-44.1-23.3s.4-46.6,17.7-66.3c9.2-10.5,30.1-25.7,44.7-22.2,8.9,2.1,11.5,14.4,5.1,20.8h0Z"/>
+                            <path d="M296.6,209.2h9.4c8.1,0,12.8,2.8,15.1,4.2,20.6,12.6,15.5,54.1-12,56-16.2,1.1-38.3,1.8-44.3-17.1-2.5-7.9-1.5-34.5.3-43.1,4.4-21.5,23.2-43.4,44.2-50.1,8.2-2.6,22.3-4.2,24.3,7.2s-11.8,14.1-20.6,19.6c-8.4,5.2-14.4,13.6-16.2,23.4h-.2Z"/>
+                        </g>
+                        <g id="notepad">
+                            <path d="M273,142.9h5.5c4.5,0,8.1-3.6,8.1-8.1V57.7c0-20.6-16.7-37.4-37.4-37.4h-18.3s0,0,0,0v-7.4C230.9,6,225.5.1,218.7,0c-7-.1-12.7,5.5-12.7,12.5v7.8s0,0,0,0h-47.9s0,0,0,0v-7.4C158,6,152.7.1,145.8,0c-7-.1-12.7,5.5-12.7,12.5v7.8s0,0,0,0h-47.9s0,0,0,0v-7.4C85.2,6,79.8.1,72.9,0c-7-.1-12.7,5.5-12.7,12.5v7.8s0,0,0,0h-22.9C16.7,20.3,0,37,0,57.7v241.2c0,20.6,16.7,37.4,37.4,37.4h211.9c20.6,0,37.4-16.7,37.4-37.4v-3.7c0-4.3-3.4-7.7-7.7-7.7h-6.7c-4.2,0-7.6,3.4-7.6,7.6v3.8c0,8.5-6.9,15.4-15.4,15.4H37.4c-8.5,0-15.4-6.9-15.4-15.4V121.5s0,0,0,0h242.5s0,0,0,0v12.9c0,4.6,3.8,8.4,8.4,8.4ZM264.6,96.6H22s0,0,0,0v-38.9c0-8.5,6.9-15.4,15.4-15.4h22.9s0,0,0,0v8.7c0,6.9,5.4,12.8,12.3,12.9,7,.1,12.7-5.5,12.7-12.5v-9.2s0,0,0,0h47.9s0,0,0,0v8.7c0,6.9,5.4,12.8,12.3,12.9,7,.1,12.7-5.5,12.7-12.5v-9.2s0,0,0,0h47.9s0,0,0,0v8.7c0,6.9,5.4,12.8,12.3,12.9,7,.1,12.7-5.5,12.7-12.5v-9.2s0,0,0,0h18.3c8.5,0,15.4,6.9,15.4,15.4v38.9s0,0,0,0Z"/>
+                            <path d="M184.3,166c0-4.9-4-9-9-9H62c-4.9,0-9,4-9,9s4,9,9,9h113.3c4.9,0,9-4,9-9Z"/>
+                            <path d="M172.3,214.8c0-4.9-4-9-9-9H62c-4.9,0-9,4-9,9s4,9,9,9h101.3c4.9,0,9-4,9-9Z"/>
+                            <path d="M62,253.6c-4.9,0-9,4-9,9s4,9,9,9h85.3c4.9,0,9-4,9-9s-4-9-9-9H62Z"/>
+                        </g>
+                    </svg>
+                    Quotebook
+                </a>
+                <nav class="nav-links">
+                    <a href="#features">Features</a>
+                    <a href="#how-it-works">How it works</a>
+                    <a href="privacy-policy.html">Privacy</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1>An elegant extension to save quotes you find online</h1>
+            <p class="subtitle">Privately stored in your <svg style="width: 16px; height: 18px; vertical-align: text-top; margin-right: 4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 47.33 65.08">
+                <defs>
+                    <linearGradient id="sheetsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#0F9D58;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#87CEAC;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <path d="M29.58,0 L4.44,0 C2,0 0,2 0,4.44 L0,60.65 C0,63.09 2,65.08 4.44,65.08 L42.9,65.08 C45.34,65.08 47.33,63.09 47.33,60.65 L47.33,17.75 L29.58,0 Z" fill="#0F9D58"/>
+                <path d="M11.83,31.8 L11.83,53.25 L35.5,53.25 L35.5,31.8 L11.83,31.8 Z M22.19,50.29 L14.79,50.29 L14.79,46.59 L22.19,46.59 L22.19,50.29 Z M22.19,44.38 L14.79,44.38 L14.79,40.68 L22.19,40.68 L22.19,44.38 Z M22.19,38.46 L14.79,38.46 L14.79,34.76 L22.19,34.76 L22.19,38.46 Z M32.54,50.29 L25.15,50.29 L25.15,46.59 L32.54,46.59 L32.54,50.29 Z M32.54,44.38 L25.15,44.38 L25.15,40.68 L32.54,40.68 L32.54,44.38 Z M32.54,38.46 L25.15,38.46 L25.15,34.76 L32.54,34.76 L32.54,38.46 Z" fill="#F1F1F1"/>
+                <path d="M29.58,0 L29.58,13.31 C29.58,15.76 31.57,17.75 34.02,17.75 L47.33,17.75 L29.58,0 Z" fill="#87CEAC"/>
+            </svg>Google Sheets account</p>
+            <a href="https://chromewebstore.google.com/detail/quotebook/mcbjgbahgdnlcbohibbogajggabkleec?hl=en-US&utm_source=ext_sidebar" class="cta-button" target="_blank" rel="noopener">
+                <svg class="quotebook-icon" id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 333.8 336.3">
+                    <g id="quotes">
+                        <path d="M259.4,178.3c-3.5,3.4-10.5,3.9-15.2,6.5-8,4.3-17,11.8-18.1,24.1s0,.7.8.8c2.1.3,4.3,0,6.7.3,30.1,4.4,30,53.5,2.4,59.2-18.5,3.8-42.4-.7-44.1-23.3s.4-46.6,17.7-66.3c9.2-10.5,30.1-25.7,44.7-22.2,8.9,2.1,11.5,14.4,5.1,20.8h0Z"/>
+                        <path d="M296.6,209.2h9.4c8.1,0,12.8,2.8,15.1,4.2,20.6,12.6,15.5,54.1-12,56-16.2,1.1-38.3,1.8-44.3-17.1-2.5-7.9-1.5-34.5.3-43.1,4.4-21.5,23.2-43.4,44.2-50.1,8.2-2.6,22.3-4.2,24.3,7.2s-11.8,14.1-20.6,19.6c-8.4,5.2-14.4,13.6-16.2,23.4h-.2Z"/>
+                    </g>
+                    <g id="notepad">
+                        <path d="M273,142.9h5.5c4.5,0,8.1-3.6,8.1-8.1V57.7c0-20.6-16.7-37.4-37.4-37.4h-18.3s0,0,0,0v-7.4C230.9,6,225.5.1,218.7,0c-7-.1-12.7,5.5-12.7,12.5v7.8s0,0,0,0h-47.9s0,0,0,0v-7.4C158,6,152.7.1,145.8,0c-7-.1-12.7,5.5-12.7,12.5v7.8s0,0,0,0h-47.9s0,0,0,0v-7.4C85.2,6,79.8.1,72.9,0c-7-.1-12.7,5.5-12.7,12.5v7.8s0,0,0,0h-22.9C16.7,20.3,0,37,0,57.7v241.2c0,20.6,16.7,37.4,37.4,37.4h211.9c20.6,0,37.4-16.7,37.4-37.4v-3.7c0-4.3-3.4-7.7-7.7-7.7h-6.7c-4.2,0-7.6,3.4-7.6,7.6v3.8c0,8.5-6.9,15.4-15.4,15.4H37.4c-8.5,0-15.4-6.9-15.4-15.4V121.5s0,0,0,0h242.5s0,0,0,0v12.9c0,4.6,3.8,8.4,8.4,8.4ZM264.6,96.6H22s0,0,0,0v-38.9c0-8.5,6.9-15.4,15.4-15.4h22.9s0,0,0,0v8.7c0,6.9,5.4,12.8,12.3,12.9,7,.1,12.7-5.5,12.7-12.5v-9.2s0,0,0,0h47.9s0,0,0,0v8.7c0,6.9,5.4,12.8,12.3,12.9,7,.1,12.7-5.5,12.7-12.5v-9.2s0,0,0,0h47.9s0,0,0,0v8.7c0,6.9,5.4,12.8,12.3,12.9,7,.1,12.7-5.5,12.7-12.5v-9.2s0,0,0,0h18.3c8.5,0,15.4,6.9,15.4,15.4v38.9s0,0,0,0Z"/>
+                        <path d="M184.3,166c0-4.9-4-9-9-9H62c-4.9,0-9,4-9,9s4,9,9,9h113.3c4.9,0,9-4,9-9Z"/>
+                        <path d="M172.3,214.8c0-4.9-4-9-9-9H62c-4.9,0-9,4-9,9s4,9,9,9h101.3c4.9,0,9-4,9-9Z"/>
+                        <path d="M62,253.6c-4.9,0-9,4-9,9s4,9,9,9h85.3c4.9,0,9-4,9-9s-4-9-9-9H62Z"/>
+                    </g>
+                </svg>
+                Add to Chrome
+            </a>
+        </div>
+    </section>
+
+    <!-- Screenshot Section -->
+    <section class="screenshot">
+        <div class="container">
+            <div class="screenshot-container">
+                <img src="quotebook_screenshot.png" alt="Quotebook extension screenshot" class="screenshot-image">
+            </div>
+        </div>
+    </section>
+
+    <!-- How it Works -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <h2 class="section-title">How it works</h2>
+            
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Install extension</h3>
+                    <p>Install from Chrome Web Store</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Sign in with Google</h3>
+                    <p>One-time sign-in to connect with Google Sheets</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Start saving</h3>
+                    <p>Visit any page online, highlight text and save with tags</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Privately stored</h3>
+                    <p>Access your quotes in Google Sheets</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2 class="section-title">Features</h2>
+            
+            <div class="features-list">
+                <ul>
+                    <li>Simple Google Sheets integration </li>
+                    <li>One-time Google sign-in</li>
+                    <li>No extra account needed</li>
+                    <li>No data stored or sent by quotebook</li>
+                    <li>Auto-grabs page title, URL, and timestamp</li>
+                    <li>Include custom tags and notes</li>
+                    <li>Works on any website</li>
+                    <li>All content remains in your Google account</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h2>Who is it for?</h2>
+            <p>Perfect for researchers, students, content creators, and anyone who wants to organize web content in their own spreadsheet database.</p>
+            <a href="https://chromewebstore.google.com/detail/quotebook/mcbjgbahgdnlcbohibbogajggabkleec?hl=en-US&utm_source=ext_sidebar" class="cta-button" target="_blank" rel="noopener">
+                <svg class="quotebook-icon" id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 333.8 336.3">
+                    <g id="quotes">
+                        <path d="M259.4,178.3c-3.5,3.4-10.5,3.9-15.2,6.5-8,4.3-17,11.8-18.1,24.1s0,.7.8.8c2.1.3,4.3,0,6.7.3,30.1,4.4,30,53.5,2.4,59.2-18.5,3.8-42.4-.7-44.1-23.3s.4-46.6,17.7-66.3c9.2-10.5,30.1-25.7,44.7-22.2,8.9,2.1,11.5,14.4,5.1,20.8h0Z"/>
+                        <path d="M296.6,209.2h9.4c8.1,0,12.8,2.8,15.1,4.2,20.6,12.6,15.5,54.1-12,56-16.2,1.1-38.3,1.8-44.3-17.1-2.5-7.9-1.5-34.5.3-43.1,4.4-21.5,23.2-43.4,44.2-50.1,8.2-2.6,22.3-4.2,24.3,7.2s-11.8,14.1-20.6,19.6c-8.4,5.2-14.4,13.6-16.2,23.4h-.2Z"/>
+                    </g>
+                    <g id="notepad">
+                        <path d="M273,142.9h5.5c4.5,0,8.1-3.6,8.1-8.1V57.7c0-20.6-16.7-37.4-37.4-37.4h-18.3s0,0,0,0v-7.4C230.9,6,225.5.1,218.7,0c-7-.1-12.7,5.5-12.7,12.5v7.8s0,0,0,0h-47.9s0,0,0,0v-7.4C158,6,152.7.1,145.8,0c-7-.1-12.7,5.5-12.7,12.5v7.8s0,0,0,0h-47.9s0,0,0,0v-7.4C85.2,6,79.8.1,72.9,0c-7-.1-12.7,5.5-12.7,12.5v7.8s0,0,0,0h-22.9C16.7,20.3,0,37,0,57.7v241.2c0,20.6,16.7,37.4,37.4,37.4h211.9c20.6,0,37.4-16.7,37.4-37.4v-3.7c0-4.3-3.4-7.7-7.7-7.7h-6.7c-4.2,0-7.6,3.4-7.6,7.6v3.8c0,8.5-6.9,15.4-15.4,15.4H37.4c-8.5,0-15.4-6.9-15.4-15.4V121.5s0,0,0,0h242.5s0,0,0,0v12.9c0,4.6,3.8,8.4,8.4,8.4ZM264.6,96.6H22s0,0,0,0v-38.9c0-8.5,6.9-15.4,15.4-15.4h22.9s0,0,0,0v8.7c0,6.9,5.4,12.8,12.3,12.9,7,.1,12.7-5.5,12.7-12.5v-9.2s0,0,0,0h47.9s0,0,0,0v8.7c0,6.9,5.4,12.8,12.3,12.9,7,.1,12.7-5.5,12.7-12.5v-9.2s0,0,0,0h47.9s0,0,0,0v8.7c0,6.9,5.4,12.8,12.3,12.9,7,.1,12.7-5.5,12.7-12.5v-9.2s0,0,0,0h18.3c8.5,0,15.4,6.9,15.4,15.4v38.9s0,0,0,0Z"/>
+                        <path d="M184.3,166c0-4.9-4-9-9-9H62c-4.9,0-9,4-9,9s4,9,9,9h113.3c4.9,0,9-4,9-9Z"/>
+                        <path d="M172.3,214.8c0-4.9-4-9-9-9H62c-4.9,0-9,4-9,9s4,9,9,9h101.3c4.9,0,9-4,9-9Z"/>
+                        <path d="M62,253.6c-4.9,0-9,4-9,9s4,9,9,9h85.3c4.9,0,9-4,9-9s-4-9-9-9H62Z"/>
+                    </g>
+                </svg>
+                Add to Chrome
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-links">
+                    <a href="privacy-policy.html">Privacy policy</a>
+                    <a href="https://chromewebstore.google.com/detail/quotebook/mcbjgbahgdnlcbohibbogajggabkleec?hl=en-US&utm_source=ext_sidebar" target="_blank" rel="noopener">Chrome Web Store</a>
+                    <a href="https://coff.ee/phillipbensaid" target="_blank" rel="noopener">☕ Buy me a coffee</a>
+                </div>
+                <div class="footer-text">
+                    © 2025 Quotebook. Made with ❤️ by <a href="index.html" style="color: inherit; text-decoration: underline;">Phillip Bensaid</a> for privacy-conscious users.
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
