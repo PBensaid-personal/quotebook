@@ -5,6 +5,11 @@ class EnhancedQuoteCollector {
     this.spreadsheetId = null;
     this.userTags = [];
     this.isLoggedOut = false; // Track logout state
+    this.pageImages = []; // Available page images
+    this.selectedImageIndex = 0; // Currently selected image
+    this.carouselStartIndex = 0; // Carousel view start
+    this.existingTags = []; // Tags from Google Sheets for autocomplete
+    this.selectedAutocompleteIndex = -1; // Currently selected autocomplete item
     this.init();
   }
 
@@ -13,6 +18,7 @@ class EnhancedQuoteCollector {
     this.setupMessageListener();
     await this.checkExistingAuth();
     await this.loadSelectedText();
+    // Note: loadExistingTags() will be called after auth is confirmed
     this.setupTagInterface();
   }
 
@@ -40,13 +46,25 @@ class EnhancedQuoteCollector {
       this.saveQuote();
     });
 
-    document.getElementById('cancel-button').addEventListener('click', () => {
-      window.close();
+    document.getElementById('spreadsheet-icon').addEventListener('click', async () => {
+      const result = await chrome.storage.local.get(['googleSpreadsheetId']);
+      if (result.googleSpreadsheetId) {
+        window.open(`https://docs.google.com/spreadsheets/d/${result.googleSpreadsheetId}/edit`, '_blank');
+      }
     });
 
-    document.getElementById('view-all-button').addEventListener('click', () => {
+    document.getElementById('view-all-icon').addEventListener('click', () => {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
+
+    // Add tooltip functionality
+    this.initTooltips();
+    
+    // Setup image carousel
+    this.setupImageCarousel();
+    
+    // Setup tag autocomplete
+    this.setupTagAutocomplete();
 
     // Header brand (logo + title) opens full page view
     document.getElementById('header-brand').addEventListener('click', (e) => {
@@ -115,6 +133,65 @@ class EnhancedQuoteCollector {
     this.renderUserTags();
   }
 
+  async loadExistingTags() {
+    try {
+      const result = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
+      if (!result.googleAccessToken || !result.googleSpreadsheetId) {
+        console.log('No auth or spreadsheet ID for loading tags - will retry after spreadsheet setup');
+        this.existingTags = []; // Start empty, no fallback tags
+        return;
+      }
+
+      console.log('Attempting to load tags from spreadsheet:', result.googleSpreadsheetId);
+
+      // Fetch all data from the sheet to extract unique tags
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}/values/'Saved Quotes'!A:H`,
+        {
+          headers: {
+            'Authorization': `Bearer ${result.googleAccessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const tagOrder = []; // Track tag order (most recent first)
+        const tagSet = new Set(); // Track unique tags
+
+        // Extract tags from column D (index 3) - skip header row
+        // Process in reverse to get most recently used tags first
+        if (data.values && data.values.length > 1) {
+          const rows = data.values.slice(1).reverse(); // Reverse to start with newest quotes
+          rows.forEach(row => {
+            if (row[3]) { // Tags column (4th column, index 3)
+              const rowTags = row[3].split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+              rowTags.forEach(tag => {
+                if (!tagSet.has(tag)) {
+                  tagSet.add(tag);
+                  tagOrder.push(tag); // Add to ordered list only on first occurrence
+                }
+              });
+            }
+          });
+        }
+
+        this.existingTags = tagOrder; // Use chronological order (most recent first)
+        console.log(`Successfully loaded ${this.existingTags.length} existing tags from spreadsheet (sorted by most recent use)`);
+
+        // Re-render tag pills now that we have tags loaded
+        this.setupTagAutocomplete();
+      } else {
+        console.log('Failed to fetch sheet data, response:', response.status);
+        this.existingTags = [];
+      }
+    } catch (error) {
+      console.log('Error loading existing tags:', error);
+      this.existingTags = [];
+    }
+  }
+
   async checkExistingAuth() {
     try {
       console.log('Checking existing authentication...');
@@ -128,15 +205,29 @@ class EnhancedQuoteCollector {
         return;
       }
       
-      // Try to get existing token from Chrome Identity (non-interactive first)
-      let accessToken = null;
-      try {
-        accessToken = await chrome.identity.getAuthToken({ interactive: false });
-      } catch (e) {
-        // Expected on first load - user hasn't granted permissions yet
-        console.log('No existing token (expected on first load):', e.message);
+      // First check if fullpage has already set up auth (use fullpage storage keys)
+      const fullpageAuth = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
+      if (fullpageAuth.googleAccessToken && fullpageAuth.googleSpreadsheetId) {
+        console.log('Found fullpage auth data, using it');
+        this.accessToken = fullpageAuth.googleAccessToken;
+        this.spreadsheetId = fullpageAuth.googleSpreadsheetId;
+        
+        // Validate the token
+        const isValid = await this.validateToken();
+        if (isValid) {
+          console.log('Fullpage token is valid, loading tags and showing main interface');
+          await this.loadExistingTags();
+          this.showMainInterface();
+          return;
+        } else {
+          console.log('Fullpage token is invalid, clearing and continuing with popup auth');
+          await chrome.storage.local.remove(['googleAccessToken', 'googleSpreadsheetId']);
+        }
       }
-
+      
+      // Try to get existing token from Chrome Identity (non-interactive first)
+      const accessToken = await chrome.identity.getAuthToken({ interactive: false });
+      
       if (accessToken) {
         console.log('Found existing Chrome Identity token');
         // Handle both string and object token formats
@@ -167,6 +258,8 @@ class EnhancedQuoteCollector {
             if (sheetsResponse.ok) {
               console.log('Spreadsheet verified, showing main interface');
               this.spreadsheetId = stored.googleSpreadsheetId;
+              // Load tags from the verified existing spreadsheet
+              await this.loadExistingTags();
               this.showMainInterface();
               return;
             } else {
@@ -187,7 +280,6 @@ class EnhancedQuoteCollector {
           return;
         } catch (error) {
           console.error('Spreadsheet setup failed:', error);
-          // Only show error if we actually had a token and tried to setup
           this.showStatus(`Setup error: ${error.message}`, 'error');
         }
       } else {
@@ -195,14 +287,10 @@ class EnhancedQuoteCollector {
       }
     } catch (error) {
       console.log('Error checking existing auth:', error);
-      // Don't show error on first load - it's expected to not have auth yet
-      // Only show error if we have indications this was a real connection failure
-      if (this.accessToken || this.spreadsheetId) {
-        this.showStatus(`Auth check error: ${error.message}`, 'error');
-      }
+      this.showStatus(`Auth check error: ${error.message}`, 'error');
     }
 
-    // Show auth interface if no valid token or setup failed (no error message)
+    // Show auth interface if no valid token or setup failed
     this.showAuthInterface();
   }
 
@@ -340,6 +428,9 @@ class EnhancedQuoteCollector {
           });
 
           this.showStatus(`Connected to existing "${existingSheets[0].name}"`, 'success');
+          
+          // Now load tags from the connected spreadsheet
+          await this.loadExistingTags();
           return;
         }
       }
@@ -378,6 +469,9 @@ class EnhancedQuoteCollector {
         await this.addHeaders();
 
         this.showStatus('New Quotebook spreadsheet created!', 'success');
+        
+        // Load tags from the newly created spreadsheet (will be empty initially)
+        await this.loadExistingTags();
       } else {
         const error = await response.text();
         const errorMsg = `Failed to create spreadsheet: ${response.status}`;
@@ -421,9 +515,6 @@ class EnhancedQuoteCollector {
 
           if (response && response.selectedText && response.selectedText.trim()) {
             document.getElementById('content').value = response.selectedText.trim();
-            
-            // Auto-generate suggested tags and add them as user tags
-            this.generateSuggestedTags(response.selectedText.trim());
           } else {
             // If no text selected, show instruction
             document.getElementById('content').value = "Select text on the webpage to capture it here...";
@@ -452,18 +543,13 @@ class EnhancedQuoteCollector {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
       
-      if (result && result.categories && result.categories.length > 0) {
-        console.log('Extracted page categories:', result.categories);
-        
-        // Add page categories directly as user tags (pre-added, removable)
-        result.categories.slice(0, 3).forEach(tag => {
-          if (!this.userTags.includes(tag)) {
-            this.userTags.push(tag);
-          }
-        });
-        
-        console.log('Added page categories to user tags:', this.userTags);
-        this.renderUserTags();
+      // Handle page images only - removed auto-tag functionality
+      if (result && result.images && result.images.length > 0) {
+        console.log('Extracted page images:', result.images);
+        this.pageImages = result.images;
+        this.showImageSelector();
+      } else {
+        this.hideImageSelector();
       }
     } catch (e) {
       console.log('Could not extract page metadata:', e);
@@ -471,47 +557,9 @@ class EnhancedQuoteCollector {
   }
 
   updatePagePreview(tab) {
-    // Update preview image (favicon or default)
-    const previewImg = document.getElementById('preview-image');
-    const favicon = tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23e2e8f0"/><text y="50" x="50" text-anchor="middle" dy=".3em" font-size="40">📄</text></svg>';
-    previewImg.src = favicon;
-    
-    // Update title and URL
+    // Update title and URL (removed favicon)
     document.getElementById('preview-title').textContent = tab.title || 'Untitled Page';
     document.getElementById('preview-url').textContent = tab.url || '';
-  }
-
-  generateSuggestedTags(content) {
-    // Simple keyword extraction - directly add as user tags
-    const keywords = [];
-    const text = content.toLowerCase();
-    
-    // Technology keywords
-    if (text.includes('javascript') || text.includes('js')) keywords.push('javascript');
-    if (text.includes('python')) keywords.push('python');
-    if (text.includes('react')) keywords.push('react');
-    if (text.includes('api')) keywords.push('api');
-    if (text.includes('database')) keywords.push('database');
-    if (text.includes('hospital') || text.includes('medical')) keywords.push('healthcare');
-    if (text.includes('security') || text.includes('cyber')) keywords.push('security');
-    if (text.includes('research') || text.includes('study')) keywords.push('research');
-    
-    // General categories
-    if (text.includes('tutorial') || text.includes('guide')) keywords.push('tutorial');
-    if (text.includes('tips') || text.includes('advice')) keywords.push('tips');
-    if (text.includes('best practices')) keywords.push('best practices');
-    if (text.includes('news') || text.includes('report')) keywords.push('news');
-    
-    console.log('Generated tags from content:', keywords);
-    
-    // Add suggested tags directly to user tags (pre-added, removable)
-    keywords.slice(0, 4).forEach(tag => {
-      if (!this.userTags.includes(tag)) {
-        this.userTags.push(tag);
-      }
-    });
-    
-    this.renderUserTags();
   }
 
   async saveQuote() {
@@ -545,16 +593,20 @@ class EnhancedQuoteCollector {
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      // Extract page image only (don't mess with tags during save)
-      let pageImage = '';
-      try {
-        const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
-        if (result) {
-          pageImage = result.image || '';
+      // Extract page image - use selected image only, no fallbacks if deselected
+      let pageImage = this.getSelectedImageUrl();
+      
+      // Only use fallback if no images were available for selection at all
+      if (!pageImage && this.pageImages.length === 0) {
+        try {
+          const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
+          if (result) {
+            pageImage = result.image || '';
+          }
+        } catch (e) {
+          // Fallback to basic image extraction only if no carousel was shown
+          pageImage = tab.favIconUrl || '';
         }
-      } catch (e) {
-        // Fallback to basic image extraction
-        pageImage = tab.favIconUrl || '';
       }
       
       // ONLY save user-added tags
@@ -595,7 +647,7 @@ class EnhancedQuoteCollector {
         });
         console.log('Storage updated with spreadsheet ID:', this.spreadsheetId);
         
-        this.showStatusMain('Content saved successfully!', 'success');
+        this.showStatusMain('Saved', 'success');
 
         // Clear content and reset
         document.getElementById('content').value = 'Select text on the webpage to capture it here...';
@@ -652,6 +704,314 @@ class EnhancedQuoteCollector {
         status.style.display = 'none';
       }, 3000);
     }
+  }
+
+  initTooltips() {
+    const icons = document.querySelectorAll('.header-icon[title], .header-icon[data-tooltip], .header-icon-with-text[title]');
+    let tooltip = null;
+    let hideTimeout = null;
+
+    icons.forEach(icon => {
+      icon.addEventListener('mouseenter', (e) => {
+        // Clear any pending hide timeout
+        if (hideTimeout) {
+          clearTimeout(hideTimeout);
+          hideTimeout = null;
+        }
+
+        // Remove existing tooltip
+        if (tooltip) {
+          tooltip.remove();
+        }
+
+        // Create new tooltip
+        tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        const tooltipText = e.currentTarget.getAttribute('data-tooltip') || e.currentTarget.getAttribute('title');
+        tooltip.textContent = tooltipText;
+        document.body.appendChild(tooltip);
+
+        // Position tooltip with edge detection
+        const rect = e.currentTarget.getBoundingClientRect();
+        let left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2;
+
+        // Prevent tooltip from going off the right edge (with 8px padding)
+        const maxLeft = window.innerWidth - tooltip.offsetWidth - 8;
+        if (left > maxLeft) {
+          left = maxLeft;
+        }
+
+        // Prevent tooltip from going off the left edge (with 8px padding)
+        if (left < 8) {
+          left = 8;
+        }
+
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = (rect.bottom + 8) + 'px';
+
+        // Show tooltip
+        setTimeout(() => {
+          if (tooltip) {
+            tooltip.classList.add('show');
+          }
+        }, 10);
+      });
+
+      icon.addEventListener('mouseleave', () => {
+        if (tooltip) {
+          tooltip.classList.remove('show');
+          hideTimeout = setTimeout(() => {
+            if (tooltip) {
+              tooltip.remove();
+              tooltip = null;
+            }
+            hideTimeout = null;
+          }, 200);
+        }
+      });
+    });
+  }
+
+  setupImageCarousel() {
+    const prevBtn = document.getElementById('carousel-prev');
+    const nextBtn = document.getElementById('carousel-next');
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => this.previousImages());
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => this.nextImages());
+    }
+  }
+
+  showImageSelector() {
+    if (this.pageImages.length > 1) {
+      document.getElementById('image-selector').style.display = 'block';
+      this.renderImageCarousel();
+    }
+  }
+
+  hideImageSelector() {
+    document.getElementById('image-selector').style.display = 'none';
+  }
+
+  renderImageCarousel() {
+    const container = document.getElementById('image-options');
+    const prevBtn = document.getElementById('carousel-prev');
+    const nextBtn = document.getElementById('carousel-next');
+    const noImageIndicator = document.getElementById('no-image-indicator');
+    
+    // Show/hide "No image selected" indicator
+    if (noImageIndicator) {
+      noImageIndicator.style.display = this.selectedImageIndex === -1 ? 'inline' : 'none';
+    }
+    
+    // Show 4 images at a time (more fits with larger thumbnails)
+    const visibleCount = 4;
+    const startIndex = this.carouselStartIndex;
+    const endIndex = Math.min(startIndex + visibleCount, this.pageImages.length);
+    
+    container.innerHTML = '';
+    
+    for (let i = startIndex; i < endIndex; i++) {
+      const img = document.createElement('img');
+      img.src = this.pageImages[i].src;
+      img.alt = this.pageImages[i].alt;
+      img.className = 'image-option';
+      if (i === this.selectedImageIndex) {
+        img.classList.add('selected');
+      }
+      
+      img.addEventListener('click', () => {
+        // Toggle selection: deselect if clicking the already selected image
+        if (i === this.selectedImageIndex) {
+          this.selectedImageIndex = -1; // No image selected
+          console.log('Deselected image - no image will be saved');
+        } else {
+          this.selectedImageIndex = i;
+          console.log('Selected image:', this.pageImages[i].src);
+        }
+        this.renderImageCarousel();
+      });
+      
+      container.appendChild(img);
+    }
+    
+    // Show/hide buttons based on whether they're needed
+    if (startIndex === 0) {
+      prevBtn.style.display = 'none';
+    } else {
+      prevBtn.style.display = 'flex';
+      prevBtn.disabled = false;
+    }
+
+    if (endIndex >= this.pageImages.length) {
+      nextBtn.style.display = 'none';
+    } else {
+      nextBtn.style.display = 'flex';
+      nextBtn.disabled = false;
+    }
+  }
+
+  previousImages() {
+    if (this.carouselStartIndex > 0) {
+      this.carouselStartIndex = Math.max(0, this.carouselStartIndex - 4);
+      this.renderImageCarousel();
+    }
+  }
+
+  nextImages() {
+    if (this.carouselStartIndex + 4 < this.pageImages.length) {
+      this.carouselStartIndex = Math.min(this.pageImages.length - 4, this.carouselStartIndex + 4);
+      this.renderImageCarousel();
+    }
+  }
+
+  getSelectedImageUrl() {
+    if (this.pageImages.length > 0 && this.selectedImageIndex >= 0 && this.selectedImageIndex < this.pageImages.length) {
+      return this.pageImages[this.selectedImageIndex].src;
+    }
+    return ''; // No image selected or no images available
+  }
+
+  // Tag Pills Autocomplete Methods
+  setupTagAutocomplete() {
+    const tagInput = document.getElementById('tag-input');
+    const pillsContainer = document.getElementById('tag-pills-container');
+
+    console.log('Setting up tag pills autocomplete...', { tagInput, pillsContainer, existingTags: this.existingTags.length });
+
+    if (!tagInput || !pillsContainer) {
+      console.error('Tag input or pills container not found!');
+      return;
+    }
+
+    // Show pills initially if there are tags
+    if (this.existingTags.length > 0) {
+      this.renderTagPills();
+      pillsContainer.style.display = 'flex';
+    }
+
+    // Filter tags as user types
+    tagInput.addEventListener('input', (e) => {
+      this.filterTagPills(e.target.value);
+    });
+  }
+
+  renderTagPills(filteredTags = null) {
+    const pillsContainer = document.getElementById('tag-pills-container');
+    if (!pillsContainer) return;
+
+    const tagsToShow = filteredTags || this.existingTags;
+    const tagInput = document.getElementById('tag-input');
+    
+    // Get currently added tags from input (split by comma, trim, filter empty)
+    const currentTags = tagInput ? 
+      tagInput.value.split(',')
+        .map(t => t.trim())
+        .filter(t => t.length > 0) : [];
+
+    pillsContainer.innerHTML = '';
+
+    tagsToShow.forEach(tag => {
+      // Skip tags already added to input
+      if (currentTags.includes(tag)) return;
+
+      const pill = document.createElement('div');
+      pill.className = 'tag-pill';
+      pill.textContent = tag;
+      
+      pill.addEventListener('click', () => {
+        this.addTagFromPill(tag);
+      });
+      
+      pillsContainer.appendChild(pill);
+    });
+
+    // Show message if no tags to display
+    if (pillsContainer.children.length === 0) {
+      const noTagsMsg = document.createElement('div');
+      noTagsMsg.style.cssText = 'color: #6b7280; font-size: 12px; padding: 8px;';
+      if (filteredTags && filteredTags.length === 0) {
+        noTagsMsg.textContent = 'No matching tags found';
+      } else if (currentTags.length > 0 && tagsToShow.every(tag => currentTags.includes(tag))) {
+        noTagsMsg.textContent = 'All available tags are already added';
+      } else {
+        noTagsMsg.textContent = 'No tags available';
+      }
+      pillsContainer.appendChild(noTagsMsg);
+    }
+  }
+
+  filterTagPills(inputValue) {
+    // Show all tags if input is empty or just whitespace
+    if (!inputValue || inputValue.trim() === '') {
+      this.renderTagPills();
+      return;
+    }
+
+    const tags = inputValue.split(',');
+    const currentTag = tags[tags.length - 1].trim().toLowerCase();
+
+    if (currentTag.length === 0) {
+      // Show all available tags when no current filter
+      this.renderTagPills();
+      return;
+    }
+
+    // Filter tags that contain the current input (autocomplete behavior)
+    const filteredTags = this.existingTags.filter(tag => 
+      tag.toLowerCase().includes(currentTag)
+    );
+
+    this.renderTagPills(filteredTags);
+
+    // Highlight matching pills
+    const pills = document.querySelectorAll('.tag-pill');
+    pills.forEach(pill => {
+      if (pill.textContent.toLowerCase().includes(currentTag)) {
+        pill.classList.add('filtered');
+      } else {
+        pill.classList.remove('filtered');
+      }
+    });
+  }
+
+  addTagFromPill(selectedTag) {
+    const tagInput = document.getElementById('tag-input');
+    const pillsContainer = document.getElementById('tag-pills-container');
+    if (!tagInput) return;
+
+    const currentValue = tagInput.value;
+    const tags = currentValue.split(',').map(t => t.trim());
+    
+    // Check if we're replacing an incomplete tag or adding a new one
+    const lastTag = tags[tags.length - 1];
+    
+    if (lastTag === '' || currentValue.endsWith(',')) {
+      // Adding a new tag (input ends with comma or is empty)
+      tags[tags.length - 1] = selectedTag;
+    } else {
+      // Replacing the last incomplete tag
+      tags[tags.length - 1] = selectedTag;
+    }
+    
+    // Set value with comma and space for next tag, keep cursor ready
+    tagInput.value = tags.filter(t => t).join(', ') + ', ';
+    
+    // Keep pills visible and update them with the new input state
+    if (pillsContainer) {
+      pillsContainer.style.display = 'flex';
+    }
+    
+    // Re-render pills with updated input to show remaining options
+    this.filterTagPills(tagInput.value);
+    
+    // Keep focus on input for continued typing
+    tagInput.focus();
+    
+    console.log('Added tag from pill:', selectedTag);
+    console.log('Current input value:', tagInput.value);
   }
 }
 

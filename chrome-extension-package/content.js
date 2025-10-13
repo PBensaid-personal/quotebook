@@ -40,7 +40,7 @@ class WebCaptureContent {
       domain: window.location.hostname,
       description: '',
       image: '',
-      categories: []
+      images: []
     };
 
     // Get meta description
@@ -64,51 +64,47 @@ class WebCaptureContent {
       }
     }
 
-    // Extract categories from various sources
-    const categories = new Set();
-    
-    // From meta keywords
-    const keywords = document.querySelector('meta[name="keywords"]');
-    if (keywords) {
-      const keywordList = keywords.getAttribute('content').split(',').map(k => k.trim()).slice(0, 5);
-      keywordList.forEach(k => categories.add(k));
-    }
-    
-    // From article tags, categories, or labels
-    const tagElements = document.querySelectorAll('[class*="tag"], [class*="category"], [class*="label"], .tags a, .categories a');
-    Array.from(tagElements).slice(0, 5).forEach(tag => {
-      const text = tag.textContent?.trim();
-      if (text && text.length < 30 && text.length > 2) {
-        categories.add(text);
-      }
-    });
-    
-    // From structured data or JSON-LD
-    const jsonLd = document.querySelector('script[type="application/ld+json"]');
-    if (jsonLd) {
-      try {
-        const data = JSON.parse(jsonLd.textContent);
-        if (data.keywords) {
-          const keywords = Array.isArray(data.keywords) ? data.keywords : data.keywords.split(',');
-          keywords.slice(0, 3).forEach(k => categories.add(k.trim()));
-        }
-      } catch (e) {
-        // Ignore JSON parsing errors
-      }
-    }
-    
-    // From breadcrumbs
-    const breadcrumbs = document.querySelectorAll('[class*="breadcrumb"] a, nav a');
-    Array.from(breadcrumbs).slice(1, 4).forEach(crumb => {
-      const text = crumb.textContent?.trim();
-      if (text && text.length < 25 && text.length > 2) {
-        categories.add(text);
-      }
-    });
-    
-    metadata.categories = Array.from(categories).slice(0, 5);
+    // Extract page images
+    metadata.images = this.extractPageImages();
     
     return metadata;
+  }
+
+  extractPageImages() {
+    const images = [];
+    const imgElements = document.querySelectorAll('img[src]');
+    
+    Array.from(imgElements).forEach(img => {
+      // Get absolute URL for relative paths
+      let imgSrc = img.src;
+      if (!imgSrc.startsWith('http')) {
+        // Convert relative URLs to absolute
+        imgSrc = new URL(img.src, window.location.href).href;
+      }
+      
+      // Filter for meaningful images with more relaxed criteria
+      if (img.width > 50 && img.height > 50 && // Reduced size requirement
+          !imgSrc.includes('data:') && 
+          !imgSrc.includes('/favicon') && // More specific exclusions
+          !imgSrc.includes('icon-') &&
+          !imgSrc.includes('logo-') &&
+          imgSrc.startsWith('http')) {
+        
+        images.push({
+          src: imgSrc,
+          alt: img.alt || '',
+          width: img.width,
+          height: img.height
+        });
+      }
+    });
+    
+    // Remove duplicates and limit to 6 images
+    const uniqueImages = images.filter((img, index, arr) => 
+      arr.findIndex(i => i.src === img.src) === index
+    );
+    
+    return uniqueImages.slice(0, 6);
   }
 }
 

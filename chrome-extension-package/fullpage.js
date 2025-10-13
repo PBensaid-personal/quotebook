@@ -136,6 +136,7 @@ class FullPageCollector {
     const dateFilter = document.getElementById("dateFilter");
     const authButton = document.getElementById("auth-button");
     const spreadsheetLink = document.getElementById("spreadsheet-link");
+    const logo = document.getElementById("logo");
 
     if (searchInput) {
       searchInput.addEventListener("input", () => this.applyFilters());
@@ -158,6 +159,12 @@ class FullPageCollector {
             "_blank",
           );
         }
+      });
+    }
+    if (logo) {
+      logo.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.clearAllFilters();
       });
     }
 
@@ -200,6 +207,16 @@ class FullPageCollector {
       if (typeof tokenResult === 'object' && tokenResult !== null) {
         if (tokenResult.token) {
           accessToken = tokenResult.token;
+
+          // Verify we have the required scope
+          const grantedScopes = tokenResult.grantedScopes || [];
+          const hasSheetScope = grantedScopes.some(scope => 
+            scope.includes('spreadsheets') || scope.includes('sheets')
+          );
+
+          if (!hasSheetScope) {
+            throw new Error('Missing required Google Sheets permission');
+          }
         } else {
           throw new Error('Authentication failed - no token received');
         }
@@ -776,6 +793,24 @@ class FullPageCollector {
       option.textContent = tag;
       tagFilter.appendChild(option);
     });
+  }
+
+  clearAllFilters() {
+    // Clear all filter inputs
+    const searchInput = document.getElementById("searchInput");
+    const tagFilter = document.getElementById("tagFilter");
+    const dateFilter = document.getElementById("dateFilter");
+    
+    if (searchInput) searchInput.value = "";
+    if (tagFilter) tagFilter.value = "";
+    if (dateFilter) dateFilter.value = "";
+    
+    // Reset filtered data to show all content
+    this.filteredData = [...this.contentData];
+    this.currentPage = 1;
+    this.renderContent();
+    
+    console.log('All filters cleared');
   }
 
   applyFilters() {
