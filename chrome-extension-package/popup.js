@@ -196,6 +196,7 @@ class EnhancedQuoteCollector {
     try {
       console.log('Checking existing authentication...');
       
+      
       // Check if user explicitly logged out
       const logoutState = await chrome.storage.local.get(['userLoggedOut']);
       if (logoutState.userLoggedOut) {
@@ -287,7 +288,18 @@ class EnhancedQuoteCollector {
       }
     } catch (error) {
       console.log('Error checking existing auth:', error);
-      this.showStatus(`Auth check error: ${error.message}`, 'error');
+      // Only show user-facing errors for actual problems that need user attention
+      // Skip common "no token" or "revoked" errors that are normal states
+      const isNormalAuthState = error.message && (
+        error.message.includes('OAuth2 not granted') ||
+        error.message.includes('revoked') ||
+        error.message.includes('No access token') ||
+        error.message.includes('User not signed in')
+      );
+      
+      if (!isNormalAuthState) {
+        this.showStatus(`Authentication error: ${error.message}`, 'error');
+      }
     }
 
     // Show auth interface if no valid token or setup failed
@@ -352,7 +364,16 @@ class EnhancedQuoteCollector {
 
     } catch (error) {
       console.error('Authentication error:', error);
-      this.showStatus(`Authentication failed: ${error.message}`, 'error');
+      
+      // Show user-friendly error messages
+      let userMessage = 'Authentication failed. Please try again.';
+      if (error.message.includes('cancelled') || error.message.includes('denied')) {
+        userMessage = 'Authentication was cancelled. Please try again when ready.';
+      } else if (error.message.includes('network') || error.message.includes('timeout')) {
+        userMessage = 'Network error. Please check your connection and try again.';
+      }
+      
+      this.showStatus(userMessage, 'error');
       
       // If auth fails, ensure we're showing the auth interface
       setTimeout(() => {
