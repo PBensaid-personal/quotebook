@@ -26,7 +26,7 @@
       }
 
       .container {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
         padding: 20px;
       }
@@ -186,7 +186,8 @@
       }
 
       .filter-group input:focus,
-      .filter-group select:focus {
+      .filter-group select:focus,
+      #searchInput:focus {
         outline: none;
         border-color: rgb(255, 217, 16);
         box-shadow: 0 0 0 3px rgba(255, 217, 16, 0.2);
@@ -200,17 +201,38 @@
       .content-grid .masonry-column {
         position: absolute;
         top: 0;
-        width: calc(33.333% - 14px);
+        width: calc(25% - 15px);
       }
 
       .content-grid .masonry-column:nth-child(1) {
         left: 0;
       }
       .content-grid .masonry-column:nth-child(2) {
-        left: calc(33.333% + 6px);
+        left: calc(25% + 5px);
       }
       .content-grid .masonry-column:nth-child(3) {
-        left: calc(66.666% + 12px);
+        left: calc(50% + 10px);
+      }
+      .content-grid .masonry-column:nth-child(4) {
+        left: calc(75% + 15px);
+      }
+
+      @media (max-width: 1200px) {
+        .content-grid .masonry-column {
+          width: calc(33.333% - 14px);
+        }
+        .content-grid .masonry-column:nth-child(1) {
+          left: 0;
+        }
+        .content-grid .masonry-column:nth-child(2) {
+          left: calc(33.333% + 6px);
+        }
+        .content-grid .masonry-column:nth-child(3) {
+          left: calc(66.666% + 12px);
+        }
+        .content-grid .masonry-column:nth-child(4) {
+          display: none;
+        }
       }
 
       @media (max-width: 1000px) {
@@ -224,6 +246,9 @@
           left: calc(50% + 10px);
         }
         .content-grid .masonry-column:nth-child(3) {
+          display: none;
+        }
+        .content-grid .masonry-column:nth-child(4) {
           display: none;
         }
       }
@@ -241,19 +266,25 @@
 
       .content-card {
         background: hsl(0, 0%, 100%);
-        border: 1px solid hsl(20, 5.9%, 90%);
+        border: 1px solid hsl(0deg 0% 93.2%);
         border-radius: 12px;
         padding: 20px;
         margin-bottom: 20px;
         break-inside: avoid;
-        transition: all 0.3s ease;
+        transition: all 1s ease;
         position: relative;
         cursor: pointer;
+        --fade-color: white;
       }
 
       .content-card:hover {
         box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
         border: 1px solid white;
+        background: #f6f6f6;
+      }
+
+      .content-card:not(:has(.content-image)) {
+        background: #f6f6f6;
       }
 
       .content-card:hover .content-title {
@@ -283,6 +314,7 @@
         transition: all 0.2s ease;
         color: black;
         font-size: 12px;
+        z-index: 10;
       }
 
       .content-card:hover .delete-btn {
@@ -295,13 +327,50 @@
         color: white;
       }
 
+      .content-image-container {
+        position: relative;
+        margin-bottom: 8px;
+      }
+
       .content-image {
         width: 100%;
         height: auto;
         object-fit: cover;
         border-radius: 8px;
-        margin-bottom: 16px;
         min-height: 100px;
+        display: block;
+        border-radius: 8px 8px 0 0;
+      }
+
+      .content-image-container::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 80px;
+        background: linear-gradient(to bottom, transparent, white);
+        pointer-events: none;
+        z-index: 1;
+        transition: opacity 1s ease;
+      }
+
+      .content-image-container::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        background: linear-gradient(to bottom, transparent, #f6f6f6);
+        pointer-events: none;
+        z-index: 2;
+        opacity: 0;
+        transition: opacity 1s ease;
+      }
+
+      .content-card:hover .content-image-container::before {
+        opacity: 1;
       }
 
       .content-title {
@@ -338,7 +407,7 @@
       .content-text {
         color: hsl(25, 5.3%, 44.7%);
         font-family: "Libre Baskerville", Georgia, serif;
-        font-size: 20px;
+        font-size: 16px;
         line-height: 1.5;
         margin-bottom: 0;
       }
@@ -352,7 +421,7 @@
         overflow: hidden;
         opacity: 0;
         transform: translateY(-10px);
-        transition: all 0.3s ease;
+        transition: all 0.6s ease;
       }
 
       .content-card:hover .content-tags {
@@ -461,22 +530,22 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(0, 0, 0, 0.3);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 10000;
-        backdrop-filter: blur(4px);
+        backdrop-filter: blur(12px);
       }
 
       .modal-content {
         background: white;
-        border-radius: 16px;
+        border-radius: 8px;
         padding: 24px;
         max-width: 400px;
         width: 90%;
         margin: 20px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
         animation: modalAppear 0.2s ease-out;
       }
 
@@ -502,8 +571,8 @@
         width: 48px;
         height: 48px;
         border-radius: 12px;
-        background: #fee2e2;
-        color: #dc2626;
+        background: #f2f2f2;
+        color: #666666;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -756,7 +825,7 @@
             </svg>
           </div>
           <div class="modal-text">
-            <h3>Delete Quote</h3>
+            <h3>Delete quote</h3>
             <p>Are you sure you want to permanently delete this quote? This action cannot be undone.</p>
           </div>
         </div>
