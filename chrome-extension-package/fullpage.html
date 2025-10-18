@@ -53,9 +53,10 @@
       .header-row {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         width: 100%;
         padding: 20px 0;
+        gap: 20px;
       }
 
       .logo {
@@ -72,13 +73,17 @@
       }
 
       .logo-icon {
-        width: 24px;
-        height: 24px;
+        width: 31px;
+        height: 31px;
         flex-shrink: 0;
       }
 
-      .logo-icon #notepad path {
+      .logo:hover .logo-icon #notepad path {
         fill: hsl(220, 30%, 18%);
+      }
+
+      .logo-icon #notepad path {
+        fill: hsl(216, 5%, 64%);
       }
 
       .logo-icon #quotes path {
@@ -108,13 +113,11 @@
 
       .spreadsheet-link:hover {
         background: rgb(255, 217, 16);
-        transform: translateY(-1px);
         color: black;
       }
 
       .filter-button:hover {
         background: rgb(255, 217, 16);
-        transform: translateY(-1px);
         transition: all 0.2s ease;
         border-radius: 8px;
       }
@@ -122,6 +125,39 @@
       .filter-button:hover select {
         background: inherit !important;
         border-color: rgb(255, 217, 16) !important;
+      }
+
+      .tag-nav-buttons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .tag-nav-button {
+        padding: 8px 12px;
+        background: hsl(20, 5.9%, 90%);
+        border: 1px solid hsl(20, 5.9%, 90%);
+        border-radius: 8px;
+        color: hsl(20, 14.3%, 4.1%);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .tag-nav-button:hover {
+        background: rgb(255, 217, 16);
+        color: black;
+        border-color: rgb(255, 217, 16);
+      }
+
+      .tag-nav-button.active {
+        background: rgb(255, 217, 16);
+        color: black;
+        border-color: rgb(255, 217, 16);
       }
       .stat-card {
         display: flex;
@@ -445,7 +481,6 @@
       .tag-pill:hover {
         background: rgb(255, 217, 16);
         color: hsl(220, 30%, 18%);
-        transform: translateY(-1px);
         border: 1px solid rgb(255, 217, 16);
       }
 
@@ -471,6 +506,18 @@
         margin-top: 12px;
         border-top: 1px solid hsl(20, 5.9%, 90%);
         padding-top: 12px;
+      }
+
+      .content-meta .content-date {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 2px 4px;
+        border-radius: 4px;
+      }
+
+      .content-meta .content-date:hover {
+        background: rgb(255, 217, 16);
+        color: black;
       }
 
       .no-results {
@@ -512,14 +559,12 @@
       .auth-required button:hover {
         background: rgb(255, 217, 16);
         color: hsl(220, 30%, 18%);
-        transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
       }
 
       #load-more-btn:hover {
         background: rgb(255, 217, 16) !important;
         color: hsl(220, 30%, 18%);
-        transform: translateY(-1px) !important;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
       }
 
@@ -627,7 +672,6 @@
 
       .modal-btn.danger:hover {
         background: #b91c1c;
-        transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(220, 38, 38, 0.25);
       }
 
@@ -685,9 +729,11 @@
               />
             </g>
           </svg>
-          Quotebook
         </div>
-        <div style="display: flex; align-items: center; gap: 12px">
+        <div id="tag-nav-buttons" class="tag-nav-buttons">
+          <!-- Tag buttons will be populated by JavaScript -->
+        </div>
+        <div class="search-controls" style="display: flex; align-items: center; gap: 12px; margin-left: auto;">
           <input
             type="text"
             id="searchInput"
@@ -811,7 +857,7 @@
       </div>
 
       <div id="no-results" class="no-results" style="display: none; padding-top: 160px; line-height: 1.5;">
-        I got nothing for ya<br/><a href="#" id="clear-filters-link" style="color: rgb(255, 217, 16); text-decoration: underline; cursor: pointer;">Clear filters</a>
+        I got nothing for ya
       </div>
     </div>
 
