@@ -9,11 +9,20 @@ class FullPageCollector {
     this.displayedItems = [];
     this.itemsPerPage = 30;
     this.currentPage = 1;
+    this.selectedTags = new Set(); // Track multiple selected tags
     this.init();
+    this.setupMessageListener();
+  }
+
+  setupMessageListener() {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.action === 'refreshContent') {
+        this.loadContent();
+      }
+    });
   }
 
   async init() {
-    console.log("Initializing Full Page Collector...");
 
     // Initialize tooltips
     this.initTooltips();
@@ -44,17 +53,8 @@ class FullPageCollector {
       ]);
     }
 
-    console.log("Fullpage cached data:", {
-      hasSpreadsheetId: !!result.googleSpreadsheetId,
-      hasAccessToken: !!result.googleAccessToken,
-      spreadsheetId: result.googleSpreadsheetId,
-    });
 
     if (result.googleAccessToken && result.googleSpreadsheetId) {
-      console.log(
-        "Testing cached spreadsheet in fullpage:",
-        result.googleSpreadsheetId,
-      );
       // Verify the spreadsheet still exists and is not trashed
       try {
         // Check if file is trashed using Drive API
@@ -65,14 +65,11 @@ class FullPageCollector {
           },
         );
 
-        console.log("Fullpage Drive API test response:", driveResponse.status);
 
         if (driveResponse.ok) {
           const fileInfo = await driveResponse.json();
-          console.log("Fullpage file info:", fileInfo);
 
           if (fileInfo.trashed === true) {
-            console.log("Fullpage spreadsheet is in trash, clearing cache");
             await chrome.storage.local.remove([
               "googleSpreadsheetId",
               "googleAccessToken",
@@ -90,17 +87,11 @@ class FullPageCollector {
             );
 
             if (sheetsResponse.ok) {
-              console.log(
-                "Fullpage spreadsheet verified and accessible, loading content",
-              );
               this.accessToken = result.googleAccessToken;
               this.spreadsheetId = result.googleSpreadsheetId;
               this.updateSpreadsheetLink();
               await this.loadContent();
             } else {
-              console.log(
-                "Fullpage spreadsheet not accessible via Sheets API, clearing cache",
-              );
               await chrome.storage.local.remove([
                 "googleSpreadsheetId",
                 "googleAccessToken",
@@ -110,9 +101,6 @@ class FullPageCollector {
           }
         } else {
           // File not found or not accessible, clear cache and show auth
-          console.log(
-            "Fullpage file not accessible via Drive API, clearing cache",
-          );
           await chrome.storage.local.remove([
             "googleSpreadsheetId",
             "googleAccessToken",
@@ -121,7 +109,6 @@ class FullPageCollector {
         }
       } catch (error) {
         // Error accessing spreadsheet, clear cache and show auth
-        console.log("Fullpage error testing spreadsheet:", error);
         await chrome.storage.local.remove([
           "googleSpreadsheetId",
           "googleAccessToken",
@@ -129,7 +116,6 @@ class FullPageCollector {
         this.showAuthRequired();
       }
     } else {
-      console.log("No cached data found after retries, showing auth required");
       this.showAuthRequired();
     }
 
@@ -148,7 +134,12 @@ class FullPageCollector {
       searchInput.addEventListener("input", () => this.applyFilters());
     }
     if (tagFilter) {
-      tagFilter.addEventListener("change", () => this.applyFilters());
+      tagFilter.addEventListener("change", () => {
+        // Clear tag navigation buttons when using dropdown
+        this.selectedTags.clear();
+        this.updateTagNavButtonStates();
+        this.applyFilters();
+      });
     }
     if (dateFilter) {
       dateFilter.addEventListener("change", () => this.applyFilters());
@@ -170,7 +161,9 @@ class FullPageCollector {
     if (logo) {
       logo.addEventListener("click", (e) => {
         e.preventDefault();
-        this.clearAllFilters();
+        // Reset to first page and reload content
+        this.currentPage = 1;
+        this.renderContent();
       });
     }
 
@@ -179,18 +172,10 @@ class FullPageCollector {
       loadMoreBtn.addEventListener("click", () => this.loadMoreItems());
     }
 
-    const clearFiltersLink = document.getElementById("clear-filters-link");
-    if (clearFiltersLink) {
-      clearFiltersLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        this.clearAllFilters();
-      });
-    }
   }
 
   async authenticateWithGoogle() {
     try {
-      console.log("Starting authentication...");
 
       // Clear any existing cached data when re-authenticating
       await chrome.storage.local.remove([
@@ -210,7 +195,6 @@ class FullPageCollector {
       }
 
       // Request new token using getAuthToken (same method as popup.js)
-      console.log("Requesting authentication token...");
       const tokenResult = await chrome.identity.getAuthToken({ 
         interactive: true
       });
@@ -234,7 +218,6 @@ class FullPageCollector {
       }
 
       this.accessToken = accessToken;
-      console.log("Access token received successfully");
 
       // Create or find spreadsheet
       const spreadsheetId = await this.setupSpreadsheet();
@@ -247,14 +230,13 @@ class FullPageCollector {
       });
 
       await this.loadContent();
-      console.log("Authentication successful!");
     } catch (error) {
       console.error("Authentication failed:", error);
       
       // Show user-friendly error message
       const errorMessage = error.message || "Unknown error occurred";
       if (errorMessage.includes("cancelled") || errorMessage.includes("rejected")) {
-        console.log("Authentication cancelled by user");
+        // Authentication cancelled by user
       } else {
         alert(`Authentication failed: ${errorMessage}\n\nPlease try again or check your internet connection.`);
       }
@@ -438,6 +420,7 @@ class FullPageCollector {
       this.currentPage = 1;
       this.renderStats();
       this.renderTagFilter();
+      this.renderTagNavButtons();
       this.renderContent();
       this.showLoading(false);
     } catch (error) {
@@ -496,6 +479,19 @@ class FullPageCollector {
         }
         
         this.applyFilters();
+      });
+    });
+
+    // Date click listeners (open popup for editing)
+    document.querySelectorAll(".content-date").forEach((dateEl) => {
+      dateEl.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent card click
+        const cardId = e.target.closest(".content-card").getAttribute("data-item-id");
+        const cardData = this.contentData.find(item => item.id == cardId); // Use == for type coercion
+        if (cardData) {
+          this.openPopupWithCard(cardData);
+        }
       });
     });
   }
@@ -816,49 +812,99 @@ class FullPageCollector {
     });
   }
 
-  clearAllFilters() {
-    // Check if there are any active filters
-    const searchInput = document.getElementById("searchInput");
-    const tagFilter = document.getElementById("tagFilter");
-    const dateFilter = document.getElementById("dateFilter");
-    
-    const hasSearchTerm = searchInput && searchInput.value.trim() !== "";
-    const hasTagFilter = tagFilter && tagFilter.value !== "";
-    const hasDateFilter = dateFilter && dateFilter.value !== "";
-    
-    // Only clear if there are active filters
-    if (hasSearchTerm || hasTagFilter || hasDateFilter) {
-      if (searchInput) searchInput.value = "";
-      if (tagFilter) tagFilter.value = "";
-      if (dateFilter) dateFilter.value = "";
-      
-      // Reset button appearances to icon-only state
-      const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
-      const dateFilterContainer = document.querySelector('[data-tooltip="Filter by time"]');
-      
-      if (tagFilterContainer && tagFilter) {
-        this.updateFilterButtonAppearance(tagFilterContainer, tagFilter);
+  renderTagNavButtons() {
+    const tagNavContainer = document.getElementById("tag-nav-buttons");
+    if (!tagNavContainer) return;
+
+    // Count tag occurrences
+    const tagCounts = {};
+    this.contentData.forEach((item) => {
+      item.tags.forEach((tag) => {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      });
+    });
+
+    // Get top 5 tags by count
+    const topTags = Object.entries(tagCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([tag]) => tag);
+
+    // Clear existing buttons
+    tagNavContainer.innerHTML = "";
+
+    // Create buttons for top 5 tags
+    topTags.forEach((tag) => {
+      const button = document.createElement("button");
+      button.className = "tag-nav-button";
+      button.textContent = tag;
+      button.setAttribute("data-tag", tag);
+        button.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          // Toggle the tag in selected tags
+          if (this.selectedTags.has(tag)) {
+            this.selectedTags.delete(tag);
+            // Clear dropdown when deselecting
+            document.getElementById("tagFilter").value = "";
+          } else {
+            this.selectedTags.add(tag);
+            // Update dropdown to show the selected tag (only works with one tag)
+            if (this.selectedTags.size === 1) {
+              document.getElementById("tagFilter").value = tag;
+            } else {
+              // If multiple tags selected, clear dropdown
+              document.getElementById("tagFilter").value = "";
+            }
+          }
+          this.applyFilters();
+          this.updateTagNavButtonStates();
+        });
+      tagNavContainer.appendChild(button);
+    });
+
+    // Update button states based on current filter
+    this.updateTagNavButtonStates();
+  }
+
+  updateTagNavButtonStates() {
+    // Update all tag nav buttons based on selectedTags Set
+    document.querySelectorAll(".tag-nav-button").forEach((button) => {
+      const buttonTag = button.getAttribute("data-tag");
+      if (this.selectedTags.has(buttonTag)) {
+        button.classList.add("active");
+      } else {
+        button.classList.remove("active");
       }
-      if (dateFilterContainer && dateFilter) {
-        this.updateFilterButtonAppearance(dateFilterContainer, dateFilter);
-      }
+    });
+  }
+
+  async openPopupWithCard(cardData) {
+    try {
+      // Store the card data in chrome storage for the popup to access
+      await chrome.storage.local.set({
+        'editCardData': cardData,
+        'editMode': true
+      });
       
-      // Reset filtered data to show all content
-      this.filteredData = [...this.contentData];
-      this.currentPage = 1;
-      this.renderContent();
+      // Small delay to ensure data is stored before popup opens
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      console.log('All filters cleared');
-    } else {
-      console.log('No active filters to clear');
+      // Open the popup
+      await chrome.action.openPopup();
+    } catch (error) {
+      console.error('Could not open popup:', error);
+      // Fallback: show a message to user
+      alert('Could not open editor. Please try clicking the extension icon manually.');
     }
   }
+
 
   applyFilters() {
     const searchTerm = document
       .getElementById("searchInput")
       .value.toLowerCase();
-    const selectedTag = document.getElementById("tagFilter").value;
+    const selectedTag = document.getElementById("tagFilter").value; // This is the dropdown, not the nav buttons
     const dateRange = document.getElementById("dateFilter").value;
 
     this.filteredData = this.contentData.filter((item) => {
@@ -869,8 +915,12 @@ class FullPageCollector {
         item.content.toLowerCase().includes(searchTerm) ||
         item.tags.some((tag) => tag.toLowerCase().includes(searchTerm));
 
-      // Tag filter
-      const matchesTag = !selectedTag || item.tags.includes(selectedTag);
+      // Tag filter - check if item has ALL selected tags from nav buttons
+      const matchesTagNav = this.selectedTags.size === 0 || 
+        Array.from(this.selectedTags).every(tag => item.tags.includes(tag));
+
+      // Tag filter - check dropdown filter (legacy)
+      const matchesTagDropdown = !selectedTag || item.tags.includes(selectedTag);
 
       // Date filter
       let matchesDate = true;
@@ -893,12 +943,14 @@ class FullPageCollector {
         }
       }
 
-      return matchesSearch && matchesTag && matchesDate;
+      return matchesSearch && matchesTagNav && matchesTagDropdown && matchesDate;
     });
 
     // Reset pagination when filters change
     this.currentPage = 1;
     this.renderContent();
+    this.updateLoadMoreButton();
+    this.attachEventListeners();
   }
 
   updateSearchPlaceholder() {
@@ -1163,6 +1215,7 @@ class FullPageCollector {
       // Update button appearance when selection changes
       tagFilter.addEventListener('change', () => {
         this.updateFilterButtonAppearance(tagFilterContainer, tagFilter);
+        this.updateTagNavButtonStates();
       });
     }
 
