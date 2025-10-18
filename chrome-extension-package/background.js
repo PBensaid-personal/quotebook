@@ -26,27 +26,29 @@ class QuoteCollectorBackground {
   }
 
   async handleFirstInstall() {
-    // Set default settings
+    // Set default settings and onboarding flag
     await chrome.storage.local.set({
       autoCapture: true,
       showNotifications: true,
-      defaultTags: []
+      defaultTags: [],
+      hasSeenOnboarding: true  // Mark that we've shown the onboarding
     });
 
     console.log('Extension installed successfully');
-    
-    // Auto-open popup for first-time users
+
+    // Auto-open fullpage for first-time users
     try {
-      // Open the popup in a new tab for first-time users
-      // This provides a better welcome experience
-      chrome.tabs.create({ 
-        url: chrome.runtime.getURL('popup.html'),
+      // Open the fullpage in a new tab for onboarding
+      // This provides a better welcome experience with more space
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('fullpage.html'),
         active: true
       });
-      
-      
+
+      console.log('Opened onboarding fullpage for new user');
+
     } catch (error) {
-      console.log('Could not auto-open popup:', error);
+      console.log('Could not auto-open fullpage:', error);
       // This is not critical - the user can still click the extension icon
     }
   }
@@ -114,8 +116,9 @@ class QuoteCollectorBackground {
       await chrome.storage.local.clear();
       await chrome.storage.sync.clear(); // Also clear sync storage
       
-      // Set logout flag to prevent automatic re-authorization
+      // Set logout flag and clear auth state to prevent automatic re-authorization
       await chrome.storage.local.set({ userLoggedOut: true });
+      await chrome.storage.local.remove(['isAuthenticated', 'googleAccessToken', 'googleSpreadsheetId']);
       console.log('Extension storage cleared and logout flag set');
       
       // Force popup to reset by sending message to any open popups

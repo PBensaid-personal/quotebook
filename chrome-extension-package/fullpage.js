@@ -15,6 +15,12 @@ class FullPageCollector {
   async init() {
     console.log("Initializing Full Page Collector...");
 
+    // Initialize tooltips
+    this.initTooltips();
+
+    // Initialize dropdown buttons
+    this.initDropdownButtons();
+
     // Wait a moment for storage to sync from popup
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -172,6 +178,14 @@ class FullPageCollector {
     if (loadMoreBtn) {
       loadMoreBtn.addEventListener("click", () => this.loadMoreItems());
     }
+
+    const clearFiltersLink = document.getElementById("clear-filters-link");
+    if (clearFiltersLink) {
+      clearFiltersLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.clearAllFilters();
+      });
+    }
   }
 
   async authenticateWithGoogle() {
@@ -208,15 +222,8 @@ class FullPageCollector {
         if (tokenResult.token) {
           accessToken = tokenResult.token;
 
-          // Verify we have the required scope
-          const grantedScopes = tokenResult.grantedScopes || [];
-          const hasSheetScope = grantedScopes.some(scope => 
-            scope.includes('spreadsheets') || scope.includes('sheets')
-          );
-
-          if (!hasSheetScope) {
-            throw new Error('Missing required Google Sheets permission');
-          }
+          // Note: drive.file scope is sufficient for Google Sheets access
+          // No need to check for specific spreadsheets scope
         } else {
           throw new Error('Authentication failed - no token received');
         }
@@ -440,6 +447,11 @@ class FullPageCollector {
         this.showAuthRequired();
       }
     }
+  }
+
+  applyDynamicImageSizing() {
+    // Images now use their natural aspect ratios without height calculations
+    // The CSS handles the sizing with height: auto
   }
 
   attachEventListeners() {
@@ -739,7 +751,8 @@ class FullPageCollector {
   }
 
   renderStats() {
-    const statsContainer = document.getElementById("stats");
+    // Stats functionality removed - no longer displaying datapoints
+    return;
     const totalItems = this.contentData.length;
     const totalTags = [
       ...new Set(this.contentData.flatMap((item) => item.tags)),
@@ -796,21 +809,41 @@ class FullPageCollector {
   }
 
   clearAllFilters() {
-    // Clear all filter inputs
+    // Check if there are any active filters
     const searchInput = document.getElementById("searchInput");
     const tagFilter = document.getElementById("tagFilter");
     const dateFilter = document.getElementById("dateFilter");
     
-    if (searchInput) searchInput.value = "";
-    if (tagFilter) tagFilter.value = "";
-    if (dateFilter) dateFilter.value = "";
+    const hasSearchTerm = searchInput && searchInput.value.trim() !== "";
+    const hasTagFilter = tagFilter && tagFilter.value !== "";
+    const hasDateFilter = dateFilter && dateFilter.value !== "";
     
-    // Reset filtered data to show all content
-    this.filteredData = [...this.contentData];
-    this.currentPage = 1;
-    this.renderContent();
-    
-    console.log('All filters cleared');
+    // Only clear if there are active filters
+    if (hasSearchTerm || hasTagFilter || hasDateFilter) {
+      if (searchInput) searchInput.value = "";
+      if (tagFilter) tagFilter.value = "";
+      if (dateFilter) dateFilter.value = "";
+      
+      // Reset button appearances to icon-only state
+      const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
+      const dateFilterContainer = document.querySelector('[data-tooltip="Filter by time"]');
+      
+      if (tagFilterContainer && tagFilter) {
+        this.updateFilterButtonAppearance(tagFilterContainer, tagFilter);
+      }
+      if (dateFilterContainer && dateFilter) {
+        this.updateFilterButtonAppearance(dateFilterContainer, dateFilter);
+      }
+      
+      // Reset filtered data to show all content
+      this.filteredData = [...this.contentData];
+      this.currentPage = 1;
+      this.renderContent();
+      
+      console.log('All filters cleared');
+    } else {
+      console.log('No active filters to clear');
+    }
   }
 
   applyFilters() {
@@ -860,9 +893,18 @@ class FullPageCollector {
     this.renderContent();
   }
 
+  updateSearchPlaceholder() {
+    const searchInput = document.getElementById("searchInput");
+    const totalQuotes = this.contentData.length;
+    searchInput.placeholder = `Search your ${totalQuotes} quotes...`;
+  }
+
   renderContent() {
     const contentContainer = document.getElementById("content");
     const noResults = document.getElementById("no-results");
+
+    // Update search placeholder with current quote count
+    this.updateSearchPlaceholder();
 
     if (this.filteredData.length === 0) {
       contentContainer.style.display = "none";
@@ -930,10 +972,10 @@ class FullPageCollector {
           </button>
         </div>
         
-        ${item.image ? `<img src="${item.image}" alt="" class="content-image">` : ""}
+        ${item.image ? `<img src="${item.image}" alt="" class="content-image" data-image-url="${item.image}">` : ""}
         
         <div class="content-text">
-          ${this.escapeHtml(item.content)}
+          ${this.escapeHtml(item.content).replace(/\n/g, '<br>')}
         </div>
         
         <div class="content-title">
@@ -975,6 +1017,9 @@ class FullPageCollector {
     columns.forEach(column => {
       contentContainer.appendChild(column);
     });
+
+    // Apply dynamic image sizing after DOM insertion
+    this.applyDynamicImageSizing();
 
     // Set container height based on tallest column
     setTimeout(() => {
@@ -1022,33 +1067,191 @@ class FullPageCollector {
     return div.innerHTML;
   }
 
+  initTooltips() {
+    const elements = document.querySelectorAll('[data-tooltip]');
+    let tooltip = null;
+    let hideTimeout = null;
+
+    elements.forEach(element => {
+      element.addEventListener('mouseenter', (e) => {
+        // Clear any pending hide timeout
+        if (hideTimeout) {
+          clearTimeout(hideTimeout);
+          hideTimeout = null;
+        }
+
+        // Remove existing tooltip
+        if (tooltip) {
+          tooltip.remove();
+        }
+
+        // Create new tooltip
+        tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        const tooltipText = e.currentTarget.getAttribute('data-tooltip');
+        tooltip.textContent = tooltipText;
+        document.body.appendChild(tooltip);
+
+        // Position tooltip with edge detection
+        const rect = e.currentTarget.getBoundingClientRect();
+        let left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2;
+
+        // Prevent tooltip from going off the right edge (with 8px padding)
+        const maxLeft = window.innerWidth - tooltip.offsetWidth - 8;
+        if (left > maxLeft) {
+          left = maxLeft;
+        }
+
+        // Prevent tooltip from going off the left edge (with 8px padding)
+        if (left < 8) {
+          left = 8;
+        }
+
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = (rect.bottom + 8) + 'px';
+
+        // Show tooltip
+        setTimeout(() => {
+          if (tooltip) {
+            tooltip.classList.add('show');
+          }
+        }, 10);
+      });
+
+      element.addEventListener('mouseleave', () => {
+        if (tooltip) {
+          tooltip.classList.remove('show');
+          hideTimeout = setTimeout(() => {
+            if (tooltip) {
+              tooltip.remove();
+              tooltip = null;
+            }
+            hideTimeout = null;
+          }, 200);
+        }
+      });
+    });
+  }
+
+  initDropdownButtons() {
+    // Handle tag filter dropdown
+    const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
+    const tagFilter = document.getElementById('tagFilter');
+    
+    if (tagFilterContainer && tagFilter) {
+      tagFilterContainer.addEventListener('click', (e) => {
+        e.preventDefault();
+        tagFilter.focus();
+        tagFilter.click();
+      });
+      
+      // Update button appearance when selection changes
+      tagFilter.addEventListener('change', () => {
+        this.updateFilterButtonAppearance(tagFilterContainer, tagFilter);
+      });
+    }
+
+    // Handle date filter dropdown
+    const dateFilterContainer = document.querySelector('[data-tooltip="Filter by time"]');
+    const dateFilter = document.getElementById('dateFilter');
+    
+    if (dateFilterContainer && dateFilter) {
+      dateFilterContainer.addEventListener('click', (e) => {
+        e.preventDefault();
+        dateFilter.focus();
+        dateFilter.click();
+      });
+      
+      // Update button appearance when selection changes
+      dateFilter.addEventListener('change', () => {
+        this.updateFilterButtonAppearance(dateFilterContainer, dateFilter);
+      });
+    }
+  }
+
+  updateFilterButtonAppearance(container, selectElement) {
+    const selectedValue = selectElement.value;
+    const selectedText = selectElement.options[selectElement.selectedIndex].text;
+    
+    if (selectedValue && selectedValue !== '') {
+      // Show selected label with proper styling
+      container.style.width = 'auto';
+      container.style.minWidth = 'auto';
+      selectElement.style.width = 'auto';
+      selectElement.style.minWidth = 'auto';
+      selectElement.style.padding = '8px 40px 8px 32px';
+      selectElement.style.color = 'hsl(20, 14.3%, 4.1%)';
+      selectElement.style.background = 'hsl(0, 0%, 100%)';
+      selectElement.style.border = '1px solid hsl(20, 5.9%, 90%)';
+      selectElement.style.borderRadius = '8px';
+      selectElement.style.backgroundImage = `url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23374151\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6,9 12,15 18,9\'%3e%3c/polyline%3e%3c/svg%3e')`;
+      selectElement.style.backgroundRepeat = 'no-repeat';
+      selectElement.style.backgroundPosition = 'right 12px center';
+      selectElement.style.backgroundSize = '16px';
+      
+      // Remove active state styling
+      selectElement.style.outline = 'none';
+      selectElement.style.boxShadow = 'none';
+      
+      // Move the SVG icon to the left side
+      const svg = container.querySelector('svg');
+      if (svg) {
+        svg.style.left = '8px';
+        svg.style.transform = 'translateY(-50%)';
+      }
+      
+      // Force resize to content by temporarily setting width to auto
+      setTimeout(() => {
+        const tempWidth = selectElement.scrollWidth;
+        selectElement.style.width = tempWidth + 'px';
+      }, 0);
+    } else {
+      // Reset to icon-only state
+      container.style.width = '32px';
+      container.style.minWidth = '32px';
+      selectElement.style.width = '32px';
+      selectElement.style.minWidth = '32px';
+      selectElement.style.padding = '0';
+      selectElement.style.color = 'transparent';
+      selectElement.style.background = 'hsl(0, 0%, 100%)';
+      selectElement.style.border = '1px solid hsl(20, 5.9%, 90%)';
+      selectElement.style.borderRadius = '8px';
+      selectElement.style.backgroundImage = 'none';
+      selectElement.style.backgroundRepeat = 'no-repeat';
+      selectElement.style.backgroundPosition = 'unset';
+      selectElement.style.backgroundSize = 'unset';
+      
+      // Center the SVG icon
+      const svg = container.querySelector('svg');
+      if (svg) {
+        svg.style.left = '50%';
+        svg.style.transform = 'translate(-50%, -50%)';
+      }
+    }
+  }
+
   showLoading(show) {
     const loading = document.getElementById("loading");
     const content = document.getElementById("content");
-    const stats = document.getElementById("stats");
     const authRequired = document.getElementById("auth-required");
 
     if (show) {
       loading.style.display = "block";
       content.style.display = "none";
-      stats.style.display = "none";
       authRequired.style.display = "none";
     } else {
       loading.style.display = "none";
-      stats.style.display = "flex";
     }
   }
 
   showAuthRequired() {
     const loading = document.getElementById("loading");
     const content = document.getElementById("content");
-    const stats = document.getElementById("stats");
     const authRequired = document.getElementById("auth-required");
     const spreadsheetLink = document.getElementById("spreadsheet-link");
 
     loading.style.display = "none";
     content.style.display = "none";
-    stats.style.display = "none";
     authRequired.style.display = "block";
     if (spreadsheetLink) spreadsheetLink.style.display = "none";
     

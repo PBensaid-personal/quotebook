@@ -26,10 +26,51 @@ class WebCaptureContent {
 
   handleTextSelection() {
     const selection = window.getSelection();
-    const text = selection.toString().trim();
+    
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const contents = range.cloneContents();
+      
+      // Convert the selection to text while preserving line breaks
+      let text = '';
+      
+      // Walk through all nodes in the selection
+      const walker = document.createTreeWalker(
+        contents,
+        NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+        null,
+        false
+      );
+      
+      let node;
+      while (node = walker.nextNode()) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          text += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          // Add line breaks for block elements and <br> tags
+          const tagName = node.tagName.toLowerCase();
+          if (tagName === 'br') {
+            text += '\n';
+          } else if (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'pre'].includes(tagName)) {
+            // Add line break before block elements (except if it's the first element)
+            if (text.length > 0 && !text.endsWith('\n')) {
+              text += '\n';
+            }
+          }
+        }
+      }
+      
+      // Clean up the text: remove extra whitespace but preserve intentional line breaks
+      text = text.replace(/\r\n/g, '\n')  // Normalize line endings
+                 .replace(/\r/g, '\n')    // Convert old Mac line endings
+                 .replace(/[ \t]+/g, ' ') // Collapse multiple spaces/tabs to single space
+                 .replace(/[ \t]*\n[ \t]*/g, '\n') // Remove spaces around line breaks
+                 .replace(/\n{3,}/g, '\n\n') // Limit consecutive line breaks to max 2
+                 .trim();
 
-    if (text.length > 0) {
-      this.selectedText = text;
+      if (text.length > 0) {
+        this.selectedText = text;
+      }
     }
   }
 
@@ -49,20 +90,8 @@ class WebCaptureContent {
       metadata.description = metaDescription.getAttribute('content') || '';
     }
 
-    // Get Open Graph image or first meaningful image
-    let ogImage = document.querySelector('meta[property="og:image"]');
-    if (!ogImage) {
-      ogImage = document.querySelector('meta[name="twitter:image"]');
-    }
-    if (ogImage) {
-      metadata.image = ogImage.getAttribute('content') || '';
-    } else {
-      // Get first meaningful image
-      const firstImage = document.querySelector('img[src]:not([src^="data:"]):not([width="1"]):not([height="1"]):not([alt=""])');
-      if (firstImage && firstImage.src) {
-        metadata.image = firstImage.src;
-      }
-    }
+    // No automatic image extraction from meta tags
+    // Users must explicitly select images from the carousel
 
     // Extract page images
     metadata.images = this.extractPageImages();
