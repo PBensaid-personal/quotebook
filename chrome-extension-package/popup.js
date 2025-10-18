@@ -6,7 +6,7 @@ class EnhancedQuoteCollector {
     this.userTags = [];
     this.isLoggedOut = false; // Track logout state
     this.pageImages = []; // Available page images
-    this.selectedImageIndex = 0; // Currently selected image
+    this.selectedImageIndex = -1; // No image selected by default
     this.carouselStartIndex = 0; // Carousel view start
     this.existingTags = []; // Tags from Google Sheets for autocomplete
     this.selectedAutocompleteIndex = -1; // Currently selected autocomplete item
@@ -72,6 +72,15 @@ class EnhancedQuoteCollector {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
 
+    // Post-save action buttons
+    document.getElementById('view-collection-btn').addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
+    });
+
+    document.getElementById('close-btn').addEventListener('click', () => {
+      window.close();
+    });
+
     // Remove Enter key handler - tags will be processed on Save
   }
 
@@ -135,9 +144,9 @@ class EnhancedQuoteCollector {
 
   async loadExistingTags() {
     try {
-      const result = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
-      if (!result.googleAccessToken || !result.googleSpreadsheetId) {
-        console.log('No auth or spreadsheet ID for loading tags - will retry after spreadsheet setup');
+      const result = await chrome.storage.local.get(['googleSpreadsheetId']);
+      if (!result.googleSpreadsheetId) {
+        console.log('No spreadsheet ID for loading tags - will retry after spreadsheet setup');
         this.existingTags = []; // Start empty, no fallback tags
         return;
       }
@@ -149,7 +158,7 @@ class EnhancedQuoteCollector {
         `https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}/values/'Saved Quotes'!A:H`,
         {
           headers: {
-            'Authorization': `Bearer ${result.googleAccessToken}`,
+            'Authorization': `Bearer ${this.accessToken}`,
             'Content-Type': 'application/json'
           }
         }
@@ -196,7 +205,6 @@ class EnhancedQuoteCollector {
     try {
       console.log('Checking existing authentication...');
       
-      
       // Check if user explicitly logged out
       const logoutState = await chrome.storage.local.get(['userLoggedOut']);
       if (logoutState.userLoggedOut) {
@@ -206,104 +214,46 @@ class EnhancedQuoteCollector {
         return;
       }
       
-      // First check if fullpage has already set up auth (use fullpage storage keys)
-      const fullpageAuth = await chrome.storage.local.get(['googleAccessToken', 'googleSpreadsheetId']);
-      if (fullpageAuth.googleAccessToken && fullpageAuth.googleSpreadsheetId) {
-        console.log('Found fullpage auth data, using it');
-        this.accessToken = fullpageAuth.googleAccessToken;
-        this.spreadsheetId = fullpageAuth.googleSpreadsheetId;
-        
-        // Validate the token
-        const isValid = await this.validateToken();
-        if (isValid) {
-          console.log('Fullpage token is valid, loading tags and showing main interface');
-          await this.loadExistingTags();
-          this.showMainInterface();
-          return;
-        } else {
-          console.log('Fullpage token is invalid, clearing and continuing with popup auth');
-          await chrome.storage.local.remove(['googleAccessToken', 'googleSpreadsheetId']);
-        }
-      }
+      // Check for cached authentication state
+      const authState = await chrome.storage.local.get(['isAuthenticated', 'googleAccessToken', 'googleSpreadsheetId']);
       
-      // Try to get existing token from Chrome Identity (non-interactive first)
-      const accessToken = await chrome.identity.getAuthToken({ interactive: false });
-      
-      if (accessToken) {
-        console.log('Found existing Chrome Identity token');
-        // Handle both string and object token formats
-        this.accessToken = typeof accessToken === 'object' ? accessToken.token : accessToken;
+      if (authState.isAuthenticated && authState.googleAccessToken && authState.googleSpreadsheetId) {
+        console.log('Found cached auth state, using it');
+        this.accessToken = authState.googleAccessToken;
+        this.spreadsheetId = authState.googleSpreadsheetId;
         
-        // Validate token by testing API access
-        const isValid = await this.validateToken();
-        if (!isValid) {
-          console.log('Token invalid, removing cached token');
-          const tokenToRemove = typeof accessToken === 'object' ? accessToken.token : accessToken;
-          await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
-          this.showAuthInterface();
-          return;
-        }
-        
-        // Check if we have cached spreadsheet ID
-        const stored = await chrome.storage.local.get(['googleSpreadsheetId']);
-        
-        if (stored.googleSpreadsheetId) {
-          console.log('Testing cached spreadsheet:', stored.googleSpreadsheetId);
-          
-          try {
-            // Quick test if spreadsheet is still accessible
-            const sheetsResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${stored.googleSpreadsheetId}`, {
-              headers: { 'Authorization': `Bearer ${accessToken}` }
-            });
+        // Quick validation - try to get token without interactive flow
+        try {
+          const accessToken = await chrome.identity.getAuthToken({ interactive: false });
+          if (accessToken) {
+            this.accessToken = typeof accessToken === 'object' ? accessToken.token : accessToken;
             
-            if (sheetsResponse.ok) {
-              console.log('Spreadsheet verified, showing main interface');
-              this.spreadsheetId = stored.googleSpreadsheetId;
-              // Load tags from the verified existing spreadsheet
+            // Quick test if still valid
+            const isValid = await this.validateToken();
+            if (isValid) {
+              console.log('Cached auth is still valid, showing main interface');
               await this.loadExistingTags();
               this.showMainInterface();
               return;
             } else {
-              console.log('Spreadsheet not accessible, will create/find one');
-              await chrome.storage.local.remove(['googleSpreadsheetId']);
+              console.log('Cached auth is invalid, clearing cache');
+              await chrome.storage.local.remove(['isAuthenticated', 'googleAccessToken', 'googleSpreadsheetId']);
             }
-          } catch (error) {
-            console.log('Error testing spreadsheet, will create/find one:', error);
-            await chrome.storage.local.remove(['googleSpreadsheetId']);
           }
-        }
-        
-        // Have token but need to setup spreadsheet
-        console.log('Have auth token, setting up spreadsheet...');
-        try {
-          await this.setupSpreadsheetIfNeeded();
-          this.showMainInterface();
-          return;
         } catch (error) {
-          console.error('Spreadsheet setup failed:', error);
-          this.showStatus(`Setup error: ${error.message}`, 'error');
+          console.log('Error validating cached auth:', error);
+          await chrome.storage.local.remove(['isAuthenticated', 'googleAccessToken', 'googleSpreadsheetId']);
         }
-      } else {
-        console.log('No existing Chrome Identity token found');
       }
+      
+      // No valid cached auth, need to authenticate
+      console.log('No valid cached auth, showing auth interface');
+      this.showAuthInterface();
+      
     } catch (error) {
       console.log('Error checking existing auth:', error);
-      // Only show user-facing errors for actual problems that need user attention
-      // Skip common "no token" or "revoked" errors that are normal states
-      const isNormalAuthState = error.message && (
-        error.message.includes('OAuth2 not granted') ||
-        error.message.includes('revoked') ||
-        error.message.includes('No access token') ||
-        error.message.includes('User not signed in')
-      );
-      
-      if (!isNormalAuthState) {
-        this.showStatus(`Authentication error: ${error.message}`, 'error');
-      }
+      this.showAuthInterface();
     }
-
-    // Show auth interface if no valid token or setup failed
-    this.showAuthInterface();
   }
 
   async validateToken() {
@@ -360,6 +310,14 @@ class EnhancedQuoteCollector {
       }
       
       await this.setupSpreadsheetIfNeeded();
+      
+      // Store authentication state for future popup opens and fullpage compatibility
+      await chrome.storage.local.set({
+        isAuthenticated: true,
+        googleAccessToken: this.accessToken,
+        googleSpreadsheetId: this.spreadsheetId
+      });
+      
       this.showMainInterface();
 
     } catch (error) {
@@ -588,7 +546,7 @@ class EnhancedQuoteCollector {
       const content = document.getElementById('content').value;
 
       if (!content.trim() || content === "Select text on the webpage to capture it here...") {
-        this.showStatusMain('Please select some text on the webpage first', 'error');
+        this.showSaveButtonStatus('Please select some text first', 'error');
         return;
       }
 
@@ -609,26 +567,13 @@ class EnhancedQuoteCollector {
       
       console.log('Using spreadsheet ID:', this.spreadsheetId);
       
-      this.showStatusMain('Saving to Google Sheets...', 'info');
+      this.showSaveButtonStatus('Saving to Google Sheets...', 'saving');
       document.getElementById('save-button').disabled = true;
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      // Extract page image - use selected image only, no fallbacks if deselected
+      // Extract page image - use selected image only, no automatic fallbacks
       let pageImage = this.getSelectedImageUrl();
-      
-      // Only use fallback if no images were available for selection at all
-      if (!pageImage && this.pageImages.length === 0) {
-        try {
-          const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
-          if (result) {
-            pageImage = result.image || '';
-          }
-        } catch (e) {
-          // Fallback to basic image extraction only if no carousel was shown
-          pageImage = tab.favIconUrl || '';
-        }
-      }
       
       // ONLY save user-added tags
       console.log('Final user tags to save:', this.userTags);
@@ -668,24 +613,22 @@ class EnhancedQuoteCollector {
         });
         console.log('Storage updated with spreadsheet ID:', this.spreadsheetId);
         
-        this.showStatusMain('Saved', 'success');
+        // Show saved state with animation
+        this.showSavedState();
 
         // Clear content and reset
         document.getElementById('content').value = 'Select text on the webpage to capture it here...';
         this.userTags = [];
         this.renderUserTags();
         
-        setTimeout(() => {
-          window.close();
-        }, 1500);
       } else {
         const errorData = await response.json();
         console.error('Save failed:', errorData);
-        this.showStatusMain(`Save failed: ${errorData.error?.message || 'Unknown error'}`, 'error');
+        this.showSaveButtonStatus(`Save failed: ${errorData.error?.message || 'Unknown error'}`, 'error');
       }
 
     } catch (error) {
-      this.showStatusMain(`Error: ${error.message}`, 'error');
+      this.showSaveButtonStatus(`Error: ${error.message}`, 'error');
     } finally {
       document.getElementById('save-button').disabled = false;
     }
@@ -725,6 +668,64 @@ class EnhancedQuoteCollector {
         status.style.display = 'none';
       }, 3000);
     }
+  }
+
+  showSaveButtonStatus(message, type) {
+    const button = document.getElementById('save-button');
+    const buttonText = document.getElementById('save-button-text');
+    const buttonStatus = document.getElementById('save-button-status');
+    
+    // Reset button classes
+    button.classList.remove('saving', 'saved', 'centered');
+    
+    if (type === 'saving') {
+      button.classList.add('saving');
+      buttonText.style.display = 'none';
+      buttonStatus.style.display = 'inline';
+      buttonStatus.textContent = message;
+    } else if (type === 'error') {
+      buttonText.style.display = 'inline';
+      buttonStatus.style.display = 'none';
+      buttonText.textContent = 'Save';
+      // Show error in status for a moment
+      buttonStatus.style.display = 'inline';
+      buttonStatus.textContent = message;
+      buttonStatus.style.color = '#ef4444';
+      setTimeout(() => {
+        buttonStatus.style.display = 'none';
+        buttonStatus.style.color = '';
+      }, 3000);
+    } else {
+      // Reset to normal state
+      buttonText.style.display = 'inline';
+      buttonStatus.style.display = 'none';
+      buttonText.textContent = 'Save';
+    }
+  }
+
+  showSavedState() {
+    const button = document.getElementById('save-button');
+    const savedStateContainer = document.getElementById('saved-state-container');
+    const mainSection = document.getElementById('main-section');
+    
+    // Start the transition by hiding the original content with smooth animation
+    const contentSection = document.querySelector('.content-section');
+    const tagsSection = document.querySelector('.tags-section');
+    const contentPreview = document.querySelector('.content-preview');
+    const imageSelector = document.getElementById('image-selector');
+    const actions = document.querySelector('.actions');
+    
+    // Add transition classes to fade out content
+    if (contentSection) contentSection.classList.add('content-hidden');
+    if (tagsSection) tagsSection.classList.add('content-hidden');
+    if (contentPreview) contentPreview.classList.add('content-hidden');
+    if (imageSelector) imageSelector.classList.add('content-hidden');
+    if (actions) actions.classList.add('content-hidden');
+    
+    // Show the saved state container after content fades out
+    setTimeout(() => {
+      savedStateContainer.style.display = 'flex';
+    }, 400);
   }
 
   initTooltips() {
@@ -806,7 +807,7 @@ class EnhancedQuoteCollector {
   }
 
   showImageSelector() {
-    if (this.pageImages.length > 1) {
+    if (this.pageImages.length > 0) {
       document.getElementById('image-selector').style.display = 'block';
       this.renderImageCarousel();
     }

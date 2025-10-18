@@ -71,11 +71,6 @@
         text-decoration: none;
       }
 
-      .logo:hover {
-        color: rgb(255, 217, 16);
-        transform: translateY(-1px);
-      }
-
       .logo-icon {
         width: 24px;
         height: 24px;
@@ -109,12 +104,24 @@
         color: white;
         text-decoration: none;
         transition: all 0.2s ease;
-        margin-left: 16px;
       }
 
       .spreadsheet-link:hover {
         background: rgb(255, 217, 16);
         transform: translateY(-1px);
+        color: black;
+      }
+
+      .filter-button:hover {
+        background: rgb(255, 217, 16);
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+        border-radius: 8px;
+      }
+
+      .filter-button:hover select {
+        background: inherit !important;
+        border-color: rgb(255, 217, 16) !important;
       }
       .stat-card {
         display: flex;
@@ -140,10 +147,7 @@
         background: hsl(0, 0%, 100%);
         display: grid;
         padding-bottom: 20px;
-        grid-template-columns: minmax(250px, 2fr) minmax(150px, 1fr) minmax(
-            150px,
-            1fr
-          );
+        grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr);
         gap: 15px;
       }
 
@@ -184,8 +188,8 @@
       .filter-group input:focus,
       .filter-group select:focus {
         outline: none;
-        border-color: hsl(220, 30%, 18%);
-        box-shadow: 0 0 0 1px hsl(220, 30%, 18%);
+        border-color: rgb(255, 217, 16);
+        box-shadow: 0 0 0 3px rgba(255, 217, 16, 0.2);
       }
 
       .content-grid {
@@ -248,8 +252,8 @@
       }
 
       .content-card:hover {
-        transform: translateY(-2px);
         box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+        border: 1px solid white;
       }
 
       .content-card:hover .content-title {
@@ -293,10 +297,11 @@
 
       .content-image {
         width: 100%;
-        height: 150px;
+        height: auto;
         object-fit: cover;
         border-radius: 8px;
         margin-bottom: 16px;
+        min-height: 100px;
       }
 
       .content-title {
@@ -305,8 +310,24 @@
         font-size: 16px;
         font-weight: 500;
         line-height: 1.4;
-        margin-bottom: 12px;
+        margin-bottom: 0;
         display: block;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+      }
+
+      .content-card:hover .content-text {
+        margin-bottom: 16px;
+      }
+
+      .content-card:hover .content-title {
+        max-height: 50px;
+        opacity: 1;
+        transform: translateY(0);
+        margin-bottom: 12px;
       }
 
       .content-title:hover {
@@ -319,13 +340,25 @@
         font-family: "Libre Baskerville", Georgia, serif;
         font-size: 20px;
         line-height: 1.5;
-        margin-bottom: 16px;
+        margin-bottom: 0;
       }
 
       .content-tags {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
+        margin-bottom: 0;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+      }
+
+      .content-card:hover .content-tags {
+        max-height: 100px;
+        opacity: 1;
+        transform: translateY(0);
         margin-bottom: 16px;
       }
 
@@ -353,6 +386,20 @@
         align-items: center;
         font-size: 12px;
         color: hsl(25, 5.3%, 44.7%);
+        border-top: none;
+        padding-top: 0;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+      }
+
+      .content-card:hover .content-meta {
+        max-height: 50px;
+        opacity: 1;
+        transform: translateY(0);
+        margin-top: 12px;
         border-top: 1px solid hsl(20, 5.9%, 90%);
         padding-top: 12px;
       }
@@ -571,16 +618,80 @@
           </svg>
           Quotebook
         </div>
-        <div style="display: flex; align-items: center">
-          <div id="stats" class="stats">
-            <!-- Stats will be populated by JavaScript -->
+        <div style="display: flex; align-items: center; gap: 12px">
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search your quotes..."
+            style="
+              width: 200px;
+              padding: 8px 12px;
+              background: hsl(0, 0%, 100%);
+              border: 1px solid hsl(20, 5.9%, 90%);
+              border-radius: 8px;
+              color: hsl(20, 14.3%, 4.1%);
+              font-size: 14px;
+              box-sizing: border-box;
+            "
+          />
+          
+          <div class="filter-button" style="position: relative; display: inline-block;" data-tooltip="Filter by tag">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; color: hsl(20, 14.3%, 4.1%); pointer-events: none;">
+              <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>
+              <circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>
+            </svg>
+            <select id="tagFilter" style="
+              width: 36px;
+              height: 34px;
+              padding: 0;
+              background: hsl(0, 0%, 100%);
+              border: 1px solid hsl(20, 5.9%, 90%);
+              border-radius: 8px;
+              color: transparent;
+              font-size: 14px;
+              box-sizing: border-box;
+              appearance: none;
+              cursor: pointer;
+            ">
+              <option value="">All Tags</option>
+            </select>
           </div>
+          
+          <div class="filter-button" style="position: relative; display: inline-block;" data-tooltip="Filter by time">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; color: hsl(20, 14.3%, 4.1%); pointer-events: none;">
+              <path d="M16 14v2.2l1.6 1"/>
+              <path d="M16 2v4"/>
+              <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/>
+              <path d="M3 10h5"/>
+              <path d="M8 2v4"/>
+              <circle cx="16" cy="16" r="6"/>
+            </svg>
+            <select id="dateFilter" style="
+              width: 36px;
+              height: 34px;
+              padding: 0;
+              background: hsl(0, 0%, 100%);
+              border: 1px solid hsl(20, 5.9%, 90%);
+              border-radius: 8px;
+              color: transparent;
+              font-size: 14px;
+              box-sizing: border-box;
+              appearance: none;
+              cursor: pointer;
+            ">
+              <option value="">All Time</option>
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
+          
           <a
             id="spreadsheet-link"
             class="spreadsheet-link"
             href="#"
             target="_blank"
-            title="Open Google Sheet"
+            data-tooltip="Open your Google Sheet"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path
@@ -594,28 +705,6 @@
         </div>
       </div>
 
-      <div class="filters">
-        <div class="filter-group">
-          <input
-            type="text"
-            id="searchInput"
-            placeholder="Search your quotes..."
-          />
-        </div>
-        <div class="filter-group">
-          <select id="tagFilter">
-            <option value="">All Tags</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <select id="dateFilter">
-            <option value="">All Time</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-          </select>
-        </div>
-      </div>
 
       <div id="content" class="content-grid">
         <!-- Content will be populated by JavaScript -->
@@ -652,8 +741,8 @@
         <button id="auth-button">Login with Google</button>
       </div>
 
-      <div id="no-results" class="no-results" style="display: none">
-        No content found matching your filters.
+      <div id="no-results" class="no-results" style="display: none; padding-top: 160px; line-height: 1.5;">
+        I got nothing for ya<br/><a href="#" id="clear-filters-link" style="color: rgb(255, 217, 16); text-decoration: underline; cursor: pointer;">Clear filters</a>
       </div>
     </div>
 

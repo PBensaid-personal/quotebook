@@ -180,7 +180,7 @@
       .content-section textarea:focus {
         outline: none;
         border-color: rgb(255, 217, 16);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        box-shadow: 0 0 0 3px rgba(255, 217, 16, 0.2);
       }
 
       .section-label {
@@ -258,7 +258,7 @@
         width: 100%;
         padding: 8px 12px;
         border: 1px solid #475569;
-        border-radius: 6px 6px 0 0;
+        border-radius: 6px;
         font-size: 14px;
         background: white;
         color: #1e293b;
@@ -276,9 +276,9 @@
       .tag-pills-container {
         max-height: 120px;
         overflow-y: auto;
+        margin: 0 8px;
         padding: 8px;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid #494b50;
+        background: rgba(255, 255, 255, 0.1);
         border-radius: 0 0 6px 6px;
         display: flex;
         flex-wrap: wrap;
@@ -316,7 +316,7 @@
       .tag-input:focus {
         outline: none;
         border-color: rgb(255, 217, 16);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        box-shadow: 0 0 0 3px rgba(255, 217, 16, 0.2);
       }
 
       .actions {
@@ -339,22 +339,122 @@
       }
 
       .btn-primary {
-        background: #f8fafc;
-        border: 1px solid hsl(220, 30%, 85%);
-        color: black;
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.6);
         width: 100%;
         margin-bottom: 8px;
       }
 
+      .saved-state-container .btn-primary {
+        margin-bottom: 0;
+      }
+
       .btn-primary:hover {
         background: rgb(255, 217, 16);
-        border: 1px solid rgb(255, 217, 16);
         color: black;
       }
 
       .btn-primary:disabled {
         background: #94a3b8;
         cursor: not-allowed;
+      }
+
+      .save-button-status {
+        font-size: 12px;
+        opacity: 0.8;
+        margin-left: 8px;
+      }
+
+      .btn-primary.saving {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .btn-primary.saved {
+        background: rgb(34, 197, 94);
+        color: white;
+        animation: savedPulse 0.6s ease-out;
+        pointer-events: none;
+        cursor: default;
+      }
+
+      .btn-primary.saved:hover {
+        background: rgb(34, 197, 94);
+        color: white;
+        transform: none;
+      }
+
+      @keyframes savedPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+      }
+
+      .saved-state-container {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1000;
+        width: 100%;
+        max-width: 400px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        animation: fadeInScale 0.6s ease-out forwards;
+        opacity: 0;
+      }
+
+      @keyframes fadeInScale {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.9);
+        }
+        100% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+
+      .btn-primary.centered {
+        width: 100%;
+        margin: 0;
+        pointer-events: none;
+        cursor: default;
+        animation: none;
+      }
+
+      .btn-primary.centered:hover {
+        background: rgb(34, 197, 94);
+        color: white;
+        transform: none;
+      }
+
+      .content-hidden {
+        opacity: 0;
+        transform: translateY(-20px);
+        transition: all 0.4s ease-out;
+        pointer-events: none;
+      }
+
+      .post-save-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        animation: slideInUp 0.4s ease-out 0.3s both;
+      }
+
+      @keyframes slideInUp {
+        0% {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       .btn-secondary {
@@ -403,6 +503,7 @@
       .auth-section {
         text-align: center;
         padding: 24px 16px;
+        display: none;
       }
 
       .welcome-content {
@@ -712,7 +813,7 @@
               type="text"
               id="tag-input"
               class="tag-input"
-              placeholder="Add custom tags (comma-separated)..."
+              placeholder="Add tags from your list below or type new ones..."
             />
             <div id="tag-pills-container" class="tag-pills-container">
               <!-- Populated by JavaScript -->
@@ -750,9 +851,20 @@
         <!-- Action Buttons -->
         <div class="actions">
           <button id="save-button" class="btn btn-primary">
-            Save
+            <span id="save-button-text">Save</span>
+            <span id="save-button-status" class="save-button-status" style="display: none;"></span>
           </button>
-          <div id="status-main" class="status"></div>
+        </div>
+
+        <!-- Saved State Container -->
+        <div id="saved-state-container" class="saved-state-container" style="display: none;">
+          <button id="saved-message" class="btn btn-primary saved">
+            <span>Saved!</span>
+          </button>
+          <div id="post-save-actions" class="post-save-actions">
+            <button id="view-collection-btn" class="btn btn-outline">View in collection</button>
+            <button id="close-btn" class="btn btn-outline">Close</button>
+          </div>
         </div>
       </div>
     </div>
