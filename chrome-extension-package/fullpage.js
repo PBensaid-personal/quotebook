@@ -486,7 +486,15 @@ class FullPageCollector {
         e.preventDefault();
         e.stopPropagation(); // Prevent card click
         const tag = pill.getAttribute("data-tag");
-        document.getElementById("tagFilter").value = tag;
+        const tagFilter = document.getElementById("tagFilter");
+        tagFilter.value = tag;
+        
+        // Update the filter button appearance to show the active filter
+        const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
+        if (tagFilterContainer) {
+          this.updateFilterButtonAppearance(tagFilterContainer, tagFilter);
+        }
+        
         this.applyFilters();
       });
     });
@@ -938,7 +946,8 @@ class FullPageCollector {
     const getColumnCount = () => {
       if (window.innerWidth <= 600) return 1;
       if (window.innerWidth <= 1000) return 2;
-      return 3;
+      if (window.innerWidth <= 1200) return 3;
+      return 4;
     };
     
     const columnCount = getColumnCount();
@@ -966,13 +975,13 @@ class FullPageCollector {
       cardElement.innerHTML = `
         <div class="content-actions">
           <button class="delete-btn" data-item-id="${item.id}" title="Delete">
-            <svg width="19px" height="19px" stroke-width="2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#000000">
-              <path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            <svg width="19px" height="19px" stroke-width="2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#666666">
+              <path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
           </button>
         </div>
         
-        ${item.image ? `<img src="${item.image}" alt="" class="content-image" data-image-url="${item.image}">` : ""}
+        ${item.image ? `<div class="content-image-container"><img src="${item.image}" alt="" class="content-image" data-image-url="${item.image}"></div>` : ""}
         
         <div class="content-text">
           ${this.escapeHtml(item.content).replace(/\n/g, '<br>')}
@@ -1015,6 +1024,12 @@ class FullPageCollector {
     // Clear container and add columns
     contentContainer.innerHTML = '';
     columns.forEach(column => {
+      // Add a spacer element at the bottom of each column
+      const spacer = document.createElement('div');
+      spacer.style.height = '120px';
+      spacer.style.width = '100%';
+      column.appendChild(spacer);
+      
       contentContainer.appendChild(column);
     });
 
@@ -1173,6 +1188,12 @@ class FullPageCollector {
     const selectedValue = selectElement.value;
     const selectedText = selectElement.options[selectElement.selectedIndex].text;
     
+    // Remove any existing clear button
+    const existingClearBtn = container.querySelector('.filter-clear-btn');
+    if (existingClearBtn) {
+      existingClearBtn.remove();
+    }
+    
     if (selectedValue && selectedValue !== '') {
       // Show selected label with proper styling
       container.style.width = 'auto';
@@ -1199,6 +1220,61 @@ class FullPageCollector {
         svg.style.left = '8px';
         svg.style.transform = 'translateY(-50%)';
       }
+      
+      // Add clear button (X) to the right side
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'filter-clear-btn';
+      clearBtn.innerHTML = '×';
+      clearBtn.style.cssText = `
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 20px;
+        border: none;
+        background: transparent;
+        color: #6b7280;
+        border-radius: 50%;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 3;
+        transition: all 0.2s ease;
+      `;
+      
+      // Add hover effect
+      clearBtn.addEventListener('mouseenter', () => {
+        clearBtn.style.background = 'rgb(255, 217, 16)';
+        clearBtn.style.color = '#374151';
+        clearBtn.style.transform = 'translateY(-50%) scale(1.1)';
+      });
+      
+      clearBtn.addEventListener('mouseleave', () => {
+        clearBtn.style.background = 'transparent';
+        clearBtn.style.color = '#6b7280';
+        clearBtn.style.transform = 'translateY(-50%) scale(1)';
+      });
+      
+      // Add click handler to clear the filter
+      clearBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Reset the select value
+        selectElement.value = '';
+        
+        // Update the appearance (this will remove the clear button)
+        this.updateFilterButtonAppearance(container, selectElement);
+        
+        // Apply filters to reload content
+        this.applyFilters();
+      });
+      
+      container.appendChild(clearBtn);
       
       // Force resize to content by temporarily setting width to auto
       setTimeout(() => {
@@ -1329,6 +1405,13 @@ class FullPageCollector {
 window.selectTag = function (tag) {
   const tagFilter = document.getElementById("tagFilter");
   tagFilter.value = tag;
+  
+  // Update the filter button appearance to show the active filter
+  const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
+  if (tagFilterContainer && fullPageCollector) {
+    fullPageCollector.updateFilterButtonAppearance(tagFilterContainer, tagFilter);
+  }
+  
   fullPageCollector.applyFilters();
 };
 
