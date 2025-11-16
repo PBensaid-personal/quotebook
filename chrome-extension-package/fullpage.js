@@ -55,64 +55,76 @@ class FullPageCollector {
 
 
     if (result.googleAccessToken && result.googleSpreadsheetId) {
-      // Verify the spreadsheet still exists and is not trashed
+      // Try to refresh the token silently (extends session without user interaction)
       try {
-        // Check if file is trashed using Drive API
-        const driveResponse = await fetch(
-          `https://www.googleapis.com/drive/v3/files/${result.googleSpreadsheetId}?fields=trashed,name`,
-          {
-            headers: { Authorization: `Bearer ${result.googleAccessToken}` },
-          },
-        );
+        const freshToken = await chrome.identity.getAuthToken({ interactive: false });
+        if (freshToken) {
+          const newToken = typeof freshToken === 'object' ? freshToken.token : freshToken;
+          // Update both instance and storage with fresh token
+          this.accessToken = newToken;
+          await chrome.storage.local.set({ googleAccessToken: newToken });
+        } else {
+          // No fresh token available, use cached
+          this.accessToken = result.googleAccessToken;
+        }
+      } catch (e) {
+        // Silent refresh failed, proceed with cached token
+        this.accessToken = result.googleAccessToken;
+      }
 
+      this.spreadsheetId = result.googleSpreadsheetId;
 
-        if (driveResponse.ok) {
-          const fileInfo = await driveResponse.json();
+      // Verify spreadsheet access with exponential retry for network resilience
+      let verified = false;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const sheetsResponse = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${this.accessToken}`,
+              },
+            },
+          );
 
-          if (fileInfo.trashed === true) {
+          if (sheetsResponse.ok) {
+            verified = true;
+            this.updateSpreadsheetLink();
+            await this.loadContent();
+            break;
+          } else if (sheetsResponse.status === 401 || sheetsResponse.status === 403) {
+            // Explicit auth failure - don't retry
             await chrome.storage.local.remove([
               "googleSpreadsheetId",
               "googleAccessToken",
             ]);
             this.showAuthRequired();
-          } else {
-            // File exists and is not trashed, verify it's still accessible via Sheets API
-            const sheetsResponse = await fetch(
-              `https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${result.googleAccessToken}`,
-                },
-              },
-            );
-
-            if (sheetsResponse.ok) {
-              this.accessToken = result.googleAccessToken;
-              this.spreadsheetId = result.googleSpreadsheetId;
-              this.updateSpreadsheetLink();
-              await this.loadContent();
-            } else {
-              await chrome.storage.local.remove([
-                "googleSpreadsheetId",
-                "googleAccessToken",
-              ]);
-              this.showAuthRequired();
-            }
+            return;
+          } else if (sheetsResponse.status === 404) {
+            // Spreadsheet deleted - don't retry
+            await chrome.storage.local.remove([
+              "googleSpreadsheetId",
+              "googleAccessToken",
+            ]);
+            this.showAuthRequired();
+            return;
           }
-        } else {
-          // File not found or not accessible, clear cache and show auth
-          await chrome.storage.local.remove([
-            "googleSpreadsheetId",
-            "googleAccessToken",
-          ]);
-          this.showAuthRequired();
+          // Other errors (5xx, network issues) - will retry
+        } catch (error) {
+          // Network error - will retry
+          console.log(`Verification attempt ${attempt + 1} failed:`, error.message);
         }
-      } catch (error) {
-        // Error accessing spreadsheet, clear cache and show auth
-        await chrome.storage.local.remove([
-          "googleSpreadsheetId",
-          "googleAccessToken",
-        ]);
+
+        // Wait before retry (exponential backoff: 500ms, 1000ms, 1500ms)
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+        }
+      }
+
+      if (!verified) {
+        // All retries failed - graceful degradation
+        // Don't clear storage, just show auth with option to retry
+        console.warn('Could not verify spreadsheet access after retries');
         this.showAuthRequired();
       }
     } else {
@@ -161,9 +173,29 @@ class FullPageCollector {
     if (logo) {
       logo.addEventListener("click", (e) => {
         e.preventDefault();
+        // Clear all filters and return to full view
+        document.getElementById("searchInput").value = "";
+        document.getElementById("tagFilter").value = "";
+        document.getElementById("dateFilter").value = "";
+        this.selectedTags.clear();
+        this.updateTagNavButtonStates();
+
+        // Reset filter button appearances
+        const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
+        const dateFilterContainer = document.querySelector('[data-tooltip="Filter by time"]');
+        if (tagFilterContainer) {
+          this.updateFilterButtonAppearance(tagFilterContainer, document.getElementById("tagFilter"));
+        }
+        if (dateFilterContainer) {
+          this.updateFilterButtonAppearance(dateFilterContainer, document.getElementById("dateFilter"));
+        }
+
         // Reset to first page and reload content
         this.currentPage = 1;
-        this.renderContent();
+        this.applyFilters();
+
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       });
     }
 
@@ -824,16 +856,16 @@ class FullPageCollector {
       });
     });
 
-    // Get top 5 tags by count
+    // Get top 10 tags by count
     const topTags = Object.entries(tagCounts)
       .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
+      .slice(0, 10)
       .map(([tag]) => tag);
 
     // Clear existing buttons
     tagNavContainer.innerHTML = "";
 
-    // Create buttons for top 5 tags
+    // Create buttons for top 10 tags
     topTags.forEach((tag) => {
       const button = document.createElement("button");
       button.className = "tag-nav-button";
@@ -842,21 +874,40 @@ class FullPageCollector {
         button.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          // Toggle the tag in selected tags
-          if (this.selectedTags.has(tag)) {
-            this.selectedTags.delete(tag);
-            // Clear dropdown when deselecting
-            document.getElementById("tagFilter").value = "";
-          } else {
-            this.selectedTags.add(tag);
-            // Update dropdown to show the selected tag (only works with one tag)
-            if (this.selectedTags.size === 1) {
-              document.getElementById("tagFilter").value = tag;
-            } else {
-              // If multiple tags selected, clear dropdown
+
+          // Check if Command (Mac) or Ctrl (Windows/Linux) is pressed
+          const isMultiSelect = e.metaKey || e.ctrlKey;
+
+          if (isMultiSelect) {
+            // Command/Ctrl + Click: Toggle the tag (additive behavior)
+            if (this.selectedTags.has(tag)) {
+              this.selectedTags.delete(tag);
+              // Clear dropdown when deselecting
               document.getElementById("tagFilter").value = "";
+            } else {
+              this.selectedTags.add(tag);
+              // Update dropdown to show the selected tag (only works with one tag)
+              if (this.selectedTags.size === 1) {
+                document.getElementById("tagFilter").value = tag;
+              } else {
+                // If multiple tags selected, clear dropdown
+                document.getElementById("tagFilter").value = "";
+              }
+            }
+          } else {
+            // Regular click: If tag is already selected (and it's the only one), deselect it
+            // Otherwise, clear all tags and select only this one
+            if (this.selectedTags.has(tag) && this.selectedTags.size === 1) {
+              this.selectedTags.clear();
+              document.getElementById("tagFilter").value = "";
+            } else {
+              this.selectedTags.clear();
+              this.selectedTags.add(tag);
+              // Update dropdown to show the selected tag
+              document.getElementById("tagFilter").value = tag;
             }
           }
+
           this.applyFilters();
           this.updateTagNavButtonStates();
         });
@@ -877,6 +928,34 @@ class FullPageCollector {
         button.classList.remove("active");
       }
     });
+
+    // Update tag header
+    this.updateTagHeader();
+  }
+
+  updateTagHeader() {
+    const tagHeader = document.getElementById("tag-header");
+    const tagHeaderText = document.getElementById("tag-header-text");
+
+    if (!tagHeader || !tagHeaderText) return;
+
+    if (this.selectedTags.size > 0) {
+      // Convert tags to title case and join with " + "
+      const formattedTags = Array.from(this.selectedTags)
+        .map(tag => {
+          // Split by spaces and capitalize first letter of each word
+          return tag
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+        })
+        .join(" + ");
+
+      tagHeaderText.textContent = formattedTags;
+      tagHeader.classList.add("visible");
+    } else {
+      tagHeader.classList.remove("visible");
+    }
   }
 
   async openPopupWithCard(cardData) {
@@ -908,16 +987,29 @@ class FullPageCollector {
     const dateRange = document.getElementById("dateFilter").value;
 
     this.filteredData = this.contentData.filter((item) => {
-      // Search filter
-      const matchesSearch =
-        !searchTerm ||
-        item.title.toLowerCase().includes(searchTerm) ||
-        item.content.toLowerCase().includes(searchTerm) ||
-        item.tags.some((tag) => tag.toLowerCase().includes(searchTerm));
+      // Search filter - enhanced with better debugging and robustness
+      const matchesSearch = !searchTerm || (() => {
+        const titleMatch = item.title && item.title.toLowerCase().includes(searchTerm);
+        const contentMatch = item.content && item.content.toLowerCase().includes(searchTerm);
+        const tagMatch = item.tags && Array.isArray(item.tags) && 
+          item.tags.some((tag) => tag && tag.toLowerCase().includes(searchTerm));
+        
+        // Debug logging (can be removed in production)
+        if (searchTerm && (titleMatch || contentMatch || tagMatch)) {
+          console.log(`Search match found for "${searchTerm}":`, {
+            title: titleMatch,
+            content: contentMatch,
+            tags: tagMatch,
+            item: { title: item.title, tags: item.tags }
+          });
+        }
+        
+        return titleMatch || contentMatch || tagMatch;
+      })();
 
-      // Tag filter - check if item has ALL selected tags from nav buttons
-      const matchesTagNav = this.selectedTags.size === 0 || 
-        Array.from(this.selectedTags).every(tag => item.tags.includes(tag));
+      // Tag filter - check if item has ANY of the selected tags from nav buttons (OR logic)
+      const matchesTagNav = this.selectedTags.size === 0 ||
+        Array.from(this.selectedTags).some(tag => item.tags.includes(tag));
 
       // Tag filter - check dropdown filter (legacy)
       const matchesTagDropdown = !selectedTag || item.tags.includes(selectedTag);
@@ -959,12 +1051,56 @@ class FullPageCollector {
     searchInput.placeholder = `Search your ${totalQuotes} quotes...`;
   }
 
+  updateSearchResultsIndicator() {
+    const searchInput = document.getElementById("searchInput");
+    const searchTerm = searchInput?.value.trim() || "";
+    
+    // Find or create search results indicator
+    let searchIndicator = document.getElementById("search-results-indicator");
+    if (!searchIndicator) {
+      searchIndicator = document.createElement("div");
+      searchIndicator.id = "search-results-indicator";
+      searchIndicator.style.cssText = `
+        text-align: center;
+        margin: 20px 0;
+        padding: 12px 20px;
+        background: hsl(20, 5.9%, 95%);
+        border-radius: 8px;
+        color: hsl(20, 14.3%, 4.1%);
+        font-size: 14px;
+        border: 1px solid hsl(20, 5.9%, 90%);
+      `;
+      
+      // Insert after the header
+      const header = document.querySelector(".header");
+      if (header) {
+        header.insertAdjacentElement("afterend", searchIndicator);
+      }
+    }
+    
+    if (searchTerm) {
+      const totalResults = this.filteredData.length;
+      const totalQuotes = this.contentData.length;
+      searchIndicator.innerHTML = `
+        <strong>Search results for "${searchTerm}"</strong><br>
+        Found ${totalResults} of ${totalQuotes} quotes
+        ${totalResults > 0 ? '<br><small>Search includes titles, content, and tags</small>' : ''}
+      `;
+      searchIndicator.style.display = "block";
+    } else {
+      searchIndicator.style.display = "none";
+    }
+  }
+
   renderContent() {
     const contentContainer = document.getElementById("content");
     const noResults = document.getElementById("no-results");
 
     // Update search placeholder with current quote count
     this.updateSearchPlaceholder();
+
+    // Show search results indicator if search is active
+    this.updateSearchResultsIndicator();
 
     if (this.filteredData.length === 0) {
       contentContainer.style.display = "none";
@@ -1049,10 +1185,14 @@ class FullPageCollector {
           <div class="content-tags">
             ${item.tags
               .map(
-                (tag) => `
-              <span class="tag-pill" data-tag="${this.escapeHtml(tag)}">
+                (tag) => {
+                  const searchTerm = document.getElementById("searchInput")?.value.toLowerCase() || "";
+                  const isTagMatch = searchTerm && tag.toLowerCase().includes(searchTerm);
+                  return `
+              <span class="tag-pill ${isTagMatch ? 'search-highlight' : ''}" data-tag="${this.escapeHtml(tag)}">
                 ${this.escapeHtml(tag)}
-              </span>`,
+              </span>`;
+                }
               )
               .join("")}
           </div>

@@ -484,6 +484,14 @@
         border: 1px solid rgb(255, 217, 16);
       }
 
+      .tag-pill.search-highlight {
+        background: rgb(255, 217, 16);
+        color: hsl(220, 30%, 18%);
+        border: 1px solid rgb(255, 217, 16);
+        font-weight: 600;
+        box-shadow: 0 0 0 2px rgba(255, 217, 16, 0.3);
+      }
+
       .content-meta {
         display: flex;
         justify-content: space-between;
@@ -693,6 +701,24 @@
       .tooltip.show {
         opacity: 1;
       }
+
+      .tag-header {
+        text-align: left;
+        margin: 40px 0 20px 0;
+        display: none;
+      }
+
+      .tag-header.visible {
+        display: block;
+      }
+
+      .tag-header h2 {
+        font-family: "Libre Baskerville", Georgia, serif;
+        font-size: 24px;
+        font-weight: 400;
+        color: hsl(25, 5.3%, 44.7%);
+        margin: 0;
+      }
     </style>
   </head>
   <body>
@@ -820,6 +846,10 @@
         </div>
       </div>
 
+      <!-- Tag Header (appears when tag is selected) -->
+      <div id="tag-header" class="tag-header">
+        <h2 id="tag-header-text"></h2>
+      </div>
 
       <div id="content" class="content-grid">
         <!-- Content will be populated by JavaScript -->
