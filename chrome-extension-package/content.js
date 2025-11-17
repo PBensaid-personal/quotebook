@@ -99,41 +99,92 @@ class WebCaptureContent {
     return metadata;
   }
 
+  // Helper: Get absolute URL
+  getAbsoluteUrl(url) {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('//')) return 'https:' + url;
+
+    try {
+      return new URL(url, window.location.href).href;
+    } catch {
+      return null;
+    }
+  }
+
   extractPageImages() {
     const images = [];
-    const imgElements = document.querySelectorAll('img[src]');
-    
-    Array.from(imgElements).forEach(img => {
-      // Get absolute URL for relative paths
-      let imgSrc = img.src;
-      if (!imgSrc.startsWith('http')) {
-        // Convert relative URLs to absolute
-        imgSrc = new URL(img.src, window.location.href).href;
+    const imgElements = document.querySelectorAll('img');
+
+    Array.from(imgElements).forEach((img) => {
+      // Try multiple sources in priority order
+      let imgSrc = img.currentSrc || // Current source (respects srcset)
+                   img.src ||
+                   img.dataset.src ||
+                   img.dataset.lazySrc ||
+                   img.dataset.original ||
+                   img.getAttribute('data-lazy-src') ||
+                   img.getAttribute('data-original');
+
+      imgSrc = this.getAbsoluteUrl(imgSrc);
+
+      if (!imgSrc) return;
+
+      // Get dimensions - wait for naturalWidth if image is loaded
+      let width = img.naturalWidth || img.width || 0;
+      let height = img.naturalHeight || img.height || 0;
+
+      // If dimensions are 0, try getting from attributes or computed style
+      if (width === 0 || height === 0) {
+        width = parseInt(img.getAttribute('width')) || img.clientWidth || 0;
+        height = parseInt(img.getAttribute('height')) || img.clientHeight || 0;
       }
-      
-      // Filter for meaningful images with more relaxed criteria
-      if (img.width > 50 && img.height > 50 && // Reduced size requirement
-          !imgSrc.includes('data:') && 
-          !imgSrc.includes('/favicon') && // More specific exclusions
-          !imgSrc.includes('icon-') &&
-          !imgSrc.includes('logo-') &&
-          imgSrc.startsWith('http')) {
-        
-        images.push({
-          src: imgSrc,
-          alt: img.alt || '',
-          width: img.width,
-          height: img.height
-        });
+
+      // If still no dimensions, assume reasonable size to include it
+      if (width === 0 && height === 0) {
+        width = 800;
+        height = 600;
+      } else if (width === 0) {
+        width = height; // Make it square
+      } else if (height === 0) {
+        height = width; // Make it square
       }
+
+      // Basic filters
+      if (width < 100 || height < 100) return;
+      if (imgSrc.includes('data:image')) return;
+      if (!imgSrc.startsWith('http')) return;
+
+      // Filter out common UI elements by URL patterns
+      const srcLower = imgSrc.toLowerCase();
+      if (srcLower.includes('logo') ||
+          srcLower.includes('icon') ||
+          srcLower.includes('sprite') ||
+          srcLower.includes('favicon')) return;
+
+      images.push({
+        src: imgSrc,
+        alt: img.alt || '',
+        width: width,
+        height: height,
+        area: width * height
+      });
     });
-    
-    // Remove duplicates and limit to 6 images
-    const uniqueImages = images.filter((img, index, arr) => 
+
+    // Remove exact duplicates
+    const uniqueImages = images.filter((img, index, arr) =>
       arr.findIndex(i => i.src === img.src) === index
     );
-    
-    return uniqueImages.slice(0, 6);
+
+    // Sort by pixel area (largest first) and take top 12
+    uniqueImages.sort((a, b) => b.area - a.area);
+
+    return uniqueImages.slice(0, 12).map(img => ({
+      src: img.src,
+      alt: img.alt,
+      width: img.width,
+      height: img.height
+    }));
   }
 }
 
