@@ -627,13 +627,11 @@
         font-size: 14px;
         cursor: pointer;
         transition: all 0.2s ease;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
 
       #load-more-btn:hover {
         background: rgb(255, 217, 16) !important;
         color: hsl(220, 30%, 18%);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
       }
     </style>
   </head>
@@ -776,7 +774,7 @@
         id="load-more-container"
         style="display: none; text-align: center; margin: 40px 0"
       >
-        <button id="load-more-btn">Load More Quotes</button>
+        <button id="load-more-btn">Load more quotes</button>
       </div>
 
       <div id="loading" class="loading" style="display: block">
@@ -1265,7 +1263,7 @@
               loadMoreContainer.style.display = 'block';
               const remaining = totalItems - displayedItems;
               const loadMoreBtn = document.getElementById('load-more-btn');
-              loadMoreBtn.textContent = 'Load More (' + remaining + ' remaining)';
+              loadMoreBtn.textContent = 'Load more (' + remaining + ' remaining)';
             } else {
               loadMoreContainer.style.display = 'none';
             }

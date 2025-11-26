@@ -404,7 +404,7 @@ class FullPageCollector {
       }
 
       const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A2:F1000`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A2:G1000`,
         {
           headers: {
             Authorization: `Bearer ${this.accessToken}`,
@@ -430,21 +430,31 @@ class FullPageCollector {
       const data = await response.json();
       const rows = data.values || [];
 
-      this.contentData = rows.map((row, index) => ({
-        id: index, // 0-based index in the data array
-        originalRowIndex: index, // Original position in spreadsheet (before sorting)
-        title: row[0] || "Untitled",
-        content: row[1] || "",
-        url: row[2] || "",
-        tags: row[3]
-          ? row[3]
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter((tag) => tag)
-          : [],
-        date: row[4] || new Date().toISOString().split("T")[0],
-        image: row[5] || "",
-      }));
+      this.contentData = rows.map((row, index) => {
+        // Parse pipe-delimited image URLs into array (||| delimiter)
+        const imageField = row[5] || "";
+        const images = imageField
+          ? imageField.split("|||").map((url) => url.trim()).filter((url) => url)
+          : [];
+        
+        return {
+          id: index, // 0-based index in the data array
+          originalRowIndex: index, // Original position in spreadsheet (before sorting)
+          title: row[0] || "Untitled",
+          content: row[1] || "",
+          url: row[2] || "",
+          tags: row[3]
+            ? row[3]
+                .split(",")
+                .map((tag) => tag.trim())
+                .filter((tag) => tag)
+            : [],
+          date: row[4] || new Date().toISOString().split("T")[0],
+          image: imageField, // Keep original for backward compatibility
+          images: images, // Array of image URLs
+          price: row[6] || "", // Price column
+        };
+      });
 
       // Sort by date in reverse chronological order (newest first)
       this.contentData.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -473,8 +483,10 @@ class FullPageCollector {
     // Card click listeners (entire card navigates to URL)
     document.querySelectorAll(".content-card").forEach((card) => {
       card.addEventListener("click", (e) => {
-        // Don't navigate if user clicked on delete button or tag
-        if (e.target.closest(".delete-btn") || e.target.closest(".tag-pill")) {
+        // Don't navigate if user clicked on delete button, tag, or gallery navigation
+        if (e.target.closest(".delete-btn") || 
+            e.target.closest(".tag-pill") || 
+            e.target.closest(".gallery-nav-btn")) {
           return;
         }
 
@@ -511,6 +523,55 @@ class FullPageCollector {
         }
         
         this.applyFilters();
+      });
+    });
+
+    // Gallery navigation event listeners
+    document.querySelectorAll(".gallery-nav-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent card click
+        
+        // Don't proceed if button is disabled
+        if (btn.disabled) return;
+        
+        const container = btn.closest(".content-image-container");
+        if (!container) return;
+        
+        const imageUrlsAttr = container.getAttribute("data-image-urls");
+        if (!imageUrlsAttr) return;
+        
+        // Parse image URLs from attribute
+        const imageUrls = JSON.parse(imageUrlsAttr.replace(/&quot;/g, '"'));
+        if (imageUrls.length <= 1) return;
+        
+        const currentIndex = parseInt(container.getAttribute("data-image-index")) || 0;
+        const img = container.querySelector(".gallery-image");
+        const leftBtn = container.querySelector(".gallery-nav-left");
+        const rightBtn = container.querySelector(".gallery-nav-right");
+        
+        let newIndex;
+        if (btn.classList.contains("gallery-nav-left")) {
+          newIndex = Math.max(0, currentIndex - 1);
+        } else {
+          newIndex = Math.min(imageUrls.length - 1, currentIndex + 1);
+        }
+        
+        // Update image with fade effect
+        img.style.opacity = "0";
+        setTimeout(() => {
+          img.src = imageUrls[newIndex];
+          container.setAttribute("data-image-index", newIndex);
+          img.style.opacity = "1";
+          
+          // Update arrow disabled state
+          if (leftBtn) {
+            leftBtn.disabled = newIndex === 0;
+          }
+          if (rightBtn) {
+            rightBtn.disabled = newIndex === imageUrls.length - 1;
+          }
+        }, 150);
       });
     });
 
@@ -1160,19 +1221,38 @@ class FullPageCollector {
       cardElement.setAttribute('data-item-id', item.id);
       cardElement.setAttribute('data-url', this.escapeHtml(item.url));
       
-      cardElement.innerHTML = `
-        <div class="content-actions">
-          <button class="delete-btn" data-item-id="${item.id}" title="Delete">
-            <svg width="19px" height="19px" stroke-width="2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#666666">
-              <path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-            </svg>
-          </button>
-        </div>
+      // Build image gallery HTML
+      let imageGalleryHtml = '';
+      if (item.images && item.images.length > 0) {
+        const firstImage = item.images[0];
+        const hasMultipleImages = item.images.length > 1;
+        const imageUrlsJson = JSON.stringify(item.images).replace(/"/g, '&quot;');
         
-        ${item.image ? `<div class="content-image-container"><img src="${item.image}" alt="" class="content-image" data-image-url="${item.image}"></div>` : ""}
+        imageGalleryHtml = `
+          <div class="content-image-container" data-item-id="${item.id}" data-image-index="0" data-image-urls="${imageUrlsJson}">
+            <img src="${firstImage}" alt="" class="content-image gallery-image">
+            ${hasMultipleImages ? `
+              <button class="gallery-nav-btn gallery-nav-left" disabled title="Previous image">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m15 18-6-6 6-6"/>
+                </svg>
+              </button>
+              <button class="gallery-nav-btn gallery-nav-right" title="Next image">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9 18 6-6-6-6"/>
+                </svg>
+              </button>
+            ` : ''}
+          </div>
+        `;
+      }
+      
+      cardElement.innerHTML = `
+        ${imageGalleryHtml}
         
         <div class="content-text">
           ${this.escapeHtml(item.content).replace(/\n/g, '<br>')}
+          ${item.price ? `<br>${this.escapeHtml(item.price)}` : ''}
         </div>
         
         <div class="content-title">
@@ -1186,9 +1266,9 @@ class FullPageCollector {
             ${item.tags
               .map(
                 (tag) => {
-                  const searchTerm = document.getElementById("searchInput")?.value.toLowerCase() || "";
-                  const isTagMatch = searchTerm && tag.toLowerCase().includes(searchTerm);
-                  return `
+                const searchTerm = document.getElementById("searchInput")?.value.toLowerCase() || "";
+                const isTagMatch = searchTerm && tag.toLowerCase().includes(searchTerm);
+                return `
               <span class="tag-pill ${isTagMatch ? 'search-highlight' : ''}" data-tag="${this.escapeHtml(tag)}">
                 ${this.escapeHtml(tag)}
               </span>`;
@@ -1202,7 +1282,14 @@ class FullPageCollector {
         
         <div class="content-meta">
           <span class="content-domain">${this.getDomain(item.url)}</span>
-          <time class="content-date">${this.formatDate(item.date)}</time>
+          <div class="content-meta-right">
+            <time class="content-date">${this.formatDate(item.date)}</time>
+            <button class="delete-btn" data-item-id="${item.id}" title="Delete">
+              <svg width="14px" height="14px" stroke-width="2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#666666">
+                <path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </button>
+          </div>
         </div>
       `;
 
@@ -1579,7 +1666,7 @@ class FullPageCollector {
         loadMoreContainer.style.display = "block";
         const remaining = totalItems - displayedItems;
         const loadMoreBtn = document.getElementById("load-more-btn");
-        loadMoreBtn.textContent = `Load More (${remaining} remaining)`;
+        loadMoreBtn.textContent = `Load more (${remaining} remaining)`;
       } else {
         loadMoreContainer.style.display = "none";
       }

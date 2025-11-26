@@ -81,7 +81,8 @@ class WebCaptureContent {
       domain: window.location.hostname,
       description: '',
       image: '',
-      images: []
+      images: [],
+      price: ''
     };
 
     // Get meta description
@@ -95,8 +96,189 @@ class WebCaptureContent {
 
     // Extract page images
     metadata.images = this.extractPageImages();
-    
+
+    // Extract price
+    metadata.price = this.extractPrice();
+
     return metadata;
+  }
+
+  extractPrice() {
+    // 1. JSON-LD structured data (most reliable)
+    try {
+      const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+      for (const script of scripts) {
+        try {
+          const data = JSON.parse(script.textContent);
+          // Handle single object or array of objects
+          const items = Array.isArray(data) ? data : [data];
+
+          for (const item of items) {
+            // Check for Product schema with offers
+            if (item['@type'] === 'Product' && item.offers) {
+              const offer = Array.isArray(item.offers) ? item.offers[0] : item.offers;
+              if (offer.price) {
+                const currency = offer.priceCurrency || '$';
+                const price = offer.price.toString();
+                // Format the price with currency
+                if (currency === 'USD') {
+                  return '$' + price;
+                } else if (currency === 'EUR') {
+                  return price + ' €';
+                } else if (currency === 'GBP') {
+                  return '£' + price;
+                } else {
+                  return price + ' ' + currency;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // Skip invalid JSON
+        }
+      }
+    } catch (e) {
+      // Continue to next method
+    }
+
+    // 2. Structured data (schema.org microdata) - also reliable
+    const schemaPrice = document.querySelector('[itemprop="price"]');
+    if (schemaPrice) {
+      const content = schemaPrice.getAttribute('content') || schemaPrice.textContent.trim();
+      const price = this.parsePrice(content);
+      if (price) return price;
+    }
+
+    // 2. Etsy-specific selectors
+    if (window.location.hostname.includes('etsy')) {
+      const etsySelectors = [
+        '[data-buy-box-region-price]',
+        'p[class*="wt-text-title"]',
+        '.wt-text-title-01',
+        '.wt-text-title-03',
+        'p.wt-text-title-larger',
+        '[data-selector="price"]',
+        'p[data-buy-box-region="price"]'
+      ];
+
+      for (const selector of etsySelectors) {
+        try {
+          const el = document.querySelector(selector);
+          if (el) {
+            const text = el.textContent.trim();
+            const price = this.parsePrice(text);
+            if (price) return price;
+          }
+        } catch (e) {
+          // Skip if selector fails
+        }
+      }
+    }
+
+    // 3. Amazon-specific: combine whole and fraction
+    if (window.location.hostname.includes('amazon')) {
+      const whole = document.querySelector('.a-price-whole');
+      const fraction = document.querySelector('.a-price-fraction');
+      if (whole) {
+        const wholeText = whole.textContent.trim().replace(/[^\d.,]/g, '');
+        const fractionText = fraction ? fraction.textContent.trim() : '';
+        if (wholeText) {
+          const combined = '$' + wholeText + (fractionText ? '.' + fractionText : '');
+          const price = this.parsePrice(combined);
+          if (price) return price;
+        }
+      }
+    }
+
+    // 4. Common selectors: data attributes and classes with "price"
+    const selectors = [
+      '[data-price]',
+      '[data-selector*="price" i]',
+      '[class*="price" i]',
+      '.price',
+      '.a-price'
+    ];
+
+    for (const selector of selectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          // Check data-price attribute first
+          if (el.hasAttribute('data-price')) {
+            const price = this.parsePrice(el.getAttribute('data-price'));
+            if (price) return price;
+          }
+          // Check text content
+          const text = el.textContent.trim();
+          if (text) {
+            const price = this.parsePrice(text);
+            if (price) return price;
+          }
+        }
+      } catch (e) {
+        // Skip unsupported selectors
+      }
+    }
+
+    // 5. Fallback: regex search page text (fast and catches everything)
+    const pageText = document.body.textContent || '';
+    const priceMatch = pageText.match(/\$[\d,]+\.?\d{0,2}/);
+    if (priceMatch) {
+      return this.parsePrice(priceMatch[0]);
+    }
+
+    return '';
+  }
+
+  parsePrice(text) {
+    if (!text) return '';
+
+    // Clean up the text
+    text = text.replace(/price[:\s]*/gi, '').trim();
+
+    // Extract number with currency symbol
+    // Match patterns like: $99.99, €1,234.56, £99, 99.99 USD, CA$99.99
+    const patterns = [
+      /([A-Z]{2})?([$€£¥])\s*([\d,]+\.?\d{0,2})/,  // CA$99.99, $99.99, €1,234.56
+      /([$€£¥])\s*([\d,]+\.?\d{0,2})/,  // $99.99, €1,234.56
+      /([\d,]+\.?\d{0,2})\s*([A-Z]{3})/i  // 99.99 USD
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        // Handle different match group configurations
+        if (match[3]) {
+          // Pattern 1: CA$99.99 (country code + currency + amount)
+          const countryCode = match[1] || '';
+          const currency = match[2];
+          const amount = match[3].replace(/,/g, '');
+          return countryCode + currency + amount;
+        } else if (match[2] && match[1] && /[$€£¥]/.test(match[1])) {
+          // Pattern 2: $99.99 (currency + amount)
+          const currency = match[1];
+          const amount = match[2].replace(/,/g, '');
+          return currency + amount;
+        } else if (match[2] && match[1] && /^\d/.test(match[1])) {
+          // Pattern 3: 99.99 USD (amount + currency code)
+          const amount = match[1].replace(/,/g, '');
+          const currency = match[2];
+          return amount + ' ' + currency;
+        }
+      }
+    }
+
+    // Fallback: just extract numbers with currency symbols
+    const simpleMatch = text.match(/([$€£¥]?[\d,]+\.?\d{0,2})/);
+    if (simpleMatch && simpleMatch[1]) {
+      const cleaned = simpleMatch[1].replace(/,/g, '');
+      // Only return if it actually has a price-like format
+      if (/[$€£¥]?\d+\.?\d{0,2}/.test(cleaned)) {
+        return cleaned;
+      }
+    }
+
+    return '';
   }
 
   // Helper: Get absolute URL

@@ -6,7 +6,7 @@ class EnhancedQuoteCollector {
     this.userTags = [];
     this.isLoggedOut = false; // Track logout state
     this.pageImages = []; // Available page images
-    this.selectedImageIndex = -1; // No image selected by default
+    this.selectedImageIndices = new Set(); // Multiple images can be selected
     this.carouselStartIndex = 0; // Carousel view start
     this.existingTags = []; // Tags from Google Sheets for autocomplete
     this.selectedAutocompleteIndex = -1; // Currently selected autocomplete item
@@ -16,6 +16,7 @@ class EnhancedQuoteCollector {
   async init() {
     this.setupEventListeners();
     this.setupMessageListener();
+    await this.checkUpdateNotification();
     await this.checkExistingAuth();
     await this.checkEditMode();
     await this.loadSelectedText();
@@ -37,6 +38,39 @@ class EnhancedQuoteCollector {
     });
   }
 
+  async checkUpdateNotification() {
+    const currentVersion = '1.1.0';
+    const result = await chrome.storage.local.get(['lastSeenVersion']);
+
+    // Show update notification if this is a new version
+    if (!result.lastSeenVersion || result.lastSeenVersion !== currentVersion) {
+      // Only show if user has used the extension before (has auth)
+      const authState = await chrome.storage.local.get(['isAuthenticated']);
+      if (authState.isAuthenticated) {
+        this.showUpdateNotification();
+      }
+    }
+  }
+
+  showUpdateNotification() {
+    const updateNotification = document.getElementById('update-notification');
+    if (updateNotification) {
+      updateNotification.style.display = 'flex';
+    }
+  }
+
+  async dismissUpdateNotification() {
+    const currentVersion = '1.1.0';
+    const updateNotification = document.getElementById('update-notification');
+
+    if (updateNotification) {
+      updateNotification.style.display = 'none';
+    }
+
+    // Store that user has seen this version
+    await chrome.storage.local.set({ lastSeenVersion: currentVersion });
+  }
+
   setupEventListeners() {
     document.getElementById('auth-button').addEventListener('click', () => {
       this.authenticateFixed();
@@ -56,6 +90,27 @@ class EnhancedQuoteCollector {
     document.getElementById('view-all-icon').addEventListener('click', () => {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
     });
+
+    // Price toggle button
+    document.getElementById('price-toggle-btn').addEventListener('click', () => {
+      this.showPriceInput();
+    });
+
+    // Update notification handlers
+    const updateClose = document.getElementById('update-close');
+    const updateGotIt = document.getElementById('update-got-it');
+
+    if (updateClose) {
+      updateClose.addEventListener('click', () => {
+        this.dismissUpdateNotification();
+      });
+    }
+
+    if (updateGotIt) {
+      updateGotIt.addEventListener('click', () => {
+        this.dismissUpdateNotification();
+      });
+    }
 
     // Add tooltip functionality
     this.initTooltips();
@@ -278,18 +333,57 @@ class EnhancedQuoteCollector {
       urlPreview.textContent = cardData.url || '';
     }
     
-    // Set the image if available
+    // Set the price if available
+    const priceInput = document.getElementById('price-input');
+    const priceLabel = document.getElementById('price-label');
+    if (priceInput) {
+      priceInput.value = cardData.price || '';
+      if (priceLabel) {
+        priceLabel.style.opacity = cardData.price ? '0' : '1';
+      }
+    }
+    
+    // Set the image(s) if available
     if (cardData.image) {
-      // Create a single image option from the card's image
-      this.pageImages = [{
-        src: cardData.image,
-        alt: 'Card image'
-      }];
-      this.selectedImageIndex = 0; // Select the first (and only) image
-      this.showImageSelector();
+      // Split pipe-delimited URLs if multiple images exist (||| delimiter)
+      const savedImageUrls = cardData.image.split('|||').map(url => url.trim()).filter(url => url);
+      
+      if (savedImageUrls.length > 0) {
+        // Merge saved images with current page images
+        // First, add saved images that aren't already in pageImages
+        const existingUrls = new Set(this.pageImages.map(img => img.src));
+        savedImageUrls.forEach(url => {
+          if (!existingUrls.has(url)) {
+            this.pageImages.push({
+              src: url,
+              alt: 'Saved image'
+            });
+          }
+        });
+        
+        // Select all saved images (by URL match, not just index)
+        this.selectedImageIndices.clear();
+        this.pageImages.forEach((img, index) => {
+          if (savedImageUrls.includes(img.src)) {
+            this.selectedImageIndices.add(index);
+          }
+        });
+        
+        // Reset carousel to start to show selected images
+        this.carouselStartIndex = 0;
+        this.showImageSelector();
+      } else {
+        // No valid images, hide selector
+        this.hideImageSelector();
+      }
     } else {
-      // No image, hide selector
-      this.hideImageSelector();
+      // No image, but if page has images, show them (user can select new ones)
+      if (this.pageImages.length > 0) {
+        this.selectedImageIndices.clear();
+        this.showImageSelector();
+      } else {
+        this.hideImageSelector();
+      }
     }
     
     // Update the UI to show we're in edit mode
@@ -509,9 +603,9 @@ class EnhancedQuoteCollector {
   }
 
   async addHeaders() {
-    const headers = ['Title', 'Content', 'URL', 'Tags', 'Timestamp', 'Image'];
+    const headers = ['Title', 'Content', 'URL', 'Tags', 'Timestamp', 'Image', 'Price'];
 
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:F1?valueInputOption=RAW`, {
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:G1?valueInputOption=RAW`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${this.accessToken}`,
@@ -558,11 +652,29 @@ class EnhancedQuoteCollector {
     }
   }
 
+  showPriceInput() {
+    const priceToggleBtn = document.getElementById('price-toggle-btn');
+    const priceInput = document.getElementById('price-input');
+    const priceLabel = document.getElementById('price-label');
+
+    if (priceToggleBtn && priceInput && priceLabel) {
+      // Hide button
+      priceToggleBtn.style.display = 'none';
+
+      // Show input and label
+      priceInput.style.display = 'block';
+      priceLabel.style.display = 'block';
+
+      // Focus the input
+      priceInput.focus();
+    }
+  }
+
   async extractPageMetadata() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
-      
+
       // Handle page images only - removed auto-tag functionality
       if (result && result.images && result.images.length > 0) {
         this.pageImages = result.images;
@@ -570,7 +682,24 @@ class EnhancedQuoteCollector {
       } else {
         this.hideImageSelector();
       }
+
+      // Handle price extraction
+      if (result && result.price) {
+        const priceToggleBtn = document.getElementById('price-toggle-btn');
+        const priceInput = document.getElementById('price-input');
+        const priceLabel = document.getElementById('price-label');
+
+        if (priceInput && priceToggleBtn && priceLabel) {
+          // Hide toggle button, show input with detected price
+          priceToggleBtn.style.display = 'none';
+          priceInput.style.display = 'block';
+          priceLabel.style.display = 'block';
+          priceInput.value = result.price;
+          priceLabel.style.opacity = '0';
+        }
+      }
     } catch (e) {
+      // Could not access tab, this is normal
     }
   }
 
@@ -616,6 +745,10 @@ class EnhancedQuoteCollector {
       // Extract page image - use selected image only, no automatic fallbacks
       let pageImage = this.getSelectedImageUrl();
       
+      // Get price from input field
+      const priceInput = document.getElementById('price-input');
+      const price = priceInput ? priceInput.value.trim() : '';
+      
       const now = new Date();
       const row = [
         tab.title || 'Untitled',
@@ -623,10 +756,11 @@ class EnhancedQuoteCollector {
         tab.url,
         this.userTags.join(', '),  // Only user tags
         now.toISOString(), // Full timestamp for accurate ordering
-        pageImage
+        pageImage,
+        price // Price column
       ];
 
-      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:F:append?valueInputOption=RAW`, {
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -653,6 +787,8 @@ class EnhancedQuoteCollector {
         document.getElementById('content').value = 'Select text on the webpage to capture it here...';
         this.userTags = [];
         this.renderUserTags();
+        this.selectedImageIndices.clear();
+        this.renderImageCarousel();
         
       } else {
         const errorData = await response.json();
@@ -677,6 +813,10 @@ class EnhancedQuoteCollector {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       let pageImage = this.getSelectedImageUrl();
       
+      // Get price from input field
+      const priceInput = document.getElementById('price-input');
+      const price = priceInput ? priceInput.value.trim() : '';
+      
       const now = new Date();
       const row = [
         titlePreview,
@@ -684,11 +824,12 @@ class EnhancedQuoteCollector {
         urlPreview,
         this.userTags.join(', '),
         now.toISOString(),
-        pageImage
+        pageImage,
+        price // Price column
       ];
       
       // First, add the new row
-      const addResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:F:append?valueInputOption=RAW`, {
+      const addResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -767,6 +908,16 @@ class EnhancedQuoteCollector {
         document.getElementById('tag-input').value = '';
         this.userTags = [];
         this.renderUserTags();
+        this.selectedImageIndices.clear();
+        this.renderImageCarousel();
+        const priceInput = document.getElementById('price-input');
+        const priceLabel = document.getElementById('price-label');
+        if (priceInput) {
+          priceInput.value = '';
+        }
+        if (priceLabel) {
+          priceLabel.style.opacity = '1';
+        }
         
         // Close the popup after successful update and refresh the fullpage
         setTimeout(() => {
@@ -981,9 +1132,16 @@ class EnhancedQuoteCollector {
     const nextBtn = document.getElementById('carousel-next');
     const noImageIndicator = document.getElementById('no-image-indicator');
     
-    // Show/hide "No image selected" indicator
+    // Show/hide "No image selected" indicator and update count
     if (noImageIndicator) {
-      noImageIndicator.style.display = this.selectedImageIndex === -1 ? 'inline' : 'none';
+      const selectedCount = this.selectedImageIndices.size;
+      if (selectedCount === 0) {
+        noImageIndicator.textContent = 'No image selected';
+        noImageIndicator.style.display = 'inline';
+      } else {
+        noImageIndicator.textContent = `${selectedCount} image${selectedCount === 1 ? '' : 's'} selected`;
+        noImageIndicator.style.display = 'inline';
+      }
     }
     
     // Show 4 images at a time (more fits with larger thumbnails)
@@ -998,16 +1156,16 @@ class EnhancedQuoteCollector {
       img.src = this.pageImages[i].src;
       img.alt = this.pageImages[i].alt;
       img.className = 'image-option';
-      if (i === this.selectedImageIndex) {
+      if (this.selectedImageIndices.has(i)) {
         img.classList.add('selected');
       }
       
       img.addEventListener('click', () => {
-        // Toggle selection: deselect if clicking the already selected image
-        if (i === this.selectedImageIndex) {
-          this.selectedImageIndex = -1; // No image selected
+        // Toggle selection: add if not selected, remove if already selected
+        if (this.selectedImageIndices.has(i)) {
+          this.selectedImageIndices.delete(i);
         } else {
-          this.selectedImageIndex = i;
+          this.selectedImageIndices.add(i);
         }
         this.renderImageCarousel();
       });
@@ -1046,10 +1204,17 @@ class EnhancedQuoteCollector {
   }
 
   getSelectedImageUrl() {
-    if (this.pageImages.length > 0 && this.selectedImageIndex >= 0 && this.selectedImageIndex < this.pageImages.length) {
-      return this.pageImages[this.selectedImageIndex].src;
+    if (this.selectedImageIndices.size === 0) {
+      return ''; // No images selected
     }
-    return ''; // No image selected or no images available
+    
+    // Get selected image URLs and join with triple pipe delimiter
+    const selectedUrls = Array.from(this.selectedImageIndices)
+      .sort((a, b) => a - b) // Sort by index to maintain order
+      .map(index => this.pageImages[index].src)
+      .filter(url => url); // Filter out any undefined URLs
+    
+    return selectedUrls.join('|||'); // Return pipe-delimited URLs (||| is unlikely in URLs)
   }
 
   // Tag Pills Autocomplete Methods
