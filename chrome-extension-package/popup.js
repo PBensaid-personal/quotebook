@@ -10,6 +10,7 @@ class EnhancedQuoteCollector {
     this.carouselStartIndex = 0; // Carousel view start
     this.existingTags = []; // Tags from Google Sheets for autocomplete
     this.selectedAutocompleteIndex = -1; // Currently selected autocomplete item
+    this.isLoadingCardData = false; // Flag to prevent extractPageMetadata from overwriting during edit mode load
     this.init();
   }
 
@@ -298,6 +299,8 @@ class EnhancedQuoteCollector {
     try {
       const result = await chrome.storage.local.get(['editMode', 'editCardData']);
       if (result.editMode && result.editCardData) {
+        // Set flag to prevent extractPageMetadata from overwriting saved data
+        this.isLoadingCardData = true;
         // Add a delay to ensure all popup initialization is complete
         setTimeout(() => {
           this.loadCardDataForEdit(result.editCardData);
@@ -396,6 +399,8 @@ class EnhancedQuoteCollector {
     // Store the original row index for updating
     this.editingCardId = cardData.originalRowIndex;
     this.isEditMode = true;
+    // Clear the loading flag now that card data is loaded
+    this.isLoadingCardData = false;
   }
 
   async validateToken() {
@@ -672,6 +677,11 @@ class EnhancedQuoteCollector {
 
   async extractPageMetadata() {
     try {
+      // Don't overwrite images/price if we're loading card data for edit or already in edit mode
+      if (this.isLoadingCardData || this.isEditMode) {
+        return;
+      }
+
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
 

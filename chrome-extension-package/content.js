@@ -118,7 +118,7 @@ class WebCaptureContent {
             if (item['@type'] === 'Product' && item.offers) {
               const offer = Array.isArray(item.offers) ? item.offers[0] : item.offers;
               if (offer.price) {
-                const currency = offer.priceCurrency || '$';
+                const currency = offer.priceCurrency || 'USD';
                 const price = offer.price.toString();
                 // Format the price with currency
                 if (currency === 'USD') {

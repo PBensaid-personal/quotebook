@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Quotebook",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Save quotes from across the web to Google Sheets - Private and no other account needed",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvPGp5mxnOL9SkagQTWDQwa+Tbo7qiBO69LD51QCMgLShfMIOEQjhSVhIWkW2lKdtJPwTK2h36dEt11gVcEONr4p4JKksoXPH4v58OIgAMlOsx7vRs7fshrw3V6ari0hpopaC4AahmF9Z5UzyYlUehzT2l03i2cU78x30vzX7Z58RweTGHmwx2EXiWFjIA4wXNQ+NusFAhIEbLRPDipavCU6XqBSntogIS3l69XTbQyh4WMdNwHnubMpisqxJhTT++eg46eLbSs6wYiCOtshXBM4R5R20w9iQjZimYM/eDzzl28/uQV8RsHVp/n90pFAQrSQJyV5SarVpF6NivznVkwIDAQAB",
 

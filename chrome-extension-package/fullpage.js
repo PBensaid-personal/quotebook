@@ -150,6 +150,7 @@ class FullPageCollector {
         // Clear tag navigation buttons when using dropdown
         this.selectedTags.clear();
         this.updateTagNavButtonStates();
+        this.updateTagHeader();
         this.applyFilters();
       });
     }
@@ -179,6 +180,7 @@ class FullPageCollector {
         document.getElementById("dateFilter").value = "";
         this.selectedTags.clear();
         this.updateTagNavButtonStates();
+        this.updateTagHeader();
 
         // Reset filter button appearances
         const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
@@ -994,15 +996,115 @@ class FullPageCollector {
     this.updateTagHeader();
   }
 
+  parsePrice(priceString) {
+    if (!priceString) return null;
+    
+    // Convert to string if it's not already
+    const priceStr = String(priceString).trim();
+    if (priceStr === '') return null;
+    
+    // Remove currency symbols and extract numeric value
+    // Handles formats like: $10.99, €20, £15.50, 10.99 USD, etc.
+    const cleaned = priceStr
+      .replace(/[$€£¥₹]|\s*(USD|EUR|GBP|JPY|INR|CAD|AUD)\s*/gi, '')
+      .replace(/,/g, '') // Remove thousand separators
+      .trim();
+    
+    const numericValue = parseFloat(cleaned);
+    return isNaN(numericValue) ? null : numericValue;
+  }
+
+  calculateTotalPrice() {
+    if (!this.filteredData || this.filteredData.length === 0) return null;
+    
+    let total = 0;
+    let hasPrices = false;
+    
+    this.filteredData.forEach((item) => {
+      let priceStr = '';
+      
+      // First check if price is in the dedicated price field
+      if (item.price && String(item.price).trim() !== '') {
+        priceStr = String(item.price).trim();
+      } 
+      // If not, extract price from content text
+      else if (item.content && typeof item.content === 'string') {
+        // Match prices like $27, $62.50, $1,234.56, etc.
+        const priceMatch = item.content.match(/\$[\d,]+\.?\d{0,2}/);
+        if (priceMatch) {
+          priceStr = priceMatch[0];
+        }
+      }
+      
+      // Parse and add the price if found
+      if (priceStr !== '') {
+        const priceValue = this.parsePrice(priceStr);
+        if (priceValue !== null && !isNaN(priceValue)) {
+          total += priceValue;
+          hasPrices = true;
+        }
+      }
+    });
+    
+    return hasPrices ? total : null;
+  }
+
+  formatTotalPrice(total) {
+    if (total === null) return '';
+    
+    // Try to detect currency from first item with price (check both price field and content)
+    let currencySymbol = '$';
+    for (const item of this.filteredData) {
+      let priceStr = '';
+      
+      // Check price field first
+      if (item.price && String(item.price).trim() !== '') {
+        priceStr = String(item.price);
+      } 
+      // If no price field, check content
+      else if (item.content && typeof item.content === 'string') {
+        const priceMatch = item.content.match(/[$€£¥₹][\d,]+\.?\d{0,2}/);
+        if (priceMatch) {
+          priceStr = priceMatch[0];
+        }
+      }
+      
+      if (priceStr) {
+        if (priceStr.includes('€')) {
+          currencySymbol = '€';
+          break;
+        } else if (priceStr.includes('£')) {
+          currencySymbol = '£';
+          break;
+        } else if (priceStr.includes('$')) {
+          currencySymbol = '$';
+          break;
+        }
+      }
+    }
+    
+    // Format with 2 decimal places
+    const formatted = total.toFixed(2);
+    return `Total: ${currencySymbol}${formatted}`;
+  }
+
   updateTagHeader() {
     const tagHeader = document.getElementById("tag-header");
     const tagHeaderText = document.getElementById("tag-header-text");
+    const tagHeaderPrice = document.getElementById("tag-header-price");
+    const tagFilter = document.getElementById("tagFilter");
 
     if (!tagHeader || !tagHeaderText) return;
 
-    if (this.selectedTags.size > 0) {
+    // Check both selectedTags (from nav buttons) and tagFilter dropdown
+    const selectedTagFromDropdown = tagFilter ? tagFilter.value : "";
+    const tagsToDisplay = this.selectedTags.size > 0 
+      ? Array.from(this.selectedTags)
+      : (selectedTagFromDropdown ? [selectedTagFromDropdown] : []);
+
+    if (tagsToDisplay.length > 0) {
       // Convert tags to title case and join with " + "
-      const formattedTags = Array.from(this.selectedTags)
+      const formattedTags = tagsToDisplay
         .map(tag => {
           // Split by spaces and capitalize first letter of each word
           return tag
@@ -1013,8 +1115,22 @@ class FullPageCollector {
         .join(" + ");
 
       tagHeaderText.textContent = formattedTags;
+      
+      // Calculate and display total price
+      const totalPrice = this.calculateTotalPrice();
+      if (tagHeaderPrice) {
+        if (totalPrice !== null) {
+          tagHeaderPrice.textContent = this.formatTotalPrice(totalPrice);
+        } else {
+          tagHeaderPrice.textContent = '';
+        }
+      }
+      
       tagHeader.classList.add("visible");
     } else {
+      if (tagHeaderPrice) {
+        tagHeaderPrice.textContent = '';
+      }
       tagHeader.classList.remove("visible");
     }
   }
@@ -1104,6 +1220,7 @@ class FullPageCollector {
     this.renderContent();
     this.updateLoadMoreButton();
     this.attachEventListeners();
+    this.updateTagHeader();
   }
 
   updateSearchPlaceholder() {
@@ -1443,6 +1560,7 @@ class FullPageCollector {
       tagFilter.addEventListener('change', () => {
         this.updateFilterButtonAppearance(tagFilterContainer, tagFilter);
         this.updateTagNavButtonStates();
+        this.updateTagHeader();
       });
     }
 
