@@ -381,7 +381,6 @@
         border-radius: 8px;
         min-height: 100px;
         display: block;
-        border-radius: 8px 8px 0 0;
         transition: opacity 0.3s ease;
       }
 
@@ -472,6 +471,16 @@
         pointer-events: none;
         z-index: 2;
         opacity: 1;
+        transition: opacity 1s ease;
+      }
+
+      .content-card:hover .content-image-container::after,
+      .content-card:hover .content-image-container::before {
+        opacity: 0;
+      }
+
+      .content-card:hover .content-image-container {
+        margin-bottom: 16px;
       }
 
       .content-title {
@@ -788,12 +797,31 @@
         display: block;
       }
 
+      .tag-header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 20px;
+      }
+
       .tag-header h2 {
         font-family: "Libre Baskerville", Georgia, serif;
         font-size: 24px;
         font-weight: 400;
         color: hsl(25, 5.3%, 44.7%);
         margin: 0;
+        flex: 1;
+      }
+
+      .tag-header-price {
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 16px;
+        color: hsl(23, 6%, 61%);
+        margin: 0;
+        white-space: nowrap;
+        background: #f6f6f6;
+        padding: 4px 8px;
+        border-radius: 6px;        
       }
     </style>
   </head>
@@ -924,7 +952,10 @@
 
       <!-- Tag Header (appears when tag is selected) -->
       <div id="tag-header" class="tag-header">
-        <h2 id="tag-header-text"></h2>
+        <div class="tag-header-content">
+          <h2 id="tag-header-text"></h2>
+          <div id="tag-header-price" class="tag-header-price"></div>
+        </div>
       </div>
 
       <div id="content" class="content-grid">
