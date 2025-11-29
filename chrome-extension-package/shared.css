@@ -1,0 +1,588 @@
+/* ========================================
+   QUOTEBOOK - SHARED STYLES
+   Common styles used across popup and fullpage
+   ======================================== */
+
+/* ========================================
+   CSS CUSTOM PROPERTIES (Color Palette)
+   ======================================== */
+:root {
+  /* Primary Colors */
+  --color-primary: hsl(48, 100%, 53%); /* rgb(255, 217, 16) - Yellow accent */
+  --color-primary-hover: hsl(48, 100%, 48%);
+  --color-primary-alpha-20: hsla(48, 100%, 53%, 0.2);
+  --color-primary-alpha-30: hsla(48, 100%, 53%, 0.3);
+
+  /* Dark Colors */
+  --color-dark-blue: hsl(220, 30%, 18%);
+  --color-dark-bg: hsl(220, 4%, 16%);
+  --color-dark-input: hsl(0, 0%, 7%); /* #111111 */
+
+  /* Text Colors */
+  --color-text-dark: hsl(20, 14%, 4%);
+  --color-text-primary: hsl(25, 5%, 45%); /* hsl(25, 5.3%, 44.7%) */
+  --color-text-light: hsl(210, 14%, 83%); /* #cbd5e1 */
+  --color-text-lighter: hsl(210, 11%, 71%); /* #94a3b8 */
+
+  /* Grays */
+  --color-gray-100: hsl(0, 0%, 100%); /* white */
+  --color-gray-200: hsl(20, 6%, 96%); /* #f6f6f6 */
+  --color-gray-300: hsl(20, 6%, 90%); /* hsl(20, 5.9%, 90%) */
+  --color-gray-400: hsl(215, 16%, 47%); /* #64748b */
+  --color-gray-500: hsl(0, 0%, 40%); /* #666666 */
+  --color-gray-600: hsl(0, 0%, 60%); /* #999999 */
+  --color-gray-700: hsl(0, 0%, 73%); /* #bbbbbb */
+  --color-gray-800: hsl(0, 0%, 53%); /* #888888 */
+
+  /* Border Colors */
+  --color-border-light: hsl(20, 6%, 90%);
+  --color-border-medium: hsl(220, 30%, 85%);
+  --color-border-dark: hsl(220, 13%, 28%); /* #475569 */
+
+  /* Utility Colors */
+  --color-success: hsl(142, 71%, 45%); /* rgb(34, 197, 94) */
+  --color-danger: hsl(0, 72%, 51%); /* #dc2626 */
+  --color-danger-hover: hsl(0, 68%, 42%); /* #b91c1c */
+
+  /* White with Alpha */
+  --color-white-alpha-10: hsla(0, 0%, 100%, 0.1);
+  --color-white-alpha-30: hsla(0, 0%, 100%, 0.3);
+  --color-white-alpha-50: hsla(0, 0%, 100%, 0.5);
+  --color-white-alpha-60: hsla(0, 0%, 100%, 0.6);
+  --color-white-alpha-90: hsla(0, 0%, 100%, 0.9);
+
+  /* Black with Alpha */
+  --color-black-alpha-30: hsla(0, 0%, 0%, 0.3);
+  --color-black-alpha-90: hsla(0, 0%, 0%, 0.9);
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 50%;
+  --radius-pill: 20px;
+
+  /* Transitions */
+  --transition-fast: 0.2s ease;
+  --transition-medium: 0.3s ease;
+  --transition-slow: 0.6s ease;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 4px hsla(0, 0%, 0%, 0.1);
+  --shadow-md: 0 2px 6px hsla(0, 0%, 0%, 0.15);
+  --shadow-lg: 0 4px 8px hsla(0, 0%, 0%, 0.15);
+  --shadow-xl: 0 8px 16px hsla(0, 0%, 0%, 0.12);
+  --shadow-2xl: 0 20px 40px hsla(0, 0%, 0%, 0.35);
+  --shadow-tooltip: 0 2px 8px hsla(0, 0%, 0%, 0.2);
+
+  /* Typography */
+  --font-system: system-ui, -apple-system, 'Segoe UI', BlinkMacSystemFont, sans-serif;
+  --font-serif: 'Libre Baskerville', Georgia, serif;
+}
+
+/* ========================================
+   BASE RESET
+   ======================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ========================================
+   MODAL STYLES
+   ======================================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--color-black-alpha-30);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(12px);
+}
+
+.modal-content {
+  background: var(--color-gray-100);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-2xl);
+  max-width: 400px;
+  width: 90%;
+  margin: var(--spacing-xl);
+  box-shadow: var(--shadow-2xl);
+  animation: modalAppear var(--transition-fast) ease-out;
+}
+
+@keyframes modalAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-2xl);
+}
+
+.modal-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-xl);
+  background: var(--color-gray-200);
+  color: var(--color-gray-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modal-text h3 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-dark-blue);
+}
+
+.modal-text p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 10px var(--spacing-xl);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modal-btn.secondary {
+  background: hsl(210, 20%, 98%);
+  color: var(--color-text-primary);
+  border: 1px solid hsl(210, 20%, 90%);
+}
+
+.modal-btn.secondary:hover {
+  background: hsl(210, 20%, 95%);
+  border-color: hsl(210, 20%, 85%);
+}
+
+.modal-btn.danger {
+  background: var(--color-danger);
+  color: var(--color-gray-100);
+}
+
+.modal-btn.danger:hover {
+  background: var(--color-danger-hover);
+  box-shadow: 0 4px 8px hsla(0, 72%, 51%, 0.25);
+}
+
+/* ========================================
+   TOOLTIP STYLES
+   ======================================== */
+.tooltip {
+  position: absolute;
+  background: var(--color-black-alpha-90);
+  color: var(--color-gray-100);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  box-shadow: var(--shadow-tooltip);
+}
+
+.tooltip.show {
+  opacity: 1;
+}
+
+/* ========================================
+   BUTTON BASE STYLES
+   ======================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: 10px var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: none;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.btn-primary {
+  background: var(--color-white-alpha-10);
+  color: var(--color-white-alpha-60);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary);
+  color: hsl(0, 0%, 0%);
+}
+
+.btn-primary:disabled {
+  background: var(--color-text-lighter);
+  cursor: not-allowed;
+}
+
+.btn-outline {
+  background: var(--color-gray-100);
+  color: hsl(0, 0%, 22%); /* #374151 */
+  border: 1px solid hsl(220, 13%, 91%); /* #e2e8f0 */
+  flex: 1;
+}
+
+.btn-outline:hover {
+  background: hsl(210, 40%, 98%); /* #f8fafc */
+}
+
+/* ========================================
+   INPUT STYLES
+   ======================================== */
+.input-base {
+  width: 100%;
+  padding: var(--spacing-md);
+  background: var(--color-gray-100);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-dark);
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.input-base::placeholder {
+  color: var(--color-text-primary);
+}
+
+.input-base:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha-20);
+}
+
+/* ========================================
+   DROPDOWN STYLES
+   ======================================== */
+.dropdown-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.dropdown-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-text-dark);
+  border: 1px solid var(--color-text-dark);
+  border-radius: var(--radius-lg);
+  color: var(--color-gray-100);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.dropdown-button:hover {
+  background: var(--color-primary);
+  color: hsl(0, 0%, 0%);
+  border-color: var(--color-primary);
+}
+
+.dropdown-button.active {
+  background: var(--color-primary);
+  color: hsl(0, 0%, 0%);
+  border-color: var(--color-primary);
+}
+
+.dropdown-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+  transition: transform var(--transition-fast);
+}
+
+.dropdown-button:hover .dropdown-icon {
+  opacity: 1;
+}
+
+.dropdown-button.active .dropdown-icon {
+  opacity: 1;
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + var(--spacing-sm));
+  left: 0;
+  background: var(--color-gray-100);
+  border: 1px solid hsl(20, 6%, 95%);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 10001;
+  display: none;
+}
+
+.dropdown-menu.show {
+  display: block;
+}
+
+.dropdown-item {
+  padding: var(--spacing-sm) var(--spacing-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: var(--color-primary);
+  color: hsl(0, 0%, 0%);
+}
+
+.dropdown-item.active {
+  background: hsl(20, 6%, 95%);
+  font-weight: 600;
+}
+
+.dropdown-item.active:hover {
+  background: var(--color-primary);
+}
+
+.dropdown-item.create-new {
+  color: var(--color-dark-blue);
+  font-weight: 500;
+}
+
+.dropdown-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: var(--spacing-sm);
+  padding: 0 var(--spacing-xs) 0 6px;
+  cursor: pointer;
+  color: hsl(0, 0%, 34%);
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.dropdown-delete-btn:hover {
+  opacity: 1;
+}
+
+.dropdown-delete-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ========================================
+   TAG STYLES
+   ======================================== */
+.tag-pill {
+  background: var(--color-gray-100);
+  color: var(--color-dark-blue);
+  padding: var(--spacing-xs) 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--color-border-medium);
+}
+
+.tag-pill:hover {
+  background: var(--color-primary);
+  color: var(--color-dark-blue);
+  border: 1px solid var(--color-primary);
+}
+
+.tag-pill.search-highlight {
+  background: var(--color-primary);
+  color: var(--color-dark-blue);
+  border: 1px solid var(--color-primary);
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--color-primary-alpha-30);
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+.hidden {
+  display: none !important;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.relative {
+  position: relative;
+}
+
+.ml-auto {
+  margin-left: auto;
+}
+
+/* Display utilities */
+.display-block {
+  display: block !important;
+}
+
+.display-inline {
+  display: inline !important;
+}
+
+.display-inline-block {
+  display: inline-block !important;
+}
+
+/* Dropdown item utilities */
+.dropdown-item-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.dropdown-item-content {
+  flex: 1;
+  justify-content: flex-start;
+}
+
+.dropdown-item-flex-gap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Toast notification utilities */
+.toast-message {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--color-danger);
+  color: var(--color-gray-100);
+  padding: var(--spacing-lg) var(--spacing-2xl);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: 10001;
+  max-width: 400px;
+  font-size: 14px;
+  line-height: 1.4;
+  animation: slideInRight var(--transition-medium) ease-out;
+}
+
+.toast-message.toast-exit {
+  animation: slideInRight var(--transition-medium) ease-out reverse;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes savedPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}

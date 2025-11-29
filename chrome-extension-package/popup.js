@@ -58,7 +58,7 @@ class EnhancedQuoteCollector {
   showUpdateNotification() {
     const updateNotification = document.getElementById('update-notification');
     if (updateNotification) {
-      updateNotification.style.display = 'flex';
+      updateNotification.classList.remove('hidden');
     }
   }
 
@@ -67,7 +67,7 @@ class EnhancedQuoteCollector {
     const updateNotification = document.getElementById('update-notification');
 
     if (updateNotification) {
-      updateNotification.style.display = 'none';
+      updateNotification.classList.add('hidden');
     }
 
     // Store that user has seen this version
@@ -102,22 +102,22 @@ class EnhancedQuoteCollector {
     if (dropdownToggle && sheetSelectorDropdown) {
       dropdownToggle.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const isOpen = sheetSelectorDropdown.style.display !== 'none';
+        const isOpen = !sheetSelectorDropdown.classList.contains('hidden');
         if (isOpen) {
-          sheetSelectorDropdown.style.display = 'none';
+          sheetSelectorDropdown.classList.add('hidden');
           dropdownToggle.querySelector('svg').style.transform = 'rotate(0deg)';
         } else {
           await this.renderSheetSelectorPopup();
-          sheetSelectorDropdown.style.display = 'block';
+          sheetSelectorDropdown.classList.remove('hidden');
           dropdownToggle.querySelector('svg').style.transform = 'rotate(180deg)';
         }
       });
 
       // Close dropdown when clicking outside
       document.addEventListener('click', (e) => {
-        if (sheetSelectorDropdown && !sheetSelectorDropdown.contains(e.target) && 
+        if (sheetSelectorDropdown && !sheetSelectorDropdown.contains(e.target) &&
             saveButtonContainer && !saveButtonContainer.contains(e.target)) {
-          sheetSelectorDropdown.style.display = 'none';
+          sheetSelectorDropdown.classList.add('hidden');
           if (dropdownToggle.querySelector('svg')) {
             dropdownToggle.querySelector('svg').style.transform = 'rotate(0deg)';
           }
@@ -308,7 +308,7 @@ class EnhancedQuoteCollector {
           await chrome.storage.local.set({ currentSheetName: sheetName });
           this.renderSheetSelectorPopup(); // Re-render to update active state
         }
-        dropdown.style.display = 'none';
+        dropdown.classList.add('hidden');
         const dropdownToggle = document.getElementById('save-button-dropdown-toggle');
         if (dropdownToggle && dropdownToggle.querySelector('svg')) {
           dropdownToggle.querySelector('svg').style.transform = 'rotate(0deg)';
@@ -325,7 +325,7 @@ class EnhancedQuoteCollector {
     createNew.addEventListener('click', async (e) => {
       e.stopPropagation();
       await this.showCreateSheetDialogPopup();
-      dropdown.style.display = 'none';
+      dropdown.classList.add('hidden');
       const dropdownToggle = document.getElementById('save-button-dropdown-toggle');
       if (dropdownToggle && dropdownToggle.querySelector('svg')) {
         dropdownToggle.querySelector('svg').style.transform = 'rotate(0deg)';
@@ -367,28 +367,28 @@ class EnhancedQuoteCollector {
       const input = document.getElementById('create-sheet-input-popup');
       const confirmBtn = document.getElementById('confirm-create-sheet-popup');
       const cancelBtn = document.getElementById('cancel-create-sheet-popup');
-      
+
       // Set default value
       input.value = defaultName;
       input.focus();
       input.select();
-      
+
       // Show modal
-      modal.style.display = 'flex';
-      
+      modal.classList.remove('hidden');
+
       // Handle confirm
       const handleConfirm = () => {
         const value = input.value.trim();
         cleanup();
         resolve(value);
       };
-      
+
       // Handle cancel
       const handleCancel = () => {
         cleanup();
         resolve(null);
       };
-      
+
       // Handle Enter key
       const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
@@ -398,17 +398,17 @@ class EnhancedQuoteCollector {
           handleCancel();
         }
       };
-      
+
       // Handle clicking outside modal
       const handleOverlayClick = (e) => {
         if (e.target === modal) {
           handleCancel();
         }
       };
-      
+
       // Cleanup function
       const cleanup = () => {
-        modal.style.display = 'none';
+        modal.classList.add('hidden');
         input.value = '';
         confirmBtn.removeEventListener('click', handleConfirm);
         cancelBtn.removeEventListener('click', handleCancel);
@@ -416,7 +416,7 @@ class EnhancedQuoteCollector {
         modal.removeEventListener('click', handleOverlayClick);
         document.removeEventListener('keydown', handleKeyDown);
       };
-      
+
       // Add event listeners
       confirmBtn.addEventListener('click', handleConfirm);
       cancelBtn.addEventListener('click', handleCancel);
@@ -1262,12 +1262,12 @@ class EnhancedQuoteCollector {
   }
 
   showAuthInterface() {
-    document.getElementById('auth-section').style.display = 'block';
+    document.getElementById('auth-section').classList.remove('hidden');
     document.getElementById('main-section').classList.remove('active');
   }
 
   showMainInterface() {
-    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('auth-section').classList.add('hidden');
     document.getElementById('main-section').classList.add('active');
   }
 
@@ -1275,11 +1275,11 @@ class EnhancedQuoteCollector {
     const status = document.getElementById('status');
     status.textContent = message;
     status.className = `status ${type}`;
-    status.style.display = 'block';
+    status.classList.remove('hidden');
 
     if (type === 'success') {
       setTimeout(() => {
-        status.style.display = 'none';
+        status.classList.add('hidden');
       }, 3000);
     }
   }
@@ -1288,11 +1288,11 @@ class EnhancedQuoteCollector {
     const status = document.getElementById('status-main');
     status.textContent = message;
     status.className = `status ${type}`;
-    status.style.display = 'block';
+    status.classList.remove('hidden');
 
     if (type === 'success') {
       setTimeout(() => {
-        status.style.display = 'none';
+        status.classList.add('hidden');
       }, 3000);
     }
   }
