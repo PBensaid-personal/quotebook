@@ -444,17 +444,16 @@ class FullPageCollector {
     // Add each sheet as an option
     this.allSheetNames.forEach((sheetName) => {
       const container = document.createElement("div");
-      container.className = `dropdown-item ${sheetName === this.currentSheetName ? 'active' : ''}`;
-      container.style.cssText = "display: flex; align-items: center; justify-content: space-between; width: 100%;";
-      
+      container.className = `dropdown-item ${sheetName === this.currentSheetName ? 'active' : ''} dropdown-item-flex`;
+
       const item = document.createElement("div");
-      item.style.cssText = "flex: 1; justify-content: flex-start;";
+      item.className = "dropdown-item-content";
       if (sheetName === this.currentSheetName) {
         item.innerHTML = `<span style="margin-right: 8px;">✓</span>${sheetName}`;
       } else {
         item.textContent = sheetName;
       }
-      
+
       container.addEventListener("click", async (e) => {
         // Don't trigger if clicking the delete button
         if (!e.target.closest('[data-delete-btn]')) {
@@ -500,12 +499,7 @@ class FullPageCollector {
 
     // Add "Create new tab" option
     const createNew = document.createElement("div");
-    createNew.className = "dropdown-item create-new";
-    createNew.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    `;
+    createNew.className = "dropdown-item create-new dropdown-item-flex-gap";
     createNew.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
         <path d="M5 12h14"/>
@@ -525,15 +519,7 @@ class FullPageCollector {
     // Add "Open your Google Sheet" option
     if (this.spreadsheetId) {
       const openSheet = document.createElement("div");
-      openSheet.className = "dropdown-item";
-      openSheet.style.cssText = `
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 10px 12px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      `;
+      openSheet.className = "dropdown-item dropdown-item-flex-gap";
       openSheet.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
           <path d="M7 7h10v10"/>
@@ -590,48 +576,48 @@ class FullPageCollector {
       const message = document.getElementById('delete-sheet-message');
       const confirmBtn = document.getElementById('confirm-delete-sheet');
       const cancelBtn = document.getElementById('cancel-delete-sheet');
-      
+
       // Update message with sheet name
       message.textContent = `Are you sure you want to permanently delete the sheet "${sheetName}"? This action cannot be undone.`;
-      
+
       // Show modal
-      modal.style.display = 'flex';
-      
+      modal.classList.remove('hidden');
+
       // Handle confirm
       const handleConfirm = () => {
         cleanup();
         resolve(true);
       };
-      
+
       // Handle cancel
       const handleCancel = () => {
         cleanup();
         resolve(false);
       };
-      
+
       // Handle clicking outside modal
       const handleOverlayClick = (e) => {
         if (e.target === modal) {
           handleCancel();
         }
       };
-      
+
       // Handle escape key
       const handleKeyDown = (e) => {
         if (e.key === 'Escape') {
           handleCancel();
         }
       };
-      
+
       // Cleanup function
       const cleanup = () => {
-        modal.style.display = 'none';
+        modal.classList.add('hidden');
         confirmBtn.removeEventListener('click', handleConfirm);
         cancelBtn.removeEventListener('click', handleCancel);
         modal.removeEventListener('click', handleOverlayClick);
         document.removeEventListener('keydown', handleKeyDown);
       };
-      
+
       // Add event listeners
       confirmBtn.addEventListener('click', handleConfirm);
       cancelBtn.addEventListener('click', handleCancel);
@@ -646,28 +632,28 @@ class FullPageCollector {
       const input = document.getElementById('create-sheet-input');
       const confirmBtn = document.getElementById('confirm-create-sheet');
       const cancelBtn = document.getElementById('cancel-create-sheet');
-      
+
       // Set default value
       input.value = defaultName;
       input.focus();
       input.select();
-      
+
       // Show modal
-      modal.style.display = 'flex';
-      
+      modal.classList.remove('hidden');
+
       // Handle confirm
       const handleConfirm = () => {
         const value = input.value.trim();
         cleanup();
         resolve(value);
       };
-      
+
       // Handle cancel
       const handleCancel = () => {
         cleanup();
         resolve(null);
       };
-      
+
       // Handle Enter key
       const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
@@ -677,17 +663,17 @@ class FullPageCollector {
           handleCancel();
         }
       };
-      
+
       // Handle clicking outside modal
       const handleOverlayClick = (e) => {
         if (e.target === modal) {
           handleCancel();
         }
       };
-      
+
       // Cleanup function
       const cleanup = () => {
-        modal.style.display = 'none';
+        modal.classList.add('hidden');
         input.value = '';
         confirmBtn.removeEventListener('click', handleConfirm);
         cancelBtn.removeEventListener('click', handleCancel);
@@ -695,7 +681,7 @@ class FullPageCollector {
         modal.removeEventListener('click', handleOverlayClick);
         document.removeEventListener('keydown', handleKeyDown);
       };
-      
+
       // Add event listeners
       confirmBtn.addEventListener('click', handleConfirm);
       cancelBtn.addEventListener('click', handleCancel);
@@ -1059,13 +1045,13 @@ class FullPageCollector {
         const tag = pill.getAttribute("data-tag");
         const tagFilter = document.getElementById("tagFilter");
         tagFilter.value = tag;
-        
+
         // Update the filter button appearance to show the active filter
         const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
         if (tagFilterContainer) {
           this.updateFilterButtonAppearance(tagFilterContainer, tagFilter);
         }
-        
+
         this.applyFilters();
       });
     });
@@ -1290,45 +1276,45 @@ class FullPageCollector {
       const modal = document.getElementById('delete-modal');
       const confirmBtn = document.getElementById('confirm-delete');
       const cancelBtn = document.getElementById('cancel-delete');
-      
+
       // Show modal
-      modal.style.display = 'flex';
-      
+      modal.classList.remove('hidden');
+
       // Handle confirm
       const handleConfirm = () => {
         cleanup();
         resolve(true);
       };
-      
+
       // Handle cancel
       const handleCancel = () => {
         cleanup();
         resolve(false);
       };
-      
+
       // Handle clicking outside modal
       const handleOverlayClick = (e) => {
         if (e.target === modal) {
           handleCancel();
         }
       };
-      
+
       // Handle escape key
       const handleKeyDown = (e) => {
         if (e.key === 'Escape') {
           handleCancel();
         }
       };
-      
+
       // Cleanup function
       const cleanup = () => {
-        modal.style.display = 'none';
+        modal.classList.add('hidden');
         confirmBtn.removeEventListener('click', handleConfirm);
         cancelBtn.removeEventListener('click', handleCancel);
         modal.removeEventListener('click', handleOverlayClick);
         document.removeEventListener('keydown', handleKeyDown);
       };
-      
+
       // Add event listeners
       confirmBtn.addEventListener('click', handleConfirm);
       cancelBtn.addEventListener('click', handleCancel);
@@ -1340,45 +1326,14 @@ class FullPageCollector {
   showErrorMessage(message) {
     // Create a simple toast-style error message
     const toast = document.createElement('div');
-    toast.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #dc2626;
-      color: white;
-      padding: 16px 24px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 10001;
-      max-width: 400px;
-      font-size: 14px;
-      line-height: 1.4;
-      animation: slideIn 0.3s ease-out;
-    `;
-    
-    // Add slide-in animation
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes slideIn {
-        from {
-          opacity: 0;
-          transform: translateX(100%);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
-      }
-    `;
-    document.head.appendChild(style);
-    
+    toast.className = 'toast-message';
     toast.textContent = message;
     document.body.appendChild(toast);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
       if (toast.parentNode) {
-        toast.style.animation = 'slideIn 0.3s ease-out reverse';
+        toast.classList.add('toast-exit');
         setTimeout(() => {
           if (toast.parentNode) {
             toast.parentNode.removeChild(toast);
@@ -1459,7 +1414,7 @@ class FullPageCollector {
     // Add "All Tags" option
     const allTagsItem = document.createElement("div");
     allTagsItem.className = `dropdown-item ${tagFilter.value === '' ? 'active' : ''}`;
-    allTagsItem.innerHTML = tagFilter.value === '' ? '<span style="margin-right: 8px;">✓</span> All Tags' : 'All Tags';
+    allTagsItem.innerHTML = tagFilter.value === '' ? '<span style="margin-right: 8px;">✓</span>All Tags' : 'All Tags';
     allTagsItem.addEventListener("click", (e) => {
       e.stopPropagation();
       tagFilter.value = '';
@@ -1554,6 +1509,13 @@ class FullPageCollector {
               // Update dropdown to show the selected tag
               document.getElementById("tagFilter").value = tag;
             }
+          }
+
+          // Update filter button appearance
+          const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
+          const tagFilterElement = document.getElementById("tagFilter");
+          if (tagFilterContainer && tagFilterElement) {
+            this.updateFilterButtonAppearance(tagFilterContainer, tagFilterElement);
           }
 
           this.applyFilters();
@@ -1801,9 +1763,9 @@ class FullPageCollector {
         Found ${totalResults} of ${totalQuotes} quotes
         ${totalResults > 0 ? '<br><small>Search includes titles, content, and tags</small>' : ''}
       `;
-      searchIndicator.style.display = "block";
+      searchIndicator.classList.remove("hidden");
     } else {
-      searchIndicator.style.display = "none";
+      searchIndicator.classList.add("hidden");
     }
   }
 
@@ -1818,14 +1780,14 @@ class FullPageCollector {
     this.updateSearchResultsIndicator();
 
     if (this.filteredData.length === 0) {
-      contentContainer.style.display = "none";
-      noResults.style.display = "block";
+      contentContainer.classList.add("hidden");
+      noResults.classList.remove("hidden");
       this.hideLoadMoreButton();
       return;
     }
 
-    contentContainer.style.display = "block";
-    noResults.style.display = "none";
+    contentContainer.classList.remove("hidden");
+    noResults.classList.add("hidden");
 
     // Calculate pagination
     const startIndex = 0;
@@ -2035,6 +1997,14 @@ class FullPageCollector {
           return;
         }
 
+        // Don't show tooltip on tag filter button if a tag is active
+        if (e.currentTarget.getAttribute('data-tooltip') === 'Filter by tag') {
+          const tagFilter = document.getElementById('tagFilter');
+          if (tagFilter && tagFilter.value) {
+            return; // Don't show tooltip when a tag filter is active
+          }
+        }
+
         // Clear any pending hide timeout
         if (hideTimeout) {
           clearTimeout(hideTimeout);
@@ -2130,6 +2100,12 @@ class FullPageCollector {
           this.renderTagFilterDropdown();
           this.updateTagNavButtonStates();
           this.updateTagHeader();
+
+          // Update filter button appearance
+          const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
+          if (tagFilterContainer) {
+            this.updateFilterButtonAppearance(tagFilterContainer, tagFilter);
+          }
         });
       }
     }
@@ -2158,41 +2134,36 @@ class FullPageCollector {
   updateFilterButtonAppearance(container, selectElement) {
     const selectedValue = selectElement.value;
     const selectedText = selectElement.options[selectElement.selectedIndex].text;
-    
-    // Remove any existing clear button
+
+    // Get the actual button element (not the container)
+    const button = container.querySelector('#tag-filter-button');
+    if (!button) return;
+
+    // Remove any existing clear button and text label
     const existingClearBtn = container.querySelector('.filter-clear-btn');
-    if (existingClearBtn) {
-      existingClearBtn.remove();
-    }
-    
+    const existingLabel = container.querySelector('.filter-label');
+    if (existingClearBtn) existingClearBtn.remove();
+    if (existingLabel) existingLabel.remove();
+
     if (selectedValue && selectedValue !== '') {
-      // Show selected label with proper styling
-      container.style.width = 'auto';
-      container.style.minWidth = 'auto';
-      selectElement.style.width = 'auto';
-      selectElement.style.minWidth = 'auto';
-      selectElement.style.padding = '8px 40px 8px 32px';
-      selectElement.style.color = 'hsl(20, 14.3%, 4.1%)';
-      selectElement.style.background = 'hsl(0, 0%, 100%)';
-      selectElement.style.border = '1px solid hsl(20, 5.9%, 90%)';
-      selectElement.style.borderRadius = '8px';
-      selectElement.style.backgroundImage = `url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23374151\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6,9 12,15 18,9\'%3e%3c/polyline%3e%3c/svg%3e')`;
-      selectElement.style.backgroundRepeat = 'no-repeat';
-      selectElement.style.backgroundPosition = 'right 12px center';
-      selectElement.style.backgroundSize = '16px';
-      
-      // Remove active state styling
-      selectElement.style.outline = 'none';
-      selectElement.style.boxShadow = 'none';
-      
-      // Move the SVG icon to the left side
-      const svg = container.querySelector('svg');
-      if (svg) {
-        svg.style.left = '8px';
-        svg.style.transform = 'translateY(-50%)';
-      }
-      
-      // Add clear button (X) to the right side
+      // Expand button to show tag name
+      button.style.width = 'auto';
+      button.style.minWidth = '100px';
+      button.style.padding = '8px 32px 8px 12px';
+      button.style.gap = '6px';
+
+      // Add text label showing selected tag
+      const label = document.createElement('span');
+      label.className = 'filter-label';
+      label.textContent = selectedText;
+      label.style.cssText = `
+        color: hsl(20, 14.3%, 4.1%);
+        font-size: 14px;
+        white-space: nowrap;
+      `;
+      button.appendChild(label);
+
+      // Add clear button (X) on the right
       const clearBtn = document.createElement('button');
       clearBtn.className = 'filter-clear-btn';
       clearBtn.innerHTML = '×';
@@ -2207,7 +2178,7 @@ class FullPageCollector {
         background: transparent;
         color: #6b7280;
         border-radius: 50%;
-        font-size: 14px;
+        font-size: 18px;
         font-weight: bold;
         cursor: pointer;
         display: flex;
@@ -2215,65 +2186,55 @@ class FullPageCollector {
         justify-content: center;
         z-index: 3;
         transition: all 0.2s ease;
+        line-height: 1;
       `;
-      
+
       // Add hover effect
       clearBtn.addEventListener('mouseenter', () => {
         clearBtn.style.background = 'rgb(255, 217, 16)';
         clearBtn.style.color = '#374151';
         clearBtn.style.transform = 'translateY(-50%) scale(1.1)';
       });
-      
+
       clearBtn.addEventListener('mouseleave', () => {
         clearBtn.style.background = 'transparent';
         clearBtn.style.color = '#6b7280';
         clearBtn.style.transform = 'translateY(-50%) scale(1)';
       });
-      
+
       // Add click handler to clear the filter
       clearBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
+
+        // Hide any visible tooltips
+        const tooltips = document.querySelectorAll('.tooltip');
+        tooltips.forEach(tooltip => {
+          tooltip.classList.remove('show');
+          tooltip.remove();
+        });
+
         // Reset the select value
         selectElement.value = '';
-        
+
+        // Clear selected tags
+        this.selectedTags.clear();
+        this.updateTagNavButtonStates();
+
         // Update the appearance (this will remove the clear button)
         this.updateFilterButtonAppearance(container, selectElement);
-        
+
         // Apply filters to reload content
         this.applyFilters();
       });
-      
+
       container.appendChild(clearBtn);
-      
-      // Force resize to content by temporarily setting width to auto
-      setTimeout(() => {
-        const tempWidth = selectElement.scrollWidth;
-        selectElement.style.width = tempWidth + 'px';
-      }, 0);
     } else {
       // Reset to icon-only state
-      container.style.width = '32px';
-      container.style.minWidth = '32px';
-      selectElement.style.width = '32px';
-      selectElement.style.minWidth = '32px';
-      selectElement.style.padding = '0';
-      selectElement.style.color = 'transparent';
-      selectElement.style.background = 'hsl(0, 0%, 100%)';
-      selectElement.style.border = '1px solid hsl(20, 5.9%, 90%)';
-      selectElement.style.borderRadius = '8px';
-      selectElement.style.backgroundImage = 'none';
-      selectElement.style.backgroundRepeat = 'no-repeat';
-      selectElement.style.backgroundPosition = 'unset';
-      selectElement.style.backgroundSize = 'unset';
-      
-      // Center the SVG icon
-      const svg = container.querySelector('svg');
-      if (svg) {
-        svg.style.left = '50%';
-        svg.style.transform = 'translate(-50%, -50%)';
-      }
+      button.style.width = '36px';
+      button.style.minWidth = '36px';
+      button.style.padding = '0';
+      button.style.gap = '';
     }
   }
 
@@ -2285,13 +2246,13 @@ class FullPageCollector {
     const loadMoreContainer = document.getElementById("load-more-container");
 
     if (show) {
-      loading.style.display = "block";
-      content.style.display = "none";
-      authRequired.style.display = "none";
-      if (noResults) noResults.style.display = "none"; // Hide no-results during loading
-      if (loadMoreContainer) loadMoreContainer.style.display = "none"; // Hide load more button during loading
+      loading.classList.remove("hidden");
+      content.classList.add("hidden");
+      authRequired.classList.add("hidden");
+      if (noResults) noResults.classList.add("hidden");
+      if (loadMoreContainer) loadMoreContainer.classList.add("hidden");
     } else {
-      loading.style.display = "none";
+      loading.classList.add("hidden");
     }
   }
 
@@ -2300,10 +2261,10 @@ class FullPageCollector {
     const content = document.getElementById("content");
     const authRequired = document.getElementById("auth-required");
 
-    loading.style.display = "none";
-    content.style.display = "none";
-    authRequired.style.display = "block";
-    
+    loading.classList.add("hidden");
+    content.classList.add("hidden");
+    authRequired.classList.remove("hidden");
+
     // Ensure the auth button is functional
     const authButton = document.getElementById("auth-button");
     if (authButton) {
@@ -2311,18 +2272,18 @@ class FullPageCollector {
       authButton.replaceWith(authButton.cloneNode(true));
       const newAuthButton = document.getElementById("auth-button");
       let isAuthenticating = false;
-      
+
       newAuthButton.addEventListener("click", async () => {
         if (isAuthenticating) {
           console.log("Authentication already in progress, ignoring click");
           return;
         }
-        
+
         console.log("Auth button clicked");
         isAuthenticating = true;
         newAuthButton.disabled = true;
         newAuthButton.textContent = "Authenticating...";
-        
+
         try {
           await this.authenticateWithGoogle();
         } finally {
@@ -2348,12 +2309,12 @@ class FullPageCollector {
     if (loadMoreContainer) {
       // Only show if there's content and more items to load
       if (totalItems > 0 && displayedItems < totalItems) {
-        loadMoreContainer.style.display = "block";
+        loadMoreContainer.classList.remove("hidden");
         const remaining = totalItems - displayedItems;
         const loadMoreBtn = document.getElementById("load-more-btn");
         loadMoreBtn.textContent = `Load more (${remaining} remaining)`;
       } else {
-        loadMoreContainer.style.display = "none";
+        loadMoreContainer.classList.add("hidden");
       }
     }
   }
@@ -2361,7 +2322,7 @@ class FullPageCollector {
   hideLoadMoreButton() {
     const loadMoreContainer = document.getElementById("load-more-container");
     if (loadMoreContainer) {
-      loadMoreContainer.style.display = "none";
+      loadMoreContainer.classList.add("hidden");
     }
   }
 }
