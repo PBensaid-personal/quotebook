@@ -11,6 +11,8 @@ class EnhancedQuoteCollector {
     this.existingTags = []; // Tags from Google Sheets for autocomplete
     this.selectedAutocompleteIndex = -1; // Currently selected autocomplete item
     this.isLoadingCardData = false; // Flag to prevent extractPageMetadata from overwriting during edit mode load
+    this.currentSheetName = null; // Current selected sheet name for saving quotes
+    this.allSheetNames = []; // All available sheet names
     this.init();
   }
 
@@ -77,7 +79,11 @@ class EnhancedQuoteCollector {
       this.authenticateFixed();
     });
 
-    document.getElementById('save-button').addEventListener('click', () => {
+    document.getElementById('save-button').addEventListener('click', (e) => {
+      // Don't trigger save if clicking on the dropdown toggle area
+      if (e.target.closest('#save-button-dropdown-toggle')) {
+        return;
+      }
       this.saveQuote();
     });
 
@@ -87,6 +93,37 @@ class EnhancedQuoteCollector {
         window.open(`https://docs.google.com/spreadsheets/d/${result.googleSpreadsheetId}/edit`, '_blank');
       }
     });
+
+    // Sheet selector dropdown toggle
+    const dropdownToggle = document.getElementById('save-button-dropdown-toggle');
+    const sheetSelectorDropdown = document.getElementById('sheet-selector-popup-dropdown');
+    const saveButtonContainer = document.getElementById('save-button-container');
+    
+    if (dropdownToggle && sheetSelectorDropdown) {
+      dropdownToggle.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const isOpen = sheetSelectorDropdown.style.display !== 'none';
+        if (isOpen) {
+          sheetSelectorDropdown.style.display = 'none';
+          dropdownToggle.querySelector('svg').style.transform = 'rotate(0deg)';
+        } else {
+          await this.renderSheetSelectorPopup();
+          sheetSelectorDropdown.style.display = 'block';
+          dropdownToggle.querySelector('svg').style.transform = 'rotate(180deg)';
+        }
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (sheetSelectorDropdown && !sheetSelectorDropdown.contains(e.target) && 
+            saveButtonContainer && !saveButtonContainer.contains(e.target)) {
+          sheetSelectorDropdown.style.display = 'none';
+          if (dropdownToggle.querySelector('svg')) {
+            dropdownToggle.querySelector('svg').style.transform = 'rotate(0deg)';
+          }
+        }
+      });
+    }
 
     document.getElementById('view-all-icon').addEventListener('click', () => {
       chrome.tabs.create({ url: chrome.runtime.getURL('fullpage.html') });
@@ -194,6 +231,258 @@ class EnhancedQuoteCollector {
     this.renderUserTags();
   }
 
+  updateSheetNameDisplay() {
+    const sheetNameElement = document.getElementById('save-button-sheet-name');
+    if (sheetNameElement) {
+      sheetNameElement.textContent = this.currentSheetName || 'My quotes';
+    }
+  }
+
+  async loadSheetNames() {
+    try {
+      const result = await chrome.storage.local.get(['googleSpreadsheetId']);
+      if (!result.googleSpreadsheetId) {
+        this.allSheetNames = [];
+        this.updateSheetNameDisplay();
+        return;
+      }
+
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}?fields=sheets.properties`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.ok) {
+        const metadata = await response.json();
+        this.allSheetNames = metadata.sheets.map(s => s.properties.title);
+        
+        // If no sheet selected or selected sheet doesn't exist, use first sheet or 'My quotes'
+        if (!this.currentSheetName || !this.allSheetNames.includes(this.currentSheetName)) {
+          this.currentSheetName = this.allSheetNames.find(s => s === 'My quotes') || this.allSheetNames[0] || 'My quotes';
+          await chrome.storage.local.set({ currentSheetName: this.currentSheetName });
+        }
+        this.updateSheetNameDisplay();
+      } else {
+        this.allSheetNames = [];
+        this.updateSheetNameDisplay();
+      }
+    } catch (error) {
+      console.error('Failed to load sheet names:', error);
+      this.allSheetNames = [];
+      this.updateSheetNameDisplay();
+    }
+  }
+
+  async renderSheetSelectorPopup() {
+    const dropdown = document.getElementById('sheet-selector-popup-dropdown');
+    if (!dropdown) return;
+
+    // Refresh sheet names
+    await this.loadSheetNames();
+
+    // Update the sheet name in the button
+    this.updateSheetNameDisplay();
+
+    // Clear dropdown
+    dropdown.innerHTML = '';
+
+    // Add each sheet as an option
+    this.allSheetNames.forEach((sheetName) => {
+      const item = document.createElement('div');
+      item.className = `sheet-selector-popup-item ${sheetName === this.currentSheetName ? 'active' : ''}`;
+      if (sheetName === this.currentSheetName) {
+        item.innerHTML = `<span style="margin-right: 8px;">✓</span>${sheetName}`;
+      } else {
+        item.textContent = sheetName;
+      }
+      
+      item.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (sheetName !== this.currentSheetName) {
+          this.currentSheetName = sheetName;
+          await chrome.storage.local.set({ currentSheetName: sheetName });
+          this.renderSheetSelectorPopup(); // Re-render to update active state
+        }
+        dropdown.style.display = 'none';
+        const dropdownToggle = document.getElementById('save-button-dropdown-toggle');
+        if (dropdownToggle && dropdownToggle.querySelector('svg')) {
+          dropdownToggle.querySelector('svg').style.transform = 'rotate(0deg)';
+        }
+      });
+
+      dropdown.appendChild(item);
+    });
+
+    // Add "Create new tab" option
+    const createNew = document.createElement('div');
+    createNew.className = 'sheet-selector-popup-item create-new';
+    createNew.textContent = '+ Create new collection';
+    createNew.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await this.showCreateSheetDialogPopup();
+      dropdown.style.display = 'none';
+      const dropdownToggle = document.getElementById('save-button-dropdown-toggle');
+      if (dropdownToggle && dropdownToggle.querySelector('svg')) {
+        dropdownToggle.querySelector('svg').style.transform = 'rotate(0deg)';
+      }
+    });
+    dropdown.appendChild(createNew);
+  }
+
+  async showCreateSheetDialogPopup() {
+    // Get next available sheet number
+    let sheetNumber = 1;
+    while (this.allSheetNames.includes(`Sheet ${sheetNumber}`)) {
+      sheetNumber++;
+    }
+    const defaultName = `Sheet ${sheetNumber}`;
+
+    // Show custom modal with input
+    const sheetName = await this.showCreateSheetModalPopup(defaultName);
+    
+    if (!sheetName || sheetName.trim() === '') {
+      return; // User cancelled or entered empty name
+    }
+
+    const trimmedName = sheetName.trim();
+    
+    // Check if name already exists
+    if (this.allSheetNames.includes(trimmedName)) {
+      this.showStatus(`A sheet named "${trimmedName}" already exists. Please choose a different name.`, 'error');
+      // Show the modal again with the same default
+      return await this.showCreateSheetDialogPopup();
+    }
+
+    await this.createNewSheetPopup(trimmedName);
+  }
+
+  showCreateSheetModalPopup(defaultName) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('create-sheet-modal-popup');
+      const input = document.getElementById('create-sheet-input-popup');
+      const confirmBtn = document.getElementById('confirm-create-sheet-popup');
+      const cancelBtn = document.getElementById('cancel-create-sheet-popup');
+      
+      // Set default value
+      input.value = defaultName;
+      input.focus();
+      input.select();
+      
+      // Show modal
+      modal.style.display = 'flex';
+      
+      // Handle confirm
+      const handleConfirm = () => {
+        const value = input.value.trim();
+        cleanup();
+        resolve(value);
+      };
+      
+      // Handle cancel
+      const handleCancel = () => {
+        cleanup();
+        resolve(null);
+      };
+      
+      // Handle Enter key
+      const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleConfirm();
+        } else if (e.key === 'Escape') {
+          handleCancel();
+        }
+      };
+      
+      // Handle clicking outside modal
+      const handleOverlayClick = (e) => {
+        if (e.target === modal) {
+          handleCancel();
+        }
+      };
+      
+      // Cleanup function
+      const cleanup = () => {
+        modal.style.display = 'none';
+        input.value = '';
+        confirmBtn.removeEventListener('click', handleConfirm);
+        cancelBtn.removeEventListener('click', handleCancel);
+        input.removeEventListener('keydown', handleKeyDown);
+        modal.removeEventListener('click', handleOverlayClick);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+      
+      // Add event listeners
+      confirmBtn.addEventListener('click', handleConfirm);
+      cancelBtn.addEventListener('click', handleCancel);
+      input.addEventListener('keydown', handleKeyDown);
+      modal.addEventListener('click', handleOverlayClick);
+    });
+  }
+
+  async createNewSheetPopup(sheetName) {
+    try {
+      // Create new sheet using batchUpdate
+      const createResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            requests: [
+              {
+                addSheet: {
+                  properties: {
+                    title: sheetName
+                  }
+                }
+              }
+            ]
+          })
+        }
+      );
+
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json();
+        throw new Error(errorData.error?.message || 'Failed to create sheet');
+      }
+
+      // Add headers to the new sheet
+      const escapedSheetName = `'${sheetName.replace(/'/g, "''")}'`;
+      await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A1:G1?valueInputOption=RAW`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            values: [['Title', 'Content', 'URL', 'Tags', 'Timestamp', 'Image', 'Price']]
+          })
+        }
+      );
+
+      // Refresh sheet list and switch to new sheet
+      await this.loadSheetNames();
+      this.currentSheetName = sheetName;
+      await chrome.storage.local.set({ currentSheetName: sheetName });
+      this.updateSheetNameDisplay();
+      this.renderSheetSelectorPopup();
+    } catch (error) {
+      console.error('Failed to create sheet:', error);
+      alert(`Failed to create sheet: ${error.message}`);
+    }
+  }
+
   async loadExistingTags() {
     try {
       const result = await chrome.storage.local.get(['googleSpreadsheetId']);
@@ -203,9 +492,13 @@ class EnhancedQuoteCollector {
       }
 
 
+      // Use current sheet name or default to 'My quotes'
+      const sheetName = this.currentSheetName || 'My quotes';
+      const escapedSheetName = `'${sheetName.replace(/'/g, "''")}'`;
+      
       // Fetch all data from the sheet to extract unique tags
       const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}/values/'Saved Quotes'!A:H`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${result.googleSpreadsheetId}/values/${escapedSheetName}!A:H`,
         {
           headers: {
             'Authorization': `Bearer ${this.accessToken}`,
@@ -260,11 +553,12 @@ class EnhancedQuoteCollector {
       }
       
       // Check for cached authentication state
-      const authState = await chrome.storage.local.get(['isAuthenticated', 'googleAccessToken', 'googleSpreadsheetId']);
+      const authState = await chrome.storage.local.get(['isAuthenticated', 'googleAccessToken', 'googleSpreadsheetId', 'currentSheetName']);
       
       if (authState.isAuthenticated && authState.googleAccessToken && authState.googleSpreadsheetId) {
         this.accessToken = authState.googleAccessToken;
         this.spreadsheetId = authState.googleSpreadsheetId;
+        this.currentSheetName = authState.currentSheetName || null;
         
         // Quick validation - try to get token without interactive flow
         try {
@@ -275,6 +569,8 @@ class EnhancedQuoteCollector {
             // Quick test if still valid
             const isValid = await this.validateToken();
             if (isValid) {
+              // Load sheet names and set current sheet
+              await this.loadSheetNames();
               await this.loadExistingTags();
               this.showMainInterface();
               return;
@@ -461,6 +757,8 @@ class EnhancedQuoteCollector {
         googleSpreadsheetId: this.spreadsheetId
       });
       
+      // Load sheet names and set current sheet
+      await this.loadSheetNames();
       this.showMainInterface();
 
     } catch (error) {
@@ -550,7 +848,8 @@ class EnhancedQuoteCollector {
 
           this.showStatus(`Connected to existing "${existingSheets[0].name}"`, 'success');
           
-          // Now load tags from the connected spreadsheet
+          // Now load sheet names and tags from the connected spreadsheet
+          await this.loadSheetNames();
           await this.loadExistingTags();
           return;
         }
@@ -571,7 +870,7 @@ class EnhancedQuoteCollector {
           },
           sheets: [{
             properties: {
-              title: 'Saved Quotes'
+              title: 'My quotes'
             }
           }]
         })
@@ -591,7 +890,8 @@ class EnhancedQuoteCollector {
 
         this.showStatus('New Quotebook spreadsheet created!', 'success');
         
-        // Load tags from the newly created spreadsheet (will be empty initially)
+        // Load sheet names and tags from the newly created spreadsheet (will be empty initially)
+        await this.loadSheetNames();
         await this.loadExistingTags();
       } else {
         const error = await response.text();
@@ -770,7 +1070,11 @@ class EnhancedQuoteCollector {
         price // Price column
       ];
 
-      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
+      // Use current sheet name or default to 'My quotes'
+      const sheetName = this.currentSheetName || 'My quotes';
+      const escapedSheetName = `'${sheetName.replace(/'/g, "''")}'`;
+
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A:G:append?valueInputOption=RAW`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -838,8 +1142,12 @@ class EnhancedQuoteCollector {
         price // Price column
       ];
       
+      // Use current sheet name or default to 'My quotes'
+      const sheetName = this.currentSheetName || 'My quotes';
+      const escapedSheetName = `'${sheetName.replace(/'/g, "''")}'`;
+      
       // First, add the new row
-      const addResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A:G:append?valueInputOption=RAW`, {
+      const addResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A:G:append?valueInputOption=RAW`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,

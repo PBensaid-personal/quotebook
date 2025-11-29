@@ -103,6 +103,138 @@
         color: white;
       }
 
+      .sheet-selector-popup-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: rgba(255, 255, 255, 0.5);
+        color: #111111;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+      }
+
+      .sheet-selector-popup-item:last-child {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .sheet-selector-popup-item:hover {
+        background: rgba(255, 255, 255, 0.6);
+        color: #000000;
+      }
+
+      .sheet-selector-popup-item.active {
+        background: rgba(255, 255, 255, 0.3);
+        color: #bbbbbb;
+        font-weight: 600;
+      }
+
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        backdrop-filter: blur(12px);
+      }
+
+      .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 400px;
+        width: 90%;
+        margin: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+        animation: modalAppear 0.2s ease-out;
+      }
+
+      @keyframes modalAppear {
+        from {
+          opacity: 0;
+          transform: scale(0.95) translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+
+      .modal-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .modal-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: #f2f2f2;
+        color: #666666;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .modal-text h3 {
+        margin: 0 0 8px 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: hsl(220, 30%, 18%);
+      }
+
+      .modal-text p {
+        margin: 0;
+        font-size: 14px;
+        color: hsl(25, 5.3%, 44.7%);
+        line-height: 1.5;
+      }
+
+      .modal-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+      }
+
+      .modal-btn {
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .modal-btn.secondary {
+        background: hsl(210, 20%, 98%);
+        color: hsl(25, 5.3%, 44.7%);
+        border: 1px solid hsl(210, 20%, 90%);
+      }
+
+      .modal-btn.secondary:hover {
+        background: hsl(210, 20%, 95%);
+        border-color: hsl(210, 20%, 85%);
+      }
+
+      .modal-btn.danger {
+        background: #dc2626;
+        color: white;
+      }
+
+      .modal-btn.danger:hover {
+        background: #b91c1c;
+        box-shadow: 0 4px 8px rgba(220, 38, 38, 0.25);
+      }
+
       .icon-text {
         font-size: 13px;
         font-weight: 500;
@@ -272,7 +404,7 @@
         font-size: 18px;
         font-family: "Libre Baskerville", Georgia, serif;
         line-height: 1.3;
-        color: #999999;
+        color: #bbbbbb;
         resize: auto;
         max-height: 120px;
       }
@@ -333,7 +465,7 @@
         border-radius: 6px;
         font-size: 14px;
         background: #111111;
-        color: #333333;
+        color: #bbbbbb;
       }
 
       .tag-input::placeholder {
@@ -394,6 +526,20 @@
         padding: 16px;
       }
 
+      #save-button-container {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+        width: 100%;
+        margin-bottom: 8px;
+      }
+
+      #save-button-container .btn {
+        display: flex;
+        align-items: center;
+        box-sizing: border-box;
+      }
+
       .btn {
         display: inline-flex;
         align-items: center;
@@ -407,13 +553,35 @@
         transition: all 0.2s;
         border: none;
         text-decoration: none;
+        box-sizing: border-box;
       }
 
       .btn-primary {
         background: rgba(255, 255, 255, 0.1);
         color: rgba(255, 255, 255, 0.6);
-        width: 100%;
-        margin-bottom: 8px;
+      }
+
+      #save-button {
+        flex: 1;
+        border-radius: 6px 0 0 6px;
+        margin-bottom: 0;
+      }
+
+      #save-button-dropdown-toggle {
+        padding: 10px 12px;
+        border-radius: 0 6px 6px 0;
+        margin-bottom: 0;
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        flex-shrink: 0;
+        align-self: stretch;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #save-button-dropdown-toggle:hover {
+        background: rgb(255, 217, 16);
+        color: black;
       }
 
       .saved-state-container .btn-primary {
@@ -1094,11 +1262,21 @@
       </div>
 
         <!-- Action Buttons -->
-        <div class="actions">
-          <button id="save-button" class="btn btn-primary">
-            <span id="save-button-text">Save</span>
-            <span id="save-button-status" class="save-button-status" style="display: none;"></span>
-          </button>
+        <div class="actions" style="position: relative;">
+          <div id="save-button-container" style="display: flex; align-items: stretch; gap: 0;">
+            <button id="save-button" class="btn btn-primary" style="flex: 1; border-radius: 6px 0 0 6px; margin-bottom: 0;">
+              <span id="save-button-text">Save to "<span id="save-button-sheet-name">My quotes</span>"</span>
+              <span id="save-button-status" class="save-button-status" style="display: none;"></span>
+            </button>
+            <button id="save-button-dropdown-toggle" class="btn btn-primary" style="padding: 10px 12px; border-radius: 0 6px 6px 0; margin-bottom: 0; border-left: 1px solid rgba(255, 255, 255, 0.1); flex-shrink: 0;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s ease;">
+                <polyline points="6,9 12,15 18,9"></polyline>
+              </svg>
+            </button>
+          </div>
+          <div id="sheet-selector-popup-dropdown" style="display: none; position: absolute; bottom: calc(100% - 16px); left: 120px; right: 24px; background: hsl(220, 4%, 16%); border: none; border-radius: 8px 8px 0 0; max-height: 300px; overflow-y: auto; z-index: 1000;">
+            <!-- Sheet list will be populated by JavaScript -->
+          </div>
         </div>
 
         <!-- Saved State Container -->
@@ -1109,6 +1287,46 @@
           <div id="post-save-actions" class="post-save-actions">
             <button id="view-collection-btn" class="btn btn-outline">View in collection</button>
             <button id="close-btn" class="btn btn-outline">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Sheet Modal -->
+    <div id="create-sheet-modal-popup" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000; backdrop-filter: blur(12px); align-items: center; justify-content: center;">
+      <div class="modal-content" style="background: hsl(220, 4%, 16%); border-radius: 8px; padding: 24px; max-width: 400px; width: 90%; margin: 20px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35); animation: modalAppear 0.2s ease-out;">
+        <div class="modal-header" style="display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px;">
+          <div class="modal-icon" style="width: 48px; height: 48px; border-radius: 12px; background: rgba(255, 255, 255, 0.1); color: #cbd5e1; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14"/>
+              <path d="M12 5v14"/>
+            </svg>
+          </div>
+          <div class="modal-text" style="flex: 1;">
+            <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: white;">Create new collection</h3>
+            <p style="margin: 0; font-size: 14px; color: #cbd5e1; line-height: 1.5;">Enter a name for the new tab:</p>
+          </div>
+        </div>
+        <div style="padding: 0 0 24px;">
+          <input
+            type="text"
+            id="create-sheet-input-popup"
+            placeholder="Sheet name"
+            style="
+              width: 100%;
+              padding: 12px;
+              background: #111111;
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              border-radius: 8px;
+              color: #cbd5e1;
+              font-size: 14px;
+              box-sizing: border-box;
+              margin-bottom: 16px;
+            "
+          />
+          <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end;">
+            <button id="cancel-create-sheet-popup" class="modal-btn secondary" style="background: rgba(255, 255, 255, 0.1); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.2);">Cancel</button>
+            <button id="confirm-create-sheet-popup" class="modal-btn" style="background: rgb(255, 217, 16); color: black; border: none;">Create</button>
           </div>
         </div>
       </div>
