@@ -10,6 +10,8 @@ class FullPageCollector {
     this.itemsPerPage = 30;
     this.currentPage = 1;
     this.selectedTags = new Set(); // Track multiple selected tags
+    this.currentSheetName = null; // Current selected sheet name
+    this.allSheetNames = []; // All available sheet names
     this.init();
     this.setupMessageListener();
   }
@@ -37,6 +39,7 @@ class FullPageCollector {
     let result = await chrome.storage.local.get([
       "googleAccessToken",
       "googleSpreadsheetId",
+      "currentSheetName",
     ]);
 
     // If no data found, try a few more times with delays (popup may have just saved)
@@ -73,13 +76,14 @@ class FullPageCollector {
       }
 
       this.spreadsheetId = result.googleSpreadsheetId;
+      this.currentSheetName = result.currentSheetName || null; // Restore selected sheet
 
       // Verify spreadsheet access with exponential retry for network resilience
       let verified = false;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const sheetsResponse = await fetch(
-            `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}`,
+            `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}?fields=sheets.properties`,
             {
               headers: {
                 Authorization: `Bearer ${this.accessToken}`,
@@ -89,7 +93,16 @@ class FullPageCollector {
 
           if (sheetsResponse.ok) {
             verified = true;
-            this.updateSpreadsheetLink();
+            const metadata = await sheetsResponse.json();
+            this.allSheetNames = metadata.sheets.map(s => s.properties.title);
+            
+            // If no sheet selected or selected sheet doesn't exist, use first sheet
+            if (!this.currentSheetName || !this.allSheetNames.includes(this.currentSheetName)) {
+              this.currentSheetName = this.allSheetNames[0] || 'My quotes';
+              await chrome.storage.local.set({ currentSheetName: this.currentSheetName });
+            }
+            
+            this.renderSheetSelector();
             await this.loadContent();
             break;
           } else if (sheetsResponse.status === 401 || sheetsResponse.status === 403) {
@@ -137,10 +150,37 @@ class FullPageCollector {
   setupEventListeners() {
     const searchInput = document.getElementById("searchInput");
     const tagFilter = document.getElementById("tagFilter");
-    const dateFilter = document.getElementById("dateFilter");
     const authButton = document.getElementById("auth-button");
-    const spreadsheetLink = document.getElementById("spreadsheet-link");
     const logo = document.getElementById("logo");
+    const sheetSelectorButton = document.getElementById("sheet-selector-button");
+    const sheetSelectorDropdown = document.getElementById("sheet-selector-dropdown");
+
+    // Sheet selector dropdown toggle
+    if (sheetSelectorButton) {
+      sheetSelectorButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        
+        // Close filter dropdowns if open
+        const tagFilterDropdown = document.getElementById('tag-filter-dropdown');
+        const tagFilterButton = document.getElementById('tag-filter-button');
+        if (tagFilterDropdown && tagFilterDropdown.classList.contains("show")) {
+          tagFilterDropdown.classList.remove("show");
+          if (tagFilterButton) tagFilterButton.classList.remove("active");
+        }
+        
+        const isOpen = sheetSelectorDropdown.classList.contains("show");
+        if (isOpen) {
+          sheetSelectorDropdown.classList.remove("show");
+          sheetSelectorButton.classList.remove("active");
+        } else {
+          this.renderSheetSelector();
+          sheetSelectorDropdown.classList.add("show");
+          sheetSelectorButton.classList.add("active");
+        }
+      });
+    }
+
+    // Close dropdown when clicking outside (handled in initDropdownButtons)
 
     if (searchInput) {
       searchInput.addEventListener("input", () => this.applyFilters());
@@ -154,22 +194,8 @@ class FullPageCollector {
         this.applyFilters();
       });
     }
-    if (dateFilter) {
-      dateFilter.addEventListener("change", () => this.applyFilters());
-    }
     if (authButton) {
       authButton.addEventListener("click", () => this.authenticateWithGoogle());
-    }
-    if (spreadsheetLink) {
-      spreadsheetLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        if (this.spreadsheetId) {
-          window.open(
-            `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit`,
-            "_blank",
-          );
-        }
-      });
     }
     if (logo) {
       logo.addEventListener("click", (e) => {
@@ -177,19 +203,14 @@ class FullPageCollector {
         // Clear all filters and return to full view
         document.getElementById("searchInput").value = "";
         document.getElementById("tagFilter").value = "";
-        document.getElementById("dateFilter").value = "";
         this.selectedTags.clear();
         this.updateTagNavButtonStates();
         this.updateTagHeader();
 
-        // Reset filter button appearances
+        // Reset filter button appearance
         const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
-        const dateFilterContainer = document.querySelector('[data-tooltip="Filter by time"]');
         if (tagFilterContainer) {
           this.updateFilterButtonAppearance(tagFilterContainer, document.getElementById("tagFilter"));
-        }
-        if (dateFilterContainer) {
-          this.updateFilterButtonAppearance(dateFilterContainer, document.getElementById("dateFilter"));
         }
 
         // Reset to first page and reload content
@@ -263,6 +284,14 @@ class FullPageCollector {
         googleSpreadsheetId: spreadsheetId,
       });
 
+      // Load sheet names and set current sheet
+      await this.getAllSheetNames();
+      if (!this.currentSheetName && this.allSheetNames.length > 0) {
+        this.currentSheetName = this.allSheetNames[0];
+        await chrome.storage.local.set({ currentSheetName: this.currentSheetName });
+      }
+      
+      this.renderSheetSelector();
       await this.loadContent();
     } catch (error) {
       console.error("Authentication failed:", error);
@@ -342,7 +371,7 @@ class FullPageCollector {
             sheets: [
               {
                 properties: {
-                  title: "Saved Quotes",
+                  title: "My quotes",
                 },
               },
             ],
@@ -355,7 +384,7 @@ class FullPageCollector {
 
       // Add headers
       await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:F1?valueInputOption=RAW`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:G1?valueInputOption=RAW`,
         {
           method: "PUT",
           headers: {
@@ -363,7 +392,7 @@ class FullPageCollector {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            values: [["Title", "Content", "URL", "Tags", "Timestamp", "Image"]],
+            values: [["Title", "Content", "URL", "Tags", "Timestamp", "Image", "Price"]],
           }),
         },
       );
@@ -374,6 +403,467 @@ class FullPageCollector {
       console.error("Failed to setup spreadsheet:", error);
       throw error;
     }
+  }
+
+  async getAllSheetNames() {
+    try {
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}?fields=sheets.properties`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+        },
+      );
+
+      if (response.ok) {
+        const metadata = await response.json();
+        this.allSheetNames = metadata.sheets.map(s => s.properties.title);
+        return this.allSheetNames;
+      } else {
+        throw new Error(`Failed to fetch sheets: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Failed to get sheet names:", error);
+      return [];
+    }
+  }
+
+  renderSheetSelector() {
+    const dropdown = document.getElementById("sheet-selector-dropdown");
+    const buttonName = document.getElementById("sheet-selector-name");
+    
+    if (!dropdown || !buttonName) return;
+
+    // Update button text
+    buttonName.textContent = this.currentSheetName || 'My quotes';
+
+    // Clear dropdown
+    dropdown.innerHTML = '';
+
+    // Add each sheet as an option
+    this.allSheetNames.forEach((sheetName) => {
+      const container = document.createElement("div");
+      container.className = `dropdown-item ${sheetName === this.currentSheetName ? 'active' : ''}`;
+      container.style.cssText = "display: flex; align-items: center; justify-content: space-between; width: 100%;";
+      
+      const item = document.createElement("div");
+      item.style.cssText = "flex: 1; justify-content: flex-start;";
+      if (sheetName === this.currentSheetName) {
+        item.innerHTML = `<span style="margin-right: 8px;">✓</span>${sheetName}`;
+      } else {
+        item.textContent = sheetName;
+      }
+      
+      container.addEventListener("click", async (e) => {
+        // Don't trigger if clicking the delete button
+        if (!e.target.closest('[data-delete-btn]')) {
+          e.stopPropagation();
+          if (sheetName !== this.currentSheetName) {
+            await this.switchSheet(sheetName);
+          }
+          dropdown.classList.remove("show");
+          const button = document.getElementById("sheet-selector-button");
+          if (button) button.classList.remove("active");
+        }
+      });
+
+      container.appendChild(item);
+
+      // Add delete button for each sheet (except if it's the only sheet)
+      if (this.allSheetNames.length > 1) {
+        const deleteBtn = document.createElement("div");
+        deleteBtn.className = "dropdown-delete-btn";
+        deleteBtn.setAttribute("data-delete-btn", "true");
+        deleteBtn.title = `Delete "${sheetName}"`;
+        deleteBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+            <path d="M3 6h18"/>
+            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+        `;
+        
+        deleteBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const confirmed = await this.showDeleteSheetConfirmation(sheetName);
+          if (confirmed) {
+            await this.deleteSheet(sheetName);
+          }
+        });
+
+        container.appendChild(deleteBtn);
+      }
+      
+      dropdown.appendChild(container);
+    });
+
+    // Add "Create new tab" option
+    const createNew = document.createElement("div");
+    createNew.className = "dropdown-item create-new";
+    createNew.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    `;
+    createNew.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+        <path d="M5 12h14"/>
+        <path d="M12 5v14"/>
+      </svg>
+      <span>Create new collection</span>
+    `;
+    createNew.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await this.showCreateSheetDialog();
+      dropdown.classList.remove("show");
+      const button = document.getElementById("sheet-selector-button");
+      if (button) button.classList.remove("active");
+    });
+    dropdown.appendChild(createNew);
+
+    // Add "Open your Google Sheet" option
+    if (this.spreadsheetId) {
+      const openSheet = document.createElement("div");
+      openSheet.className = "dropdown-item";
+      openSheet.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      `;
+      openSheet.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+          <path d="M7 7h10v10"/>
+          <path d="M7 17 17 7"/>
+        </svg>
+        <span>Open your Google Sheet</span>
+      `;
+      openSheet.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (this.spreadsheetId) {
+          window.open(
+            `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit`,
+            "_blank",
+          );
+        }
+        dropdown.classList.remove("show");
+        const button = document.getElementById("sheet-selector-button");
+        if (button) button.classList.remove("active");
+      });
+      dropdown.appendChild(openSheet);
+    }
+  }
+
+  async showCreateSheetDialog() {
+    // Get next available sheet number
+    let sheetNumber = 1;
+    while (this.allSheetNames.includes(`Sheet ${sheetNumber}`)) {
+      sheetNumber++;
+    }
+    const defaultName = `Sheet ${sheetNumber}`;
+
+    // Show custom modal with input
+    const sheetName = await this.showCreateSheetModal(defaultName);
+    
+    if (!sheetName || sheetName.trim() === '') {
+      return; // User cancelled or entered empty name
+    }
+
+    const trimmedName = sheetName.trim();
+    
+    // Check if name already exists
+    if (this.allSheetNames.includes(trimmedName)) {
+      this.showErrorMessage(`A sheet named "${trimmedName}" already exists. Please choose a different name.`);
+      // Show the modal again with the same default
+      return await this.showCreateSheetDialog();
+    }
+
+    await this.createNewSheet(trimmedName);
+  }
+
+  showDeleteSheetConfirmation(sheetName) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('delete-sheet-modal');
+      const message = document.getElementById('delete-sheet-message');
+      const confirmBtn = document.getElementById('confirm-delete-sheet');
+      const cancelBtn = document.getElementById('cancel-delete-sheet');
+      
+      // Update message with sheet name
+      message.textContent = `Are you sure you want to permanently delete the sheet "${sheetName}"? This action cannot be undone.`;
+      
+      // Show modal
+      modal.style.display = 'flex';
+      
+      // Handle confirm
+      const handleConfirm = () => {
+        cleanup();
+        resolve(true);
+      };
+      
+      // Handle cancel
+      const handleCancel = () => {
+        cleanup();
+        resolve(false);
+      };
+      
+      // Handle clicking outside modal
+      const handleOverlayClick = (e) => {
+        if (e.target === modal) {
+          handleCancel();
+        }
+      };
+      
+      // Handle escape key
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          handleCancel();
+        }
+      };
+      
+      // Cleanup function
+      const cleanup = () => {
+        modal.style.display = 'none';
+        confirmBtn.removeEventListener('click', handleConfirm);
+        cancelBtn.removeEventListener('click', handleCancel);
+        modal.removeEventListener('click', handleOverlayClick);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+      
+      // Add event listeners
+      confirmBtn.addEventListener('click', handleConfirm);
+      cancelBtn.addEventListener('click', handleCancel);
+      modal.addEventListener('click', handleOverlayClick);
+      document.addEventListener('keydown', handleKeyDown);
+    });
+  }
+
+  showCreateSheetModal(defaultName) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('create-sheet-modal');
+      const input = document.getElementById('create-sheet-input');
+      const confirmBtn = document.getElementById('confirm-create-sheet');
+      const cancelBtn = document.getElementById('cancel-create-sheet');
+      
+      // Set default value
+      input.value = defaultName;
+      input.focus();
+      input.select();
+      
+      // Show modal
+      modal.style.display = 'flex';
+      
+      // Handle confirm
+      const handleConfirm = () => {
+        const value = input.value.trim();
+        cleanup();
+        resolve(value);
+      };
+      
+      // Handle cancel
+      const handleCancel = () => {
+        cleanup();
+        resolve(null);
+      };
+      
+      // Handle Enter key
+      const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleConfirm();
+        } else if (e.key === 'Escape') {
+          handleCancel();
+        }
+      };
+      
+      // Handle clicking outside modal
+      const handleOverlayClick = (e) => {
+        if (e.target === modal) {
+          handleCancel();
+        }
+      };
+      
+      // Cleanup function
+      const cleanup = () => {
+        modal.style.display = 'none';
+        input.value = '';
+        confirmBtn.removeEventListener('click', handleConfirm);
+        cancelBtn.removeEventListener('click', handleCancel);
+        input.removeEventListener('keydown', handleKeyDown);
+        modal.removeEventListener('click', handleOverlayClick);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+      
+      // Add event listeners
+      confirmBtn.addEventListener('click', handleConfirm);
+      cancelBtn.addEventListener('click', handleCancel);
+      input.addEventListener('keydown', handleKeyDown);
+      modal.addEventListener('click', handleOverlayClick);
+    });
+  }
+
+  async createNewSheet(sheetName) {
+    try {
+      // First, get the sheet ID for the first sheet to copy headers
+      const metadataResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}?fields=sheets.properties`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+        },
+      );
+
+      if (!metadataResponse.ok) {
+        throw new Error("Failed to get spreadsheet metadata");
+      }
+
+      const metadata = await metadataResponse.json();
+      const firstSheetId = metadata.sheets[0].properties.sheetId;
+
+      // Create new sheet using batchUpdate
+      const createResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requests: [
+              {
+                addSheet: {
+                  properties: {
+                    title: sheetName,
+                  },
+                },
+              },
+            ],
+          }),
+        },
+      );
+
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json();
+        throw new Error(errorData.error?.message || "Failed to create sheet");
+      }
+
+      // Add headers to the new sheet
+      const escapedSheetName = `'${sheetName.replace(/'/g, "''")}'`;
+      await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A1:G1?valueInputOption=RAW`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            values: [["Title", "Content", "URL", "Tags", "Timestamp", "Image", "Price"]],
+          }),
+        },
+      );
+
+      // Refresh sheet list and switch to new sheet
+      await this.getAllSheetNames();
+      await this.switchSheet(sheetName);
+      this.renderSheetSelector();
+    } catch (error) {
+      console.error("Failed to create sheet:", error);
+      alert(`Failed to create sheet: ${error.message}`);
+    }
+  }
+
+  async deleteSheet(sheetName) {
+    try {
+      // Don't allow deleting if it's the only sheet
+      if (this.allSheetNames.length <= 1) {
+        alert("Cannot delete the last remaining sheet.");
+        return;
+      }
+
+      // Get sheet ID
+      const metadataResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}?fields=sheets.properties`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+        },
+      );
+
+      if (!metadataResponse.ok) {
+        throw new Error("Failed to get spreadsheet metadata");
+      }
+
+      const metadata = await metadataResponse.json();
+      const sheetToDelete = metadata.sheets.find(s => s.properties.title === sheetName);
+      
+      if (!sheetToDelete) {
+        throw new Error(`Sheet "${sheetName}" not found`);
+      }
+
+      const sheetId = sheetToDelete.properties.sheetId;
+
+      // Delete sheet using batchUpdate
+      const deleteResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requests: [
+              {
+                deleteSheet: {
+                  sheetId: sheetId,
+                },
+              },
+            ],
+          }),
+        },
+      );
+
+      if (!deleteResponse.ok) {
+        const errorData = await deleteResponse.json();
+        throw new Error(errorData.error?.message || "Failed to delete sheet");
+      }
+
+      // If deleted sheet was current, switch to first available sheet
+      if (sheetName === this.currentSheetName) {
+        await this.getAllSheetNames();
+        if (this.allSheetNames.length > 0) {
+          await this.switchSheet(this.allSheetNames[0]);
+        }
+      } else {
+        await this.getAllSheetNames();
+      }
+
+      this.renderSheetSelector();
+    } catch (error) {
+      console.error("Failed to delete sheet:", error);
+      alert(`Failed to delete sheet: ${error.message}`);
+    }
+  }
+
+  async switchSheet(sheetName) {
+    this.currentSheetName = sheetName;
+    await chrome.storage.local.set({ currentSheetName: sheetName });
+    this.renderSheetSelector();
+    
+    // Reset filters and reload content
+    document.getElementById("searchInput").value = "";
+    document.getElementById("tagFilter").value = "";
+    this.selectedTags.clear();
+    this.updateTagNavButtonStates();
+    this.updateTagHeader();
+    
+    await this.loadContent();
   }
 
   async loadContent() {
@@ -405,8 +895,12 @@ class FullPageCollector {
         );
       }
 
+      // Use current sheet name, escape single quotes in sheet name
+      const sheetName = this.currentSheetName || 'My quotes';
+      const escapedSheetName = `'${sheetName.replace(/'/g, "''")}'`;
+      
       const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A2:G1000`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A2:G1000`,
         {
           headers: {
             Authorization: `Bearer ${this.accessToken}`,
@@ -432,6 +926,40 @@ class FullPageCollector {
       const data = await response.json();
       const rows = data.values || [];
 
+      // Check if Price column header exists, add it if missing
+      const headerResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A1:G1`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+        },
+      );
+
+      if (headerResponse.ok) {
+        const headerData = await headerResponse.json();
+        const headers = headerData.values && headerData.values[0] ? headerData.values[0] : [];
+        
+        // If Price column is missing, add it
+        if (headers.length < 7 || headers[6] !== "Price") {
+          // Update headers to include Price column
+          const updatedHeaders = ["Title", "Content", "URL", "Tags", "Timestamp", "Image", "Price"];
+          await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A1:G1?valueInputOption=RAW`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${this.accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                values: [updatedHeaders],
+              }),
+            },
+          );
+        }
+      }
+
       this.contentData = rows.map((row, index) => {
         // Parse pipe-delimited image URLs into array (||| delimiter)
         const imageField = row[5] || "";
@@ -454,7 +982,7 @@ class FullPageCollector {
           date: row[4] || new Date().toISOString().split("T")[0],
           image: imageField, // Keep original for backward compatibility
           images: images, // Array of image URLs
-          price: row[6] || "", // Price column
+          price: row[6] || "", // Price column - use exclusively, no extraction from content
         };
       });
 
@@ -482,22 +1010,36 @@ class FullPageCollector {
   }
 
   attachEventListeners() {
-    // Card click listeners (entire card navigates to URL)
-    document.querySelectorAll(".content-card").forEach((card) => {
-      card.addEventListener("click", (e) => {
-        // Don't navigate if user clicked on delete button, tag, or gallery navigation
-        if (e.target.closest(".delete-btn") || 
-            e.target.closest(".tag-pill") || 
-            e.target.closest(".gallery-nav-btn")) {
-          return;
-        }
+    // Use event delegation to prevent duplicate listeners
+    // Remove any existing listener first
+    const contentContainer = document.getElementById("content");
+    if (!contentContainer) return;
+    
+    // Remove old listener if it exists
+    if (this._cardClickHandler) {
+      contentContainer.removeEventListener("click", this._cardClickHandler);
+    }
+    
+    // Create a single delegated event handler
+    this._cardClickHandler = (e) => {
+      const card = e.target.closest(".content-card");
+      if (!card) return;
+      
+      // Don't navigate if user clicked on delete button, tag, or gallery navigation
+      if (e.target.closest(".delete-btn") || 
+          e.target.closest(".tag-pill") || 
+          e.target.closest(".gallery-nav-btn")) {
+        return;
+      }
 
-        const url = card.getAttribute("data-url");
-        if (url) {
-          window.open(url, "_blank");
-        }
-      });
-    });
+      const url = card.getAttribute("data-url");
+      if (url) {
+        window.open(url, "_blank");
+      }
+    };
+    
+    // Attach single delegated listener to container
+    contentContainer.addEventListener("click", this._cardClickHandler);
 
     // Delete button event listeners
     document.querySelectorAll(".delete-btn").forEach((btn) => {
@@ -620,7 +1162,7 @@ class FullPageCollector {
         item.originalRowIndex,
       );
 
-      // First, get the correct sheet ID from the spreadsheet metadata
+      // Get the correct sheet ID from the spreadsheet metadata
       const metadataResponse = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}?fields=sheets.properties`,
         {
@@ -635,12 +1177,12 @@ class FullPageCollector {
       }
 
       const metadata = await metadataResponse.json();
-      const firstSheet = metadata.sheets?.[0];
-      if (!firstSheet) {
+      const targetSheet = metadata.sheets.find(s => s.properties.title === this.currentSheetName) || metadata.sheets?.[0];
+      if (!targetSheet) {
         throw new Error("No sheets found in spreadsheet");
       }
 
-      const sheetId = firstSheet.properties.sheetId;
+      const sheetId = targetSheet.properties.sheetId;
       console.log("Using sheet ID:", sheetId, "for deletion");
 
       // Delete row from spreadsheet using batchUpdate with correct sheet ID
@@ -680,7 +1222,6 @@ class FullPageCollector {
         // Store current filter state
         const currentSearchQuery = document.getElementById("searchInput").value;
         const currentTagFilter = document.getElementById("tagFilter").value;
-        const currentDateFilter = document.getElementById("dateFilter").value;
 
         console.log("Preserving pagination state:", {
           page: currentPageBeforeDeletion,
@@ -689,7 +1230,6 @@ class FullPageCollector {
           filters: {
             search: currentSearchQuery,
             tag: currentTagFilter,
-            date: currentDateFilter,
           },
         });
 
@@ -699,7 +1239,6 @@ class FullPageCollector {
         // Restore filter state after reload
         document.getElementById("searchInput").value = currentSearchQuery;
         document.getElementById("tagFilter").value = currentTagFilter;
-        document.getElementById("dateFilter").value = currentDateFilter;
 
         // Reapply filters with preserved state
         this.applyFilters();
@@ -905,7 +1444,53 @@ class FullPageCollector {
       option.textContent = tag;
       tagFilter.appendChild(option);
     });
+    
+    // Also render the custom dropdown
+    this.renderTagFilterDropdown();
   }
+
+  renderTagFilterDropdown() {
+    const dropdown = document.getElementById("tag-filter-dropdown");
+    const tagFilter = document.getElementById("tagFilter");
+    if (!dropdown || !tagFilter) return;
+
+    dropdown.innerHTML = '';
+
+    // Add "All Tags" option
+    const allTagsItem = document.createElement("div");
+    allTagsItem.className = `dropdown-item ${tagFilter.value === '' ? 'active' : ''}`;
+    allTagsItem.innerHTML = tagFilter.value === '' ? '<span style="margin-right: 8px;">✓</span> All Tags' : 'All Tags';
+    allTagsItem.addEventListener("click", (e) => {
+      e.stopPropagation();
+      tagFilter.value = '';
+      tagFilter.dispatchEvent(new Event('change'));
+      dropdown.classList.remove("show");
+      const button = document.getElementById("tag-filter-button");
+      if (button) button.classList.remove("active");
+    });
+    dropdown.appendChild(allTagsItem);
+
+    // Add each tag as an option
+    const allTags = [
+      ...new Set(this.contentData.flatMap((item) => item.tags)),
+    ].sort();
+
+    allTags.forEach((tag) => {
+      const item = document.createElement("div");
+      item.className = `dropdown-item ${tagFilter.value === tag ? 'active' : ''}`;
+      item.innerHTML = tagFilter.value === tag ? `<span style="margin-right: 8px;">✓</span>${tag}` : tag;
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        tagFilter.value = tag;
+        tagFilter.dispatchEvent(new Event('change'));
+        dropdown.classList.remove("show");
+        const button = document.getElementById("tag-filter-button");
+        if (button) button.classList.remove("active");
+      });
+      dropdown.appendChild(item);
+    });
+  }
+
 
   renderTagNavButtons() {
     const tagNavContainer = document.getElementById("tag-nav-buttons");
@@ -1021,23 +1606,9 @@ class FullPageCollector {
     let hasPrices = false;
     
     this.filteredData.forEach((item) => {
-      let priceStr = '';
-      
-      // First check if price is in the dedicated price field
+      // Use only the dedicated price field - no extraction from content
       if (item.price && String(item.price).trim() !== '') {
-        priceStr = String(item.price).trim();
-      } 
-      // If not, extract price from content text
-      else if (item.content && typeof item.content === 'string') {
-        // Match prices like $27, $62.50, $1,234.56, etc.
-        const priceMatch = item.content.match(/\$[\d,]+\.?\d{0,2}/);
-        if (priceMatch) {
-          priceStr = priceMatch[0];
-        }
-      }
-      
-      // Parse and add the price if found
-      if (priceStr !== '') {
+        const priceStr = String(item.price).trim();
         const priceValue = this.parsePrice(priceStr);
         if (priceValue !== null && !isNaN(priceValue)) {
           total += priceValue;
@@ -1052,24 +1623,12 @@ class FullPageCollector {
   formatTotalPrice(total) {
     if (total === null) return '';
     
-    // Try to detect currency from first item with price (check both price field and content)
+    // Try to detect currency from first item with price (use only price field)
     let currencySymbol = '$';
     for (const item of this.filteredData) {
-      let priceStr = '';
-      
-      // Check price field first
+      // Use only the dedicated price field - no extraction from content
       if (item.price && String(item.price).trim() !== '') {
-        priceStr = String(item.price);
-      } 
-      // If no price field, check content
-      else if (item.content && typeof item.content === 'string') {
-        const priceMatch = item.content.match(/[$€£¥₹][\d,]+\.?\d{0,2}/);
-        if (priceMatch) {
-          priceStr = priceMatch[0];
-        }
-      }
-      
-      if (priceStr) {
+        const priceStr = String(item.price).trim();
         if (priceStr.includes('€')) {
           currencySymbol = '€';
           break;
@@ -1161,7 +1720,6 @@ class FullPageCollector {
       .getElementById("searchInput")
       .value.toLowerCase();
     const selectedTag = document.getElementById("tagFilter").value; // This is the dropdown, not the nav buttons
-    const dateRange = document.getElementById("dateFilter").value;
 
     this.filteredData = this.contentData.filter((item) => {
       // Search filter - enhanced with better debugging and robustness
@@ -1191,35 +1749,14 @@ class FullPageCollector {
       // Tag filter - check dropdown filter (legacy)
       const matchesTagDropdown = !selectedTag || item.tags.includes(selectedTag);
 
-      // Date filter
-      let matchesDate = true;
-      if (dateRange) {
-        const itemDate = new Date(item.date);
-        const now = new Date();
-        switch (dateRange) {
-          case "today":
-            matchesDate = itemDate.toDateString() === now.toDateString();
-            break;
-          case "week":
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            matchesDate = itemDate >= weekAgo;
-            break;
-          case "month":
-            matchesDate =
-              itemDate.getMonth() === now.getMonth() &&
-              itemDate.getFullYear() === now.getFullYear();
-            break;
-        }
-      }
-
-      return matchesSearch && matchesTagNav && matchesTagDropdown && matchesDate;
+      return matchesSearch && matchesTagNav && matchesTagDropdown;
     });
 
     // Reset pagination when filters change
     this.currentPage = 1;
     this.renderContent();
     this.updateLoadMoreButton();
-    this.attachEventListeners();
+    // attachEventListeners() is already called in renderContent()
     this.updateTagHeader();
   }
 
@@ -1369,7 +1906,7 @@ class FullPageCollector {
         
         <div class="content-text">
           ${this.escapeHtml(item.content).replace(/\n/g, '<br>')}
-          ${item.price ? `<br>${this.escapeHtml(item.price)}` : ''}
+          ${item.price && String(item.price).trim() !== '' ? `<br><span class="content-price">${this.escapeHtml(String(item.price).trim())}</span>` : ''}
         </div>
         
         <div class="content-title">
@@ -1478,6 +2015,14 @@ class FullPageCollector {
     return div.innerHTML;
   }
 
+  isAnyDropdownOpen() {
+    const dropdowns = [
+      document.getElementById('sheet-selector-dropdown'),
+      document.getElementById('tag-filter-dropdown')
+    ];
+    return dropdowns.some(dropdown => dropdown && dropdown.classList.contains('show'));
+  }
+
   initTooltips() {
     const elements = document.querySelectorAll('[data-tooltip]');
     let tooltip = null;
@@ -1485,6 +2030,11 @@ class FullPageCollector {
 
     elements.forEach(element => {
       element.addEventListener('mouseenter', (e) => {
+        // Don't show tooltip if any dropdown is open
+        if (this.isAnyDropdownOpen()) {
+          return;
+        }
+
         // Clear any pending hide timeout
         if (hideTimeout) {
           clearTimeout(hideTimeout);
@@ -1523,7 +2073,8 @@ class FullPageCollector {
 
         // Show tooltip
         setTimeout(() => {
-          if (tooltip) {
+          // Check again if dropdown is still closed before showing
+          if (tooltip && !this.isAnyDropdownOpen()) {
             tooltip.classList.add('show');
           }
         }, 10);
@@ -1546,40 +2097,62 @@ class FullPageCollector {
 
   initDropdownButtons() {
     // Handle tag filter dropdown
-    const tagFilterContainer = document.querySelector('[data-tooltip="Filter by tag"]');
+    const tagFilterButton = document.getElementById('tag-filter-button');
+    const tagFilterDropdown = document.getElementById('tag-filter-dropdown');
     const tagFilter = document.getElementById('tagFilter');
     
-    if (tagFilterContainer && tagFilter) {
-      tagFilterContainer.addEventListener('click', (e) => {
-        e.preventDefault();
-        tagFilter.focus();
-        tagFilter.click();
+    if (tagFilterButton && tagFilterDropdown) {
+      tagFilterButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Close other dropdowns if open
+        const sheetSelectorDropdown = document.getElementById('sheet-selector-dropdown');
+        const sheetSelectorButton = document.getElementById('sheet-selector-button');
+        if (sheetSelectorDropdown && sheetSelectorDropdown.classList.contains("show")) {
+          sheetSelectorDropdown.classList.remove("show");
+          if (sheetSelectorButton) sheetSelectorButton.classList.remove("active");
+        }
+        
+        const isOpen = tagFilterDropdown.classList.contains("show");
+        if (isOpen) {
+          tagFilterDropdown.classList.remove("show");
+          tagFilterButton.classList.remove("active");
+        } else {
+          this.renderTagFilterDropdown();
+          tagFilterDropdown.classList.add("show");
+          tagFilterButton.classList.add("active");
+        }
       });
       
       // Update button appearance when selection changes
-      tagFilter.addEventListener('change', () => {
-        this.updateFilterButtonAppearance(tagFilterContainer, tagFilter);
-        this.updateTagNavButtonStates();
-        this.updateTagHeader();
-      });
+      if (tagFilter) {
+        tagFilter.addEventListener('change', () => {
+          this.renderTagFilterDropdown();
+          this.updateTagNavButtonStates();
+          this.updateTagHeader();
+        });
+      }
     }
 
-    // Handle date filter dropdown
-    const dateFilterContainer = document.querySelector('[data-tooltip="Filter by time"]');
-    const dateFilter = document.getElementById('dateFilter');
-    
-    if (dateFilterContainer && dateFilter) {
-      dateFilterContainer.addEventListener('click', (e) => {
-        e.preventDefault();
-        dateFilter.focus();
-        dateFilter.click();
-      });
+    // Close dropdowns when clicking outside
+    document.addEventListener("click", (e) => {
+      // Close sheet selector if clicking outside
+      const sheetSelectorDropdown = document.getElementById('sheet-selector-dropdown');
+      const sheetSelectorButton = document.getElementById('sheet-selector-button');
+      if (sheetSelectorDropdown && !sheetSelectorDropdown.contains(e.target) && 
+          sheetSelectorButton && !sheetSelectorButton.contains(e.target)) {
+        sheetSelectorDropdown.classList.remove("show");
+        if (sheetSelectorButton) sheetSelectorButton.classList.remove("active");
+      }
       
-      // Update button appearance when selection changes
-      dateFilter.addEventListener('change', () => {
-        this.updateFilterButtonAppearance(dateFilterContainer, dateFilter);
-      });
-    }
+      // Close tag filter if clicking outside
+      if (tagFilterDropdown && !tagFilterDropdown.contains(e.target) && 
+          tagFilterButton && !tagFilterButton.contains(e.target)) {
+        tagFilterDropdown.classList.remove("show");
+        if (tagFilterButton) tagFilterButton.classList.remove("active");
+      }
+      
+    });
   }
 
   updateFilterButtonAppearance(container, selectElement) {
@@ -1708,11 +2281,15 @@ class FullPageCollector {
     const loading = document.getElementById("loading");
     const content = document.getElementById("content");
     const authRequired = document.getElementById("auth-required");
+    const noResults = document.getElementById("no-results");
+    const loadMoreContainer = document.getElementById("load-more-container");
 
     if (show) {
       loading.style.display = "block";
       content.style.display = "none";
       authRequired.style.display = "none";
+      if (noResults) noResults.style.display = "none"; // Hide no-results during loading
+      if (loadMoreContainer) loadMoreContainer.style.display = "none"; // Hide load more button during loading
     } else {
       loading.style.display = "none";
     }
@@ -1722,12 +2299,10 @@ class FullPageCollector {
     const loading = document.getElementById("loading");
     const content = document.getElementById("content");
     const authRequired = document.getElementById("auth-required");
-    const spreadsheetLink = document.getElementById("spreadsheet-link");
 
     loading.style.display = "none";
     content.style.display = "none";
     authRequired.style.display = "block";
-    if (spreadsheetLink) spreadsheetLink.style.display = "none";
     
     // Ensure the auth button is functional
     const authButton = document.getElementById("auth-button");
@@ -1759,15 +2334,6 @@ class FullPageCollector {
     }
   }
 
-  updateSpreadsheetLink() {
-    const spreadsheetLink = document.getElementById("spreadsheet-link");
-    if (spreadsheetLink && this.spreadsheetId) {
-      spreadsheetLink.href = `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit`;
-      spreadsheetLink.style.display = "flex";
-    } else if (spreadsheetLink) {
-      spreadsheetLink.style.display = "none";
-    }
-  }
 
   loadMoreItems() {
     this.currentPage++;
@@ -1780,7 +2346,8 @@ class FullPageCollector {
     const displayedItems = this.currentPage * this.itemsPerPage;
 
     if (loadMoreContainer) {
-      if (displayedItems < totalItems) {
+      // Only show if there's content and more items to load
+      if (totalItems > 0 && displayedItems < totalItems) {
         loadMoreContainer.style.display = "block";
         const remaining = totalItems - displayedItems;
         const loadMoreBtn = document.getElementById("load-more-btn");
