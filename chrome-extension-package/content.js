@@ -149,7 +149,11 @@ class WebCaptureContent {
       if (price) return price;
     }
 
-    // 2. Etsy-specific selectors
+    // 3. Meta tags (Open Graph, Twitter Card, product meta)
+    const metaPrice = this.extractFromMetaTags();
+    if (metaPrice) return metaPrice;
+
+    // 4. Etsy-specific selectors
     if (window.location.hostname.includes('etsy')) {
       const etsySelectors = [
         '[data-buy-box-region-price]',
@@ -164,7 +168,7 @@ class WebCaptureContent {
       for (const selector of etsySelectors) {
         try {
           const el = document.querySelector(selector);
-          if (el) {
+          if (el && this.isVisible(el) && !this.isInExcludedArea(el)) {
             const text = el.textContent.trim();
             const price = this.parsePrice(text);
             if (price) return price;
@@ -175,11 +179,11 @@ class WebCaptureContent {
       }
     }
 
-    // 3. Amazon-specific: combine whole and fraction
+    // 5. Amazon-specific: combine whole and fraction
     if (window.location.hostname.includes('amazon')) {
       const whole = document.querySelector('.a-price-whole');
       const fraction = document.querySelector('.a-price-fraction');
-      if (whole) {
+      if (whole && this.isVisible(whole) && !this.isInExcludedArea(whole)) {
         const wholeText = whole.textContent.trim().replace(/[^\d.,]/g, '');
         const fractionText = fraction ? fraction.textContent.trim() : '';
         if (wholeText) {
@@ -190,44 +194,172 @@ class WebCaptureContent {
       }
     }
 
-    // 4. Common selectors: data attributes and classes with "price"
-    const selectors = [
-      '[data-price]',
-      '[data-selector*="price" i]',
-      '[class*="price" i]',
-      '.price',
-      '.a-price'
-    ];
+    // 6. Context-aware: Only extract prices near shopping buttons
+    const priceNearButton = this.extractPriceNearShoppingButton();
+    if (priceNearButton) return priceNearButton;
 
-    for (const selector of selectors) {
-      try {
-        const elements = document.querySelectorAll(selector);
-        for (const el of elements) {
-          // Check data-price attribute first
-          if (el.hasAttribute('data-price')) {
-            const price = this.parsePrice(el.getAttribute('data-price'));
-            if (price) return price;
+    return '';
+  }
+
+  extractPriceNearShoppingButton() {
+    // Find shopping action buttons
+    const shoppingButtons = document.querySelectorAll(
+      'button[class*="add-to-cart" i], ' +
+      'button[class*="buy" i], ' +
+      'button[class*="add-to-bag" i], ' +
+      'button[class*="purchase" i], ' +
+      'a[class*="add-to-cart" i], ' +
+      'a[class*="buy-now" i], ' +
+      '[id*="add-to-cart" i], ' +
+      '[data-action*="add-to-cart" i]'
+    );
+
+    if (shoppingButtons.length === 0) {
+      return ''; // No shopping context found
+    }
+
+    // For each button, search nearby for price elements
+    for (const button of shoppingButtons) {
+      if (!this.isVisible(button)) continue;
+
+      // Find the closest product container (parent)
+      const productContainer = button.closest(
+        '[itemtype*="Product"], ' +
+        '[data-product], ' +
+        '[class*="product" i], ' +
+        'article, ' +
+        'section, ' +
+        '.card, ' +
+        'main'
+      ) || button.parentElement;
+
+      if (!productContainer) continue;
+
+      // Look for price elements within this container
+      const priceSelectors = [
+        '[itemprop="price"]',
+        '[data-price]',
+        '[class*="price" i]:not([class*="old" i]):not([class*="was" i])',
+        '.price'
+      ];
+
+      for (const selector of priceSelectors) {
+        try {
+          const priceElements = productContainer.querySelectorAll(selector);
+          for (const el of priceElements) {
+            if (!this.isVisible(el) || this.isInExcludedArea(el)) continue;
+
+            // Check data-price attribute first
+            if (el.hasAttribute('data-price')) {
+              const price = this.parsePrice(el.getAttribute('data-price'));
+              if (price) return price;
+            }
+
+            // Check text content
+            const text = el.textContent.trim();
+            if (text) {
+              const price = this.parsePrice(text);
+              if (price) return price;
+            }
           }
-          // Check text content
-          const text = el.textContent.trim();
-          if (text) {
-            const price = this.parsePrice(text);
-            if (price) return price;
-          }
+        } catch (e) {
+          // Skip unsupported selectors
         }
-      } catch (e) {
-        // Skip unsupported selectors
       }
     }
 
-    // 5. Fallback: regex search page text (fast and catches everything)
-    const pageText = document.body.textContent || '';
-    const priceMatch = pageText.match(/\$[\d,]+\.?\d{0,2}/);
-    if (priceMatch) {
-      return this.parsePrice(priceMatch[0]);
+    return '';
+  }
+
+  extractFromMetaTags() {
+    // Check Open Graph, Twitter Card, and product meta tags
+    const metaSelectors = [
+      { selector: 'meta[property="product:price:amount"]', attr: 'content' },
+      { selector: 'meta[property="og:price:amount"]', attr: 'content' },
+      { selector: 'meta[name="twitter:data1"]', attr: 'content' },
+      { selector: 'meta[property="price"]', attr: 'content' }
+    ];
+
+    for (const { selector, attr } of metaSelectors) {
+      const meta = document.querySelector(selector);
+      if (meta) {
+        const content = meta.getAttribute(attr);
+        if (content) {
+          // Check for currency meta tag
+          const currencyMeta = document.querySelector(
+            'meta[property="product:price:currency"], meta[property="og:price:currency"]'
+          );
+
+          if (currencyMeta) {
+            const currency = currencyMeta.getAttribute('content');
+            return this.formatPriceWithCurrency(content, currency);
+          }
+
+          const price = this.parsePrice(content);
+          if (price) return price;
+        }
+      }
     }
 
     return '';
+  }
+
+  formatPriceWithCurrency(amount, currency) {
+    if (!amount || !currency) return '';
+
+    const cleanAmount = amount.replace(/[^\d.,]/g, '');
+
+    switch (currency.toUpperCase()) {
+      case 'USD':
+        return '$' + cleanAmount;
+      case 'EUR':
+        return cleanAmount + ' €';
+      case 'GBP':
+        return '£' + cleanAmount;
+      default:
+        return cleanAmount + ' ' + currency;
+    }
+  }
+
+  isInExcludedArea(element) {
+    // Check if element is in footer, header, sidebar, ad, or other excluded areas
+    const excludedSelectors = [
+      'footer',
+      'header',
+      'nav',
+      '[class*="sidebar" i]',
+      '[class*="ad-" i]',
+      '[class*="advertisement" i]',
+      '[id*="ad-" i]',
+      '[class*="newsletter" i]',
+      '[class*="subscription" i]',
+      '[class*="related" i]',
+      '[class*="you-may" i]',
+      '[class*="also-like" i]',
+      '[class*="recommended" i]',
+      '.price-comparison',
+      '[class*="shipping" i]',
+      '[class*="promo" i]',
+      '[class*="banner" i]'
+    ];
+
+    for (const selector of excludedSelectors) {
+      if (element.closest(selector)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  isVisible(element) {
+    if (!element) return false;
+
+    const style = window.getComputedStyle(element);
+    return style.display !== 'none' &&
+           style.visibility !== 'hidden' &&
+           style.opacity !== '0' &&
+           element.offsetParent !== null;
   }
 
   parsePrice(text) {
@@ -253,32 +385,53 @@ class WebCaptureContent {
           const countryCode = match[1] || '';
           const currency = match[2];
           const amount = match[3].replace(/,/g, '');
-          return countryCode + currency + amount;
+          if (this.isValidPrice(amount)) {
+            return countryCode + currency + amount;
+          }
         } else if (match[2] && match[1] && /[$€£¥]/.test(match[1])) {
           // Pattern 2: $99.99 (currency + amount)
           const currency = match[1];
           const amount = match[2].replace(/,/g, '');
-          return currency + amount;
+          if (this.isValidPrice(amount)) {
+            return currency + amount;
+          }
         } else if (match[2] && match[1] && /^\d/.test(match[1])) {
           // Pattern 3: 99.99 USD (amount + currency code)
           const amount = match[1].replace(/,/g, '');
           const currency = match[2];
-          return amount + ' ' + currency;
+          if (this.isValidPrice(amount)) {
+            return amount + ' ' + currency;
+          }
         }
       }
     }
 
-    // Fallback: just extract numbers with currency symbols
-    const simpleMatch = text.match(/([$€£¥]?[\d,]+\.?\d{0,2})/);
+    // Fallback: only extract prices with currency symbols (no bare numbers)
+    const simpleMatch = text.match(/([$€£¥][\d,]+\.?\d{0,2})/);
     if (simpleMatch && simpleMatch[1]) {
       const cleaned = simpleMatch[1].replace(/,/g, '');
-      // Only return if it actually has a price-like format
-      if (/[$€£¥]?\d+\.?\d{0,2}/.test(cleaned)) {
+      const amount = cleaned.replace(/[$€£¥]/g, '');
+      if (this.isValidPrice(amount)) {
         return cleaned;
       }
     }
 
     return '';
+  }
+
+  isValidPrice(amount) {
+    // Convert to number for validation
+    const numAmount = parseFloat(amount);
+
+    // Reject if:
+    // - Not a valid number
+    // - Less than $0.10 (too small to be a real product price)
+    // - Greater than $1,000,000 (unrealistic)
+    if (isNaN(numAmount)) return false;
+    if (numAmount < 0.10) return false;
+    if (numAmount > 1000000) return false;
+
+    return true;
   }
 
   // Helper: Get absolute URL

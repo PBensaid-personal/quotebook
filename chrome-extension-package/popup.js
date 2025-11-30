@@ -17,14 +17,20 @@ class EnhancedQuoteCollector {
   }
 
   async init() {
-    this.setupEventListeners();
-    this.setupMessageListener();
-    await this.checkUpdateNotification();
-    await this.checkExistingAuth();
-    await this.checkEditMode();
-    await this.loadSelectedText();
-    // Note: loadExistingTags() will be called after auth is confirmed
-    this.setupTagInterface();
+    try {
+      this.setupEventListeners();
+      this.setupMessageListener();
+      await this.checkUpdateNotification();
+      await this.checkExistingAuth();
+      await this.checkEditMode();
+      await this.loadSelectedText();
+      // Note: loadExistingTags() will be called after auth is confirmed
+      this.setupTagInterface();
+    } catch (error) {
+      console.error('Initialization error:', error);
+      // Fallback: show auth interface if anything fails
+      this.showAuthInterface();
+    }
   }
 
   setupMessageListener() {
@@ -543,7 +549,7 @@ class EnhancedQuoteCollector {
 
   async checkExistingAuth() {
     try {
-      
+
       // Check if user explicitly logged out
       const logoutState = await chrome.storage.local.get(['userLoggedOut']);
       if (logoutState.userLoggedOut) {
@@ -551,21 +557,24 @@ class EnhancedQuoteCollector {
         this.showAuthInterface();
         return;
       }
-      
+
       // Check for cached authentication state
       const authState = await chrome.storage.local.get(['isAuthenticated', 'googleAccessToken', 'googleSpreadsheetId', 'currentSheetName']);
-      
+
       if (authState.isAuthenticated && authState.googleAccessToken && authState.googleSpreadsheetId) {
+        // Show loading indicator while validating and loading
+        this.showMainLoading();
+
         this.accessToken = authState.googleAccessToken;
         this.spreadsheetId = authState.googleSpreadsheetId;
         this.currentSheetName = authState.currentSheetName || null;
-        
+
         // Quick validation - try to get token without interactive flow
         try {
           const accessToken = await chrome.identity.getAuthToken({ interactive: false });
           if (accessToken) {
             this.accessToken = typeof accessToken === 'object' ? accessToken.token : accessToken;
-            
+
             // Quick test if still valid
             const isValid = await this.validateToken();
             if (isValid) {
@@ -582,10 +591,10 @@ class EnhancedQuoteCollector {
           await chrome.storage.local.remove(['isAuthenticated', 'googleAccessToken', 'googleSpreadsheetId']);
         }
       }
-      
+
       // No valid cached auth, need to authenticate
       this.showAuthInterface();
-      
+
     } catch (error) {
       this.showAuthInterface();
     }
@@ -635,10 +644,21 @@ class EnhancedQuoteCollector {
     // Set the price if available
     const priceInput = document.getElementById('price-input');
     const priceLabel = document.getElementById('price-label');
-    if (priceInput) {
+    const priceToggleBtn = document.getElementById('price-toggle-btn');
+    if (priceInput && priceLabel) {
       priceInput.value = cardData.price || '';
-      if (priceLabel) {
-        priceLabel.style.opacity = cardData.price ? '0' : '1';
+      if (cardData.price) {
+        // Show price input/label, hide toggle button
+        priceToggleBtn.style.display = 'none';
+        priceInput.classList.remove('hidden');
+        priceLabel.classList.remove('hidden');
+        priceLabel.style.opacity = '0';
+      } else {
+        // Hide price input/label, show toggle button
+        priceToggleBtn.style.display = '';
+        priceInput.classList.add('hidden');
+        priceLabel.classList.add('hidden');
+        priceLabel.style.opacity = '1';
       }
     }
     
@@ -966,9 +986,9 @@ class EnhancedQuoteCollector {
       // Hide button
       priceToggleBtn.style.display = 'none';
 
-      // Show input and label
-      priceInput.style.display = 'block';
-      priceLabel.style.display = 'block';
+      // Show input and label by removing hidden class
+      priceInput.classList.remove('hidden');
+      priceLabel.classList.remove('hidden');
 
       // Focus the input
       priceInput.focus();
@@ -1002,8 +1022,8 @@ class EnhancedQuoteCollector {
         if (priceInput && priceToggleBtn && priceLabel) {
           // Hide toggle button, show input with detected price
           priceToggleBtn.style.display = 'none';
-          priceInput.style.display = 'block';
-          priceLabel.style.display = 'block';
+          priceInput.classList.remove('hidden');
+          priceLabel.classList.remove('hidden');
           priceInput.value = result.price;
           priceLabel.style.opacity = '0';
         }
@@ -1039,6 +1059,9 @@ class EnhancedQuoteCollector {
       if (!this.spreadsheetId) {
         throw new Error('Failed to setup spreadsheet');
       }
+      
+      // Reset saved state if it's visible (in case user is saving again)
+      this.resetSavedState();
       
       // Check if we're in edit mode
       if (this.isEditMode && this.editingCardId) {
@@ -1230,11 +1253,14 @@ class EnhancedQuoteCollector {
         this.renderImageCarousel();
         const priceInput = document.getElementById('price-input');
         const priceLabel = document.getElementById('price-label');
-        if (priceInput) {
+        const priceToggleBtn = document.getElementById('price-toggle-btn');
+        if (priceInput && priceLabel && priceToggleBtn) {
           priceInput.value = '';
-        }
-        if (priceLabel) {
+          // Reset price input/label visibility - hide them, show toggle button
+          priceInput.classList.add('hidden');
+          priceLabel.classList.add('hidden');
           priceLabel.style.opacity = '1';
+          priceToggleBtn.style.display = '';
         }
         
         // Close the popup after successful update and refresh the fullpage
@@ -1262,13 +1288,47 @@ class EnhancedQuoteCollector {
   }
 
   showAuthInterface() {
-    document.getElementById('auth-section').classList.remove('hidden');
-    document.getElementById('main-section').classList.remove('active');
+    const authSection = document.getElementById('auth-section');
+    const mainSection = document.getElementById('main-section');
+
+    if (authSection) {
+      authSection.classList.remove('hidden');
+      authSection.style.display = 'block';
+    }
+    if (mainSection) {
+      mainSection.classList.remove('active');
+      mainSection.style.display = 'none';
+    }
   }
 
   showMainInterface() {
-    document.getElementById('auth-section').classList.add('hidden');
-    document.getElementById('main-section').classList.add('active');
+    const authSection = document.getElementById('auth-section');
+    const mainSection = document.getElementById('main-section');
+    const mainLoading = document.getElementById('main-loading');
+    const contentSection = document.querySelector('.content-section');
+    const tagsSection = document.querySelector('.tags-section');
+    const contentPreview = document.querySelector('.content-preview');
+    const imageSelector = document.getElementById('image-selector');
+    const actions = document.querySelector('.actions');
+
+    if (authSection) {
+      authSection.classList.add('hidden');
+      authSection.style.display = 'none';
+    }
+    if (mainSection) {
+      mainSection.classList.add('active');
+      mainSection.style.display = 'block';
+    }
+
+    // Hide loading indicator and show all form content
+    if (mainLoading) {
+      mainLoading.classList.add('hidden');
+    }
+    if (contentSection) contentSection.style.display = '';
+    if (tagsSection) tagsSection.style.display = '';
+    if (contentPreview) contentPreview.style.display = '';
+    // imageSelector stays hidden by default, shown by JS when there are images
+    if (actions) actions.style.display = '';
   }
 
   showStatus(message, type) {
@@ -1308,60 +1368,124 @@ class EnhancedQuoteCollector {
     if (type === 'saving') {
       button.classList.add('saving');
       buttonText.style.display = 'none';
-      buttonStatus.style.display = 'inline';
+      buttonStatus.classList.remove('hidden');
       buttonStatus.textContent = message;
     } else if (type === 'error') {
       buttonText.style.display = 'inline';
-      buttonStatus.style.display = 'none';
+      buttonStatus.classList.add('hidden');
       buttonText.textContent = 'Save';
       // Show error in status for a moment
-      buttonStatus.style.display = 'inline';
+      buttonStatus.classList.remove('hidden');
       buttonStatus.textContent = message;
       buttonStatus.style.color = '#ef4444';
       setTimeout(() => {
-        buttonStatus.style.display = 'none';
+        buttonStatus.classList.add('hidden');
         buttonStatus.style.color = '';
       }, 3000);
     } else {
       // Reset to normal state
       buttonText.style.display = 'inline';
-      buttonStatus.style.display = 'none';
+      buttonStatus.classList.add('hidden');
       buttonText.textContent = 'Save';
     }
+  }
+
+  resetSavedState() {
+    // Hide saved state container
+    const savedStateContainer = document.getElementById('saved-state-container');
+    if (savedStateContainer) {
+      savedStateContainer.classList.add('hidden');
+      savedStateContainer.style.display = 'none';
+      savedStateContainer.style.opacity = '0';
+    }
+
+    // Remove content-hidden classes to show form sections again
+    const contentSection = document.querySelector('.content-section');
+    const tagsSection = document.querySelector('.tags-section');
+    const contentPreview = document.querySelector('.content-preview');
+    const imageSelector = document.getElementById('image-selector');
+    const actions = document.querySelector('.actions');
+
+    if (contentSection) contentSection.classList.remove('content-hidden');
+    if (tagsSection) tagsSection.classList.remove('content-hidden');
+    if (contentPreview) contentPreview.classList.remove('content-hidden');
+    if (imageSelector) imageSelector.classList.remove('content-hidden');
+    if (actions) actions.classList.remove('content-hidden');
+  }
+
+  showMainLoading() {
+    const mainSection = document.getElementById('main-section');
+    const mainLoading = document.getElementById('main-loading');
+    const contentSection = document.querySelector('.content-section');
+    const tagsSection = document.querySelector('.tags-section');
+    const contentPreview = document.querySelector('.content-preview');
+    const imageSelector = document.getElementById('image-selector');
+    const actions = document.querySelector('.actions');
+
+    // Show main section
+    if (mainSection) {
+      mainSection.classList.add('active');
+      mainSection.style.display = 'block';
+    }
+
+    // Show only the loading indicator, hide all form content
+    if (mainLoading) {
+      mainLoading.classList.remove('hidden');
+    }
+    if (contentSection) contentSection.style.display = 'none';
+    if (tagsSection) tagsSection.style.display = 'none';
+    if (contentPreview) contentPreview.style.display = 'none';
+    if (imageSelector) imageSelector.style.display = 'none';
+    if (actions) actions.style.display = 'none';
   }
 
   showSavedState() {
     const button = document.getElementById('save-button');
     const savedStateContainer = document.getElementById('saved-state-container');
     const mainSection = document.getElementById('main-section');
-    
+
+    if (!savedStateContainer) {
+      console.error('Saved state container not found');
+      return;
+    }
+
     // Start the transition by hiding the original content with smooth animation
     const contentSection = document.querySelector('.content-section');
     const tagsSection = document.querySelector('.tags-section');
     const contentPreview = document.querySelector('.content-preview');
     const imageSelector = document.getElementById('image-selector');
     const actions = document.querySelector('.actions');
-    
+
     // Add transition classes to fade out content
     if (contentSection) contentSection.classList.add('content-hidden');
     if (tagsSection) tagsSection.classList.add('content-hidden');
     if (contentPreview) contentPreview.classList.add('content-hidden');
     if (imageSelector) imageSelector.classList.add('content-hidden');
     if (actions) actions.classList.add('content-hidden');
-    
+
     // Show the saved state container after content fades out
     setTimeout(() => {
-      savedStateContainer.style.display = 'flex';
+      if (savedStateContainer) {
+        savedStateContainer.classList.remove('hidden');
+        savedStateContainer.style.display = 'flex';
+        // Force animation to trigger by setting opacity after display is set
+        setTimeout(() => {
+          if (savedStateContainer) {
+            savedStateContainer.style.opacity = '1';
+          }
+        }, 10);
+      }
     }, 400);
   }
 
   initTooltips() {
-    const icons = document.querySelectorAll('.header-icon[title], .header-icon[data-tooltip], .header-icon-with-text[title]');
-    let tooltip = null;
-    let hideTimeout = null;
+    try {
+      const icons = document.querySelectorAll('.header-icon[title], .header-icon[data-tooltip], .header-icon-with-text[title]');
+      let tooltip = null;
+      let hideTimeout = null;
 
-    icons.forEach(icon => {
-      icon.addEventListener('mouseenter', (e) => {
+      icons.forEach(icon => {
+        icon.addEventListener('mouseenter', (e) => {
         // Clear any pending hide timeout
         if (hideTimeout) {
           clearTimeout(hideTimeout);
@@ -1419,6 +1543,9 @@ class EnhancedQuoteCollector {
         }
       });
     });
+    } catch (error) {
+      console.error('Error initializing tooltips:', error);
+    }
   }
 
   setupImageCarousel() {
@@ -1435,13 +1562,19 @@ class EnhancedQuoteCollector {
 
   showImageSelector() {
     if (this.pageImages.length > 0) {
-      document.getElementById('image-selector').style.display = 'block';
-      this.renderImageCarousel();
+      const imageSelector = document.getElementById('image-selector');
+      if (imageSelector) {
+        imageSelector.classList.remove('hidden');
+        this.renderImageCarousel();
+      }
     }
   }
 
   hideImageSelector() {
-    document.getElementById('image-selector').style.display = 'none';
+    const imageSelector = document.getElementById('image-selector');
+    if (imageSelector) {
+      imageSelector.classList.add('hidden');
+    }
   }
 
   renderImageCarousel() {
@@ -1453,12 +1586,12 @@ class EnhancedQuoteCollector {
     // Show/hide "No image selected" indicator and update count
     if (noImageIndicator) {
       const selectedCount = this.selectedImageIndices.size;
+      // Always show the indicator when image selector is visible
+      noImageIndicator.classList.remove('hidden');
       if (selectedCount === 0) {
         noImageIndicator.textContent = 'No image selected';
-        noImageIndicator.style.display = 'inline';
       } else {
         noImageIndicator.textContent = `${selectedCount} image${selectedCount === 1 ? '' : 's'} selected`;
-        noImageIndicator.style.display = 'inline';
       }
     }
     

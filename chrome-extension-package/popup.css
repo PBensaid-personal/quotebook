@@ -599,7 +599,6 @@ body {
 
 /* Sheet selector dropdown in popup */
 #sheet-selector-popup-dropdown {
-  display: none;
   position: absolute;
   bottom: calc(100% - 16px);
   left: 120px;
@@ -610,6 +609,10 @@ body {
   max-height: 300px;
   overflow-y: auto;
   z-index: 1000;
+}
+
+#sheet-selector-popup-dropdown.hidden {
+  display: none;
 }
 
 .save-button-status {
@@ -793,11 +796,21 @@ body {
 .main-section {
   display: none;
   background: var(--color-dark-bg);
+  position: relative;
 }
 
 .main-section.active {
   display: block;
   background: var(--color-dark-bg);
+}
+
+/* Main loading indicator */
+.main-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: var(--color-text-light);
 }
 
 /* ========================================

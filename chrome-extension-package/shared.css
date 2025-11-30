@@ -586,3 +586,75 @@
   50% { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
+
+/* ========================================
+   LOADING ELLIPSIS ANIMATION
+   ======================================== */
+.loading-ellipsis,
+.loading-ellipsis div {
+  box-sizing: border-box;
+}
+
+.loading-ellipsis {
+  display: inline-block;
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+
+.loading-ellipsis div {
+  position: absolute;
+  top: 16.66667px;
+  width: 6.66667px;
+  height: 6.66667px;
+  border-radius: 50%;
+  background: currentColor;
+  animation-timing-function: cubic-bezier(0, 1, 1, 0);
+}
+
+.loading-ellipsis div:nth-child(1) {
+  left: 4px;
+  animation: loading-ellipsis-1 0.6s infinite;
+}
+
+.loading-ellipsis div:nth-child(2) {
+  left: 4px;
+  animation: loading-ellipsis-2 0.6s infinite;
+}
+
+.loading-ellipsis div:nth-child(3) {
+  left: 16px;
+  animation: loading-ellipsis-2 0.6s infinite;
+}
+
+.loading-ellipsis div:nth-child(4) {
+  left: 28px;
+  animation: loading-ellipsis-3 0.6s infinite;
+}
+
+@keyframes loading-ellipsis-1 {
+  0% {
+    transform: scale(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes loading-ellipsis-2 {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(12px, 0);
+  }
+}
+
+@keyframes loading-ellipsis-3 {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0);
+  }
+}
