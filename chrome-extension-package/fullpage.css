@@ -410,7 +410,7 @@ select#tagFilter::-ms-expand {
   padding: var(--spacing-xl);
   margin-bottom: var(--spacing-xl);
   break-inside: avoid;
-  transition: all 1s ease;
+  transition: all 1s ease 250ms;
   position: relative;
   cursor: pointer;
   --fade-color: white;
@@ -445,7 +445,7 @@ select#tagFilter::-ms-expand {
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transition: all var(--transition-fast);
+  transition: all var(--transition-fast) 250ms;
   color: var(--color-gray-500);
   padding: 0;
   margin-left: var(--spacing-sm);
@@ -469,6 +469,7 @@ select#tagFilter::-ms-expand {
   position: relative;
   margin-bottom: var(--spacing-sm);
   overflow: hidden;
+  transition: margin-bottom var(--transition-medium) 250ms;
 }
 
 .content-image {
@@ -560,7 +561,7 @@ select#tagFilter::-ms-expand {
   background: linear-gradient(to bottom, transparent, white);
   pointer-events: none;
   z-index: 1;
-  transition: opacity 1s ease;
+  transition: opacity 1s ease 250ms;
 }
 
 .content-image-container::before {
@@ -574,7 +575,7 @@ select#tagFilter::-ms-expand {
   pointer-events: none;
   z-index: 2;
   opacity: 1;
-  transition: opacity 1s ease;
+  transition: opacity 1s ease 250ms;
 }
 
 .content-card:hover .content-image-container::after,
@@ -601,7 +602,7 @@ select#tagFilter::-ms-expand {
   overflow: hidden;
   opacity: 0;
   transform: translateY(-10px);
-  transition: all var(--transition-medium);
+  transition: all var(--transition-medium) 250ms;
 }
 
 .content-card:hover .content-text {
@@ -629,6 +630,7 @@ select#tagFilter::-ms-expand {
   font-size: 16px;
   line-height: 1.5;
   margin-bottom: 0;
+  transition: margin-bottom var(--transition-medium) 250ms;
 }
 
 /* ========================================
@@ -643,7 +645,7 @@ select#tagFilter::-ms-expand {
   overflow: hidden;
   opacity: 0;
   transform: translateY(-10px);
-  transition: all var(--transition-slow);
+  transition: all var(--transition-slow) 250ms;
 }
 
 .content-card:hover .content-tags {
@@ -668,7 +670,7 @@ select#tagFilter::-ms-expand {
   overflow: hidden;
   opacity: 0;
   transform: translateY(-10px);
-  transition: all var(--transition-medium);
+  transition: all var(--transition-medium) 250ms;
 }
 
 .content-card:hover .content-meta {
@@ -762,7 +764,10 @@ select#tagFilter::-ms-expand {
 }
 
 .loading {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
   color: var(--color-dark-blue);
 }
 

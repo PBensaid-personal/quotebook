@@ -854,6 +854,8 @@ class FullPageCollector {
 
   async loadContent() {
     try {
+      // Hide load more button immediately before showing loading
+      this.hideLoadMoreButton();
       this.showLoading(true);
 
       // First verify the spreadsheet exists

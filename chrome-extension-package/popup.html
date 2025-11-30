@@ -169,6 +169,11 @@
 
       <!-- Main Interface -->
       <div id="main-section" class="main-section">
+        <!-- Loading Indicator -->
+        <div id="main-loading" class="main-loading hidden">
+          <div class="loading-ellipsis"><div></div><div></div><div></div><div></div></div>
+        </div>
+
         <!-- Selected Content -->
         <div class="content-section">
           <textarea
@@ -201,7 +206,7 @@
         <div class="content-preview">
           <div class="preview-row">
             <div class="preview-text">
-              <div id="preview-title" class="preview-title">Loading...</div>
+              <div id="preview-title" class="preview-title"></div>
               <div id="preview-url" class="preview-url">...</div>
             </div>
             <!-- Price Field -->
@@ -250,7 +255,7 @@
               </svg>
             </button>
           </div>
-          <div id="sheet-selector-popup-dropdown">
+          <div id="sheet-selector-popup-dropdown" class="hidden">
             <!-- Sheet list will be populated by JavaScript -->
           </div>
         </div>
