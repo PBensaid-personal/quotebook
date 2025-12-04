@@ -449,6 +449,8 @@ class WebCaptureContent {
 
   extractPageImages() {
     const images = [];
+
+    // 1. Extract from <img> elements
     const imgElements = document.querySelectorAll('img');
 
     Array.from(imgElements).forEach((img) => {
@@ -500,6 +502,61 @@ class WebCaptureContent {
       images.push({
         src: imgSrc,
         alt: img.alt || '',
+        width: width,
+        height: height,
+        area: width * height
+      });
+    });
+
+    // 2. Extract from CSS background images
+    // Focus on likely content containers to avoid performance issues
+    const backgroundSelectors = [
+      'main', 'article', 'section', '[class*="hero"]', '[class*="banner"]',
+      '[class*="cover"]', '[class*="feature"]', '[class*="media"]',
+      '[class*="image"]', '[class*="photo"]', '[class*="picture"]',
+      '[class*="product"]', '[class*="gallery"]', '[id*="hero"]',
+      '[id*="banner"]', '[id*="feature"]'
+    ];
+
+    // Get all potential background image elements
+    const bgElements = document.querySelectorAll(backgroundSelectors.join(','));
+
+    Array.from(bgElements).forEach((element) => {
+      // Skip if element is too small (likely decorative)
+      const width = element.offsetWidth;
+      const height = element.offsetHeight;
+
+      if (width < 200 || height < 200) return;
+
+      const style = window.getComputedStyle(element);
+      const bgImage = style.backgroundImage;
+
+      // Check if element has a background image
+      if (!bgImage || bgImage === 'none') return;
+
+      // Extract URL from CSS url() function
+      // Handles: url("..."), url('...'), url(...)
+      const urlMatch = bgImage.match(/url\(['"]?([^'"()]+)['"]?\)/);
+      if (!urlMatch) return;
+
+      let imgSrc = urlMatch[1];
+      imgSrc = this.getAbsoluteUrl(imgSrc);
+
+      if (!imgSrc) return;
+
+      // Apply same filters as <img> elements
+      if (imgSrc.includes('data:image')) return;
+      if (!imgSrc.startsWith('http')) return;
+
+      const srcLower = imgSrc.toLowerCase();
+      if (srcLower.includes('logo') ||
+          srcLower.includes('icon') ||
+          srcLower.includes('sprite') ||
+          srcLower.includes('favicon')) return;
+
+      images.push({
+        src: imgSrc,
+        alt: element.getAttribute('aria-label') || element.getAttribute('title') || 'Background image',
         width: width,
         height: height,
         area: width * height
