@@ -12,6 +12,7 @@ class FullPageCollector {
     this.selectedTags = new Set(); // Track multiple selected tags
     this.currentSheetName = null; // Current selected sheet name
     this.allSheetNames = []; // All available sheet names
+    this.columnCount = this.loadColumnPreference(); // Load saved column count or default to 4
     this.init();
     this.setupMessageListener();
   }
@@ -154,6 +155,7 @@ class FullPageCollector {
     const logo = document.getElementById("logo");
     const sheetSelectorButton = document.getElementById("sheet-selector-button");
     const sheetSelectorDropdown = document.getElementById("sheet-selector-dropdown");
+    const columnToggle = document.getElementById("column-toggle");
 
     // Sheet selector dropdown toggle
     if (sheetSelectorButton) {
@@ -220,6 +222,10 @@ class FullPageCollector {
         // Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
+    }
+
+    if (columnToggle) {
+      columnToggle.addEventListener("click", () => this.toggleColumnCount());
     }
 
     const loadMoreBtn = document.getElementById("load-more-btn");
@@ -1806,19 +1812,92 @@ class FullPageCollector {
     this.attachEventListeners();
   }
 
+  loadColumnPreference() {
+    // Try to load from localStorage
+    const saved = localStorage.getItem('quotebook-column-count');
+    if (saved) {
+      const count = parseInt(saved);
+      // Validate the saved value
+      if (count >= 2 && count <= 5) {
+        return count;
+      }
+    }
+    // Default to 4 columns
+    return 4;
+  }
+
+  saveColumnPreference() {
+    localStorage.setItem('quotebook-column-count', this.columnCount.toString());
+  }
+
+  getMaxColumns() {
+    // Define minimum width per column (in pixels)
+    // This ensures columns don't get too narrow on smaller screens
+    const minColumnWidth = 280; // Minimum width for readable content
+    const containerWidth = window.innerWidth - 80; // Account for padding
+    const maxPossibleColumns = Math.floor(containerWidth / minColumnWidth);
+
+    // Cap at 5 columns maximum
+    return Math.min(maxPossibleColumns, 5);
+  }
+
+  toggleColumnCount() {
+    const maxColumns = this.getMaxColumns();
+
+    // Cycle through 2 -> 3 -> 4 -> 5 -> 2, but respect max columns
+    if (this.columnCount === 2) {
+      this.columnCount = 3;
+    } else if (this.columnCount === 3) {
+      this.columnCount = Math.min(4, maxColumns);
+    } else if (this.columnCount === 4) {
+      this.columnCount = maxColumns >= 5 ? 5 : 2;
+    } else if (this.columnCount === 5) {
+      this.columnCount = 2;
+    } else {
+      this.columnCount = 2;
+    }
+
+    // If the new count exceeds max, wrap back to 2
+    if (this.columnCount > maxColumns) {
+      this.columnCount = 2;
+    }
+
+    // Save preference
+    this.saveColumnPreference();
+
+    // Update icon
+    this.updateColumnToggleIcon();
+
+    // Re-render the content
+    this.renderContent();
+  }
+
+  updateColumnToggleIcon() {
+    const toggleButton = document.getElementById("column-toggle");
+    if (!toggleButton) return;
+
+    // Always use the 3x3 grid icon
+    const gridIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-grid3x3-icon lucide-grid-3x3"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>`;
+
+    toggleButton.innerHTML = gridIcon;
+  }
+
   renderMasonryLayout() {
     const contentContainer = document.getElementById("content");
-    
-    // Number of columns based on screen size
-    const getColumnCount = () => {
-      if (window.innerWidth <= 600) return 1;
-      if (window.innerWidth <= 1000) return 2;
-      if (window.innerWidth <= 1200) return 3;
-      return 4;
-    };
-    
-    const columnCount = getColumnCount();
-    
+
+    // Use the manually set column count, but respect screen width constraints
+    const maxColumns = this.getMaxColumns();
+    const columnCount = Math.min(this.columnCount, maxColumns);
+
+    // If the saved preference exceeds what the screen can handle, use max
+    if (this.columnCount > maxColumns) {
+      // Don't save this change - it's just a temporary adjustment for this screen size
+      // When user switches to a larger screen, their preference will be restored
+    }
+
+    // Add CSS class to content container for styling
+    contentContainer.className = `content-grid columns-${columnCount}`;
+
     // Create columns
     const columns = [];
     const columnHeights = [];

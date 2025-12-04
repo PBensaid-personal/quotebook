@@ -277,6 +277,7 @@ select#tagFilter::-ms-expand {
 .search-controls {
   display: flex;
   align-items: center;
+  gap: var(--spacing-sm);
   margin-left: auto;
 }
 
@@ -310,6 +311,36 @@ select#tagFilter::-ms-expand {
 #tag-filter-button svg {
   color: var(--color-text-dark);
   transition: all var(--transition-fast);
+}
+
+/* Column toggle button */
+.column-toggle-button {
+  width: 36px;
+  height: 34px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-gray-100);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.column-toggle-button svg {
+  color: var(--color-text-dark);
+  transition: all var(--transition-fast);
+}
+
+.column-toggle-button:hover {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.column-toggle-button:hover svg {
+  color: hsl(0, 0%, 0%);
 }
 
 /* Create sheet input */
@@ -384,20 +415,75 @@ select#tagFilter::-ms-expand {
 .content-grid .masonry-column {
   position: absolute;
   top: 0;
-  width: calc(25% - 15px);
 }
 
-.content-grid .masonry-column:nth-child(1) {
+/* 2 column layout */
+.content-grid.columns-2 .masonry-column {
+  width: calc(50% - 10px);
+}
+.content-grid.columns-2 .masonry-column:nth-child(1) {
   left: 0;
 }
-.content-grid .masonry-column:nth-child(2) {
-  left: calc(25% + 5px);
-}
-.content-grid .masonry-column:nth-child(3) {
+.content-grid.columns-2 .masonry-column:nth-child(2) {
   left: calc(50% + 10px);
 }
-.content-grid .masonry-column:nth-child(4) {
+.content-grid.columns-2 .masonry-column:nth-child(3),
+.content-grid.columns-2 .masonry-column:nth-child(4) {
+  display: none;
+}
+
+/* 3 column layout */
+.content-grid.columns-3 .masonry-column {
+  width: calc(33.333% - 14px);
+}
+.content-grid.columns-3 .masonry-column:nth-child(1) {
+  left: 0;
+}
+.content-grid.columns-3 .masonry-column:nth-child(2) {
+  left: calc(33.333% + 6px);
+}
+.content-grid.columns-3 .masonry-column:nth-child(3) {
+  left: calc(66.666% + 12px);
+}
+.content-grid.columns-3 .masonry-column:nth-child(4) {
+  display: none;
+}
+
+/* 4 column layout */
+.content-grid.columns-4 .masonry-column {
+  width: calc(25% - 15px);
+}
+.content-grid.columns-4 .masonry-column:nth-child(1) {
+  left: 0;
+}
+.content-grid.columns-4 .masonry-column:nth-child(2) {
+  left: calc(25% + 5px);
+}
+.content-grid.columns-4 .masonry-column:nth-child(3) {
+  left: calc(50% + 10px);
+}
+.content-grid.columns-4 .masonry-column:nth-child(4) {
   left: calc(75% + 15px);
+}
+
+/* 5 column layout */
+.content-grid.columns-5 .masonry-column {
+  width: calc(20% - 16px);
+}
+.content-grid.columns-5 .masonry-column:nth-child(1) {
+  left: 0;
+}
+.content-grid.columns-5 .masonry-column:nth-child(2) {
+  left: calc(20% + 4px);
+}
+.content-grid.columns-5 .masonry-column:nth-child(3) {
+  left: calc(40% + 8px);
+}
+.content-grid.columns-5 .masonry-column:nth-child(4) {
+  left: calc(60% + 12px);
+}
+.content-grid.columns-5 .masonry-column:nth-child(5) {
+  left: calc(80% + 16px);
 }
 
 /* ========================================
@@ -806,49 +892,4 @@ select#tagFilter::-ms-expand {
 /* ========================================
    RESPONSIVE BREAKPOINTS
    ======================================== */
-@media (max-width: 1200px) {
-  .content-grid .masonry-column {
-    width: calc(33.333% - 14px);
-  }
-  .content-grid .masonry-column:nth-child(1) {
-    left: 0;
-  }
-  .content-grid .masonry-column:nth-child(2) {
-    left: calc(33.333% + 6px);
-  }
-  .content-grid .masonry-column:nth-child(3) {
-    left: calc(66.666% + 12px);
-  }
-  .content-grid .masonry-column:nth-child(4) {
-    display: none;
-  }
-}
-
-@media (max-width: 1000px) {
-  .content-grid .masonry-column {
-    width: calc(50% - 10px);
-  }
-  .content-grid .masonry-column:nth-child(1) {
-    left: 0;
-  }
-  .content-grid .masonry-column:nth-child(2) {
-    left: calc(50% + 10px);
-  }
-  .content-grid .masonry-column:nth-child(3) {
-    display: none;
-  }
-  .content-grid .masonry-column:nth-child(4) {
-    display: none;
-  }
-}
-
-@media (max-width: 600px) {
-  .content-grid .masonry-column {
-    width: 100%;
-    position: static;
-  }
-  .content-grid .masonry-column:nth-child(2),
-  .content-grid .masonry-column:nth-child(3) {
-    display: none;
-  }
-}
+/* Responsive breakpoints removed - column count now controlled by toggle button */
