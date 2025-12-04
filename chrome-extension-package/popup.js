@@ -17,14 +17,19 @@ class EnhancedQuoteCollector {
   }
 
   async init() {
-    this.setupEventListeners();
-    this.setupMessageListener();
-    await this.checkUpdateNotification();
-    await this.checkExistingAuth();
-    await this.checkEditMode();
-    await this.loadSelectedText();
-    // Note: loadExistingTags() will be called after auth is confirmed
-    this.setupTagInterface();
+    try {
+      this.setupEventListeners();
+      this.setupMessageListener();
+      await this.checkUpdateNotification();
+      await this.checkExistingAuth();
+      await this.checkEditMode();
+      await this.loadSelectedText();
+      // Note: loadExistingTags() will be called after auth is confirmed
+      this.setupTagInterface();
+    } catch (error) {
+      // Fallback: show auth interface if anything fails
+      this.showAuthInterface();
+    }
   }
 
   setupMessageListener() {
@@ -272,7 +277,6 @@ class EnhancedQuoteCollector {
         this.updateSheetNameDisplay();
       }
     } catch (error) {
-      console.error('Failed to load sheet names:', error);
       this.allSheetNames = [];
       this.updateSheetNameDisplay();
     }
@@ -478,7 +482,6 @@ class EnhancedQuoteCollector {
       this.updateSheetNameDisplay();
       this.renderSheetSelectorPopup();
     } catch (error) {
-      console.error('Failed to create sheet:', error);
       alert(`Failed to create sheet: ${error.message}`);
     }
   }
@@ -605,7 +608,7 @@ class EnhancedQuoteCollector {
         await chrome.storage.local.remove(['editMode', 'editCardData']);
       }
     } catch (error) {
-      console.error('Error checking edit mode:', error);
+      // Error checking edit mode
     }
   }
 
@@ -646,8 +649,13 @@ class EnhancedQuoteCollector {
     if (cardData.image) {
       // Split pipe-delimited URLs if multiple images exist (||| delimiter)
       const savedImageUrls = cardData.image.split('|||').map(url => url.trim()).filter(url => url);
-      
+
       if (savedImageUrls.length > 0) {
+        // Initialize pageImages if empty
+        if (!this.pageImages) {
+          this.pageImages = [];
+        }
+
         // Merge saved images with current page images
         // First, add saved images that aren't already in pageImages
         const existingUrls = new Set(this.pageImages.map(img => img.src));
@@ -655,11 +663,13 @@ class EnhancedQuoteCollector {
           if (!existingUrls.has(url)) {
             this.pageImages.push({
               src: url,
-              alt: 'Saved image'
+              alt: 'Saved image',
+              width: 800,
+              height: 600
             });
           }
         });
-        
+
         // Select all saved images (by URL match, not just index)
         this.selectedImageIndices.clear();
         this.pageImages.forEach((img, index) => {
@@ -667,7 +677,7 @@ class EnhancedQuoteCollector {
             this.selectedImageIndices.add(index);
           }
         });
-        
+
         // Reset carousel to start to show selected images
         this.carouselStartIndex = 0;
         this.showImageSelector();
@@ -677,7 +687,7 @@ class EnhancedQuoteCollector {
       }
     } else {
       // No image, but if page has images, show them (user can select new ones)
-      if (this.pageImages.length > 0) {
+      if (this.pageImages && this.pageImages.length > 0) {
         this.selectedImageIndices.clear();
         this.showImageSelector();
       } else {
@@ -712,7 +722,6 @@ class EnhancedQuoteCollector {
     this.showStatus('Starting authentication...', 'info');
 
     try {
-      
       // Clear any cached tokens first to force fresh auth
       try {
         const existingToken = await chrome.identity.getAuthToken({ interactive: false });
@@ -721,10 +730,11 @@ class EnhancedQuoteCollector {
           await chrome.identity.removeCachedAuthToken({ token: tokenToRemove });
         }
       } catch (e) {
+        // Ignore errors clearing cache
       }
-      
+
       // Use Chrome Identity API with interactive flow
-      const accessToken = await chrome.identity.getAuthToken({ 
+      const accessToken = await chrome.identity.getAuthToken({
         interactive: true
       });
 
@@ -732,38 +742,35 @@ class EnhancedQuoteCollector {
         throw new Error('No access token received from Chrome Identity API');
       }
 
-      
       // Handle both string and object token formats
       this.accessToken = typeof accessToken === 'object' ? accessToken.token : accessToken;
       this.isLoggedOut = false; // Clear logout state
-      
+
       // Clear the logout flag from storage
       await chrome.storage.local.remove(['userLoggedOut']);
-      
+
       this.showStatus('Authentication successful!', 'success');
-      
+
       // Test the token immediately
       const isValid = await this.validateToken();
       if (!isValid) {
         throw new Error('Received token is invalid');
       }
-      
+
       await this.setupSpreadsheetIfNeeded();
-      
+
       // Store authentication state for future popup opens and fullpage compatibility
       await chrome.storage.local.set({
         isAuthenticated: true,
         googleAccessToken: this.accessToken,
         googleSpreadsheetId: this.spreadsheetId
       });
-      
+
       // Load sheet names and set current sheet
       await this.loadSheetNames();
       this.showMainInterface();
 
     } catch (error) {
-      console.error('Authentication error:', error);
-      
       // Show user-friendly error messages
       let userMessage = 'Authentication failed. Please try again.';
       if (error.message.includes('cancelled') || error.message.includes('denied')) {
@@ -771,9 +778,9 @@ class EnhancedQuoteCollector {
       } else if (error.message.includes('network') || error.message.includes('timeout')) {
         userMessage = 'Network error. Please check your connection and try again.';
       }
-      
+
       this.showStatus(userMessage, 'error');
-      
+
       // If auth fails, ensure we're showing the auth interface
       setTimeout(() => {
         this.showAuthInterface();
@@ -983,6 +990,13 @@ class EnhancedQuoteCollector {
       }
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      // Check if we can access this tab
+      if (!tab || !tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+        this.hideImageSelector();
+        return;
+      }
+
       const result = await chrome.tabs.sendMessage(tab.id, { action: 'getPageMetadata' });
 
       // Handle page images only - removed auto-tag functionality
@@ -1009,7 +1023,8 @@ class EnhancedQuoteCollector {
         }
       }
     } catch (e) {
-      // Could not access tab, this is normal
+      // Could not access tab, this is normal for some tab types
+      this.hideImageSelector();
     }
   }
 
@@ -1088,12 +1103,12 @@ class EnhancedQuoteCollector {
 
       if (response.ok) {
         const responseData = await response.json();
-        
+
         // Store only spreadsheet ID (Chrome Identity API handles tokens)
         await chrome.storage.local.set({
           googleSpreadsheetId: this.spreadsheetId
         });
-        
+
         // Show saved state with animation
         this.showSavedState();
 
@@ -1103,10 +1118,9 @@ class EnhancedQuoteCollector {
         this.renderUserTags();
         this.selectedImageIndices.clear();
         this.renderImageCarousel();
-        
+
       } else {
         const errorData = await response.json();
-        console.error('Save failed:', errorData);
         this.showSaveButtonStatus(`Save failed: ${errorData.error?.message || 'Unknown error'}`, 'error');
       }
 
@@ -1252,9 +1266,8 @@ class EnhancedQuoteCollector {
         const errorData = await addResponse.json();
         this.showSaveButtonStatus(`Update failed: ${errorData.error?.message || 'Unknown error'}`, 'error');
       }
-      
+
     } catch (error) {
-      console.error('Error updating quote:', error);
       this.showSaveButtonStatus(`Error: ${error.message}`, 'error');
     } finally {
       document.getElementById('save-button').disabled = false;
@@ -1334,7 +1347,11 @@ class EnhancedQuoteCollector {
     const button = document.getElementById('save-button');
     const savedStateContainer = document.getElementById('saved-state-container');
     const mainSection = document.getElementById('main-section');
-    
+
+    if (!savedStateContainer) {
+      return;
+    }
+
     // Start the transition by hiding the original content with smooth animation
     const contentSection = document.querySelector('.content-section');
     const tagsSection = document.querySelector('.tags-section');
@@ -1419,6 +1436,9 @@ class EnhancedQuoteCollector {
         }
       });
     });
+    } catch (error) {
+      // Error initializing tooltips
+    }
   }
 
   setupImageCarousel() {
@@ -1435,8 +1455,12 @@ class EnhancedQuoteCollector {
 
   showImageSelector() {
     if (this.pageImages.length > 0) {
-      document.getElementById('image-selector').style.display = 'block';
-      this.renderImageCarousel();
+      const imageSelector = document.getElementById('image-selector');
+      if (imageSelector) {
+        imageSelector.classList.remove('hidden');
+        imageSelector.style.display = '';  // Remove inline display:none style
+        this.renderImageCarousel();
+      }
     }
   }
 
@@ -1449,7 +1473,7 @@ class EnhancedQuoteCollector {
     const prevBtn = document.getElementById('carousel-prev');
     const nextBtn = document.getElementById('carousel-next');
     const noImageIndicator = document.getElementById('no-image-indicator');
-    
+
     // Show/hide "No image selected" indicator and update count
     if (noImageIndicator) {
       const selectedCount = this.selectedImageIndices.size;
@@ -1461,23 +1485,30 @@ class EnhancedQuoteCollector {
         noImageIndicator.style.display = 'inline';
       }
     }
-    
+
     // Show 4 images at a time (more fits with larger thumbnails)
     const visibleCount = 4;
     const startIndex = this.carouselStartIndex;
     const endIndex = Math.min(startIndex + visibleCount, this.pageImages.length);
-    
+
     container.innerHTML = '';
-    
+
     for (let i = startIndex; i < endIndex; i++) {
+      const imageData = this.pageImages[i];
+
+      // Safety check: ensure image data is valid
+      if (!imageData || !imageData.src) {
+        continue;
+      }
+
       const img = document.createElement('img');
-      img.src = this.pageImages[i].src;
-      img.alt = this.pageImages[i].alt;
+      img.src = imageData.src;
+      img.alt = imageData.alt || '';
       img.className = 'image-option';
       if (this.selectedImageIndices.has(i)) {
         img.classList.add('selected');
       }
-      
+
       img.addEventListener('click', () => {
         // Toggle selection: add if not selected, remove if already selected
         if (this.selectedImageIndices.has(i)) {
@@ -1487,10 +1518,16 @@ class EnhancedQuoteCollector {
         }
         this.renderImageCarousel();
       });
-      
+
+      // Add error handler for image load failures
+      img.addEventListener('error', () => {
+        img.style.opacity = '0.5';
+        img.style.border = '2px dashed #ef4444';
+      });
+
       container.appendChild(img);
     }
-    
+
     // Show/hide buttons based on whether they're needed
     if (startIndex === 0) {
       prevBtn.style.display = 'none';
@@ -1540,9 +1577,7 @@ class EnhancedQuoteCollector {
     const tagInput = document.getElementById('tag-input');
     const pillsContainer = document.getElementById('tag-pills-container');
 
-
     if (!tagInput || !pillsContainer) {
-      console.error('Tag input or pills container not found!');
       return;
     }
 
