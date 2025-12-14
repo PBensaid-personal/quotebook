@@ -1,5 +1,21 @@
 // Full page Quotebook interface
 
+// Icon SVGs as reusable constants
+const ICONS = {
+  done: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 6 9 17l-5-5"/>
+  </svg>`,
+  edit: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+    <path d="m15 5 4 4"/>
+  </svg>`,
+  trash: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+    <path d="M3 6h18"/>
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+  </svg>`
+};
+
 class FullPageCollector {
   constructor() {
     this.accessToken = null;
@@ -390,7 +406,7 @@ class FullPageCollector {
 
       // Add headers
       await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:G1?valueInputOption=RAW`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:H1?valueInputOption=RAW`,
         {
           method: "PUT",
           headers: {
@@ -398,7 +414,7 @@ class FullPageCollector {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            values: [["Title", "Content", "URL", "Tags", "Timestamp", "Image", "Price"]],
+            values: [["Title", "Content", "URL", "Tags", "Timestamp", "Image", "Price", "Done"]],
           }),
         },
       );
@@ -746,7 +762,7 @@ class FullPageCollector {
       // Add headers to the new sheet
       const escapedSheetName = `'${sheetName.replace(/'/g, "''")}'`;
       await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A1:G1?valueInputOption=RAW`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A1:H1?valueInputOption=RAW`,
         {
           method: "PUT",
           headers: {
@@ -754,7 +770,7 @@ class FullPageCollector {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            values: [["Title", "Content", "URL", "Tags", "Timestamp", "Image", "Price"]],
+            values: [["Title", "Content", "URL", "Tags", "Timestamp", "Image", "Price", "Done"]],
           }),
         },
       );
@@ -892,9 +908,9 @@ class FullPageCollector {
       // Use current sheet name, escape single quotes in sheet name
       const sheetName = this.currentSheetName || 'My quotes';
       const escapedSheetName = `'${sheetName.replace(/'/g, "''")}'`;
-      
+
       const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A2:G1000`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A2:H1000`,
         {
           headers: {
             Authorization: `Bearer ${this.accessToken}`,
@@ -920,9 +936,9 @@ class FullPageCollector {
       const data = await response.json();
       const rows = data.values || [];
 
-      // Check if Price column header exists, add it if missing
+      // Check if Price and Done columns exist, add them if missing
       const headerResponse = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A1:G1`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A1:H1`,
         {
           headers: {
             Authorization: `Bearer ${this.accessToken}`,
@@ -933,13 +949,13 @@ class FullPageCollector {
       if (headerResponse.ok) {
         const headerData = await headerResponse.json();
         const headers = headerData.values && headerData.values[0] ? headerData.values[0] : [];
-        
-        // If Price column is missing, add it
-        if (headers.length < 7 || headers[6] !== "Price") {
-          // Update headers to include Price column
-          const updatedHeaders = ["Title", "Content", "URL", "Tags", "Timestamp", "Image", "Price"];
+
+        // If Price or Done columns are missing, add them
+        if (headers.length < 8 || headers[6] !== "Price" || headers[7] !== "Done") {
+          // Update headers to include Price and Done columns
+          const updatedHeaders = ["Title", "Content", "URL", "Tags", "Timestamp", "Image", "Price", "Done"];
           await fetch(
-            `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A1:G1?valueInputOption=RAW`,
+            `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!A1:H1?valueInputOption=RAW`,
             {
               method: "PUT",
               headers: {
@@ -960,7 +976,11 @@ class FullPageCollector {
         const images = imageField
           ? imageField.split("|||").map((url) => url.trim()).filter((url) => url)
           : [];
-        
+
+        // Parse done status (column H)
+        const doneValue = row[7] || "";
+        const isDone = doneValue.toString().toLowerCase() === "true" || doneValue === "TRUE";
+
         return {
           id: index, // 0-based index in the data array
           originalRowIndex: index, // Original position in spreadsheet (before sorting)
@@ -977,6 +997,7 @@ class FullPageCollector {
           image: imageField, // Keep original for backward compatibility
           images: images, // Array of image URLs
           price: row[6] || "", // Price column - use exclusively, no extraction from content
+          done: isDone, // Done status
         };
       });
 
@@ -1018,10 +1039,10 @@ class FullPageCollector {
     this._cardClickHandler = (e) => {
       const card = e.target.closest(".content-card");
       if (!card) return;
-      
-      // Don't navigate if user clicked on delete button, tag, or gallery navigation
-      if (e.target.closest(".delete-btn") || 
-          e.target.closest(".tag-pill") || 
+
+      // Don't navigate if user clicked on action buttons, tag, or gallery navigation
+      if (e.target.closest(".action-btn") ||
+          e.target.closest(".tag-pill") ||
           e.target.closest(".gallery-nav-btn")) {
         return;
       }
@@ -1034,6 +1055,29 @@ class FullPageCollector {
     
     // Attach single delegated listener to container
     contentContainer.addEventListener("click", this._cardClickHandler);
+
+    // Edit button event listeners
+    document.querySelectorAll(".edit-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const itemId = btn.getAttribute("data-item-id");
+        const cardData = this.contentData.find(item => item.id == itemId);
+        if (cardData) {
+          this.openPopupWithCard(cardData);
+        }
+      });
+    });
+
+    // Done button event listeners
+    document.querySelectorAll(".done-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const itemId = btn.getAttribute("data-item-id");
+        this.toggleDone(parseInt(itemId));
+      });
+    });
 
     // Delete button event listeners
     document.querySelectorAll(".delete-btn").forEach((btn) => {
@@ -1069,39 +1113,39 @@ class FullPageCollector {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation(); // Prevent card click
-        
+
         // Don't proceed if button is disabled
         if (btn.disabled) return;
-        
+
         const container = btn.closest(".content-image-container");
         if (!container) return;
-        
+
         const imageUrlsAttr = container.getAttribute("data-image-urls");
         if (!imageUrlsAttr) return;
-        
+
         // Parse image URLs from attribute
         const imageUrls = JSON.parse(imageUrlsAttr.replace(/&quot;/g, '"'));
         if (imageUrls.length <= 1) return;
-        
+
         const currentIndex = parseInt(container.getAttribute("data-image-index")) || 0;
         const img = container.querySelector(".gallery-image");
         const leftBtn = container.querySelector(".gallery-nav-left");
         const rightBtn = container.querySelector(".gallery-nav-right");
-        
+
         let newIndex;
         if (btn.classList.contains("gallery-nav-left")) {
           newIndex = Math.max(0, currentIndex - 1);
         } else {
           newIndex = Math.min(imageUrls.length - 1, currentIndex + 1);
         }
-        
+
         // Update image with fade effect
         img.style.opacity = "0";
         setTimeout(() => {
           img.src = imageUrls[newIndex];
           container.setAttribute("data-image-index", newIndex);
           img.style.opacity = "1";
-          
+
           // Update arrow disabled state
           if (leftBtn) {
             leftBtn.disabled = newIndex === 0;
@@ -1112,19 +1156,70 @@ class FullPageCollector {
         }, 150);
       });
     });
+  }
 
-    // Date click listeners (open popup for editing)
-    document.querySelectorAll(".content-date").forEach((dateEl) => {
-      dateEl.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation(); // Prevent card click
-        const cardId = e.target.closest(".content-card").getAttribute("data-item-id");
-        const cardData = this.contentData.find(item => item.id == cardId); // Use == for type coercion
-        if (cardData) {
-          this.openPopupWithCard(cardData);
-        }
-      });
-    });
+  async toggleDone(itemId) {
+    try {
+      console.log("Toggling done status for item with ID:", itemId);
+
+      // Find the item in our data array
+      const item = this.contentData.find((item) => item.id === itemId);
+      if (!item) {
+        console.error("Item not found:", itemId);
+        alert("Item not found. Please refresh and try again.");
+        return;
+      }
+
+      // Toggle the done status
+      const newDoneStatus = !item.done;
+
+      // Calculate the actual spreadsheet row number
+      const rowNumber = item.originalRowIndex + 2;
+      console.log(
+        "Updating row:",
+        rowNumber,
+        "to done status:",
+        newDoneStatus
+      );
+
+      // Update the Done column (column H) in the spreadsheet
+      const sheetName = this.currentSheetName || 'My quotes';
+      const escapedSheetName = `'${sheetName.replace(/'/g, "''")}'`;
+
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${escapedSheetName}!H${rowNumber}?valueInputOption=RAW`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            values: [[newDoneStatus.toString().toUpperCase()]],
+          }),
+        },
+      );
+
+      if (response.ok) {
+        console.log("Done status updated successfully in spreadsheet");
+
+        // Update local data
+        item.done = newDoneStatus;
+
+        // Reapply filters to update the UI
+        this.applyFilters();
+      } else {
+        const errorData = await response.json();
+        console.error("Update failed:", errorData);
+        this.showErrorMessage(
+          "Failed to update item. Error: " +
+            (errorData.error?.message || "Unknown error")
+        );
+      }
+    } catch (error) {
+      console.error("Failed to toggle done status:", error);
+      this.showErrorMessage("Failed to update item. Please try again. Error: " + error.message);
+    }
   }
 
   async deleteItem(itemId) {
@@ -1571,11 +1666,14 @@ class FullPageCollector {
 
   calculateTotalPrice() {
     if (!this.filteredData || this.filteredData.length === 0) return null;
-    
+
     let total = 0;
     let hasPrices = false;
-    
+
     this.filteredData.forEach((item) => {
+      // Skip items marked as done
+      if (item.done) return;
+
       // Use only the dedicated price field - no extraction from content
       if (item.price && String(item.price).trim() !== '') {
         const priceStr = String(item.price).trim();
@@ -1586,7 +1684,7 @@ class FullPageCollector {
         }
       }
     });
-    
+
     return hasPrices ? total : null;
   }
 
@@ -1914,7 +2012,7 @@ class FullPageCollector {
       
       // Create card element
       const cardElement = document.createElement('div');
-      cardElement.className = 'content-card';
+      cardElement.className = item.done ? 'content-card done' : 'content-card';
       cardElement.setAttribute('data-item-id', item.id);
       cardElement.setAttribute('data-url', this.escapeHtml(item.url));
       
@@ -1979,12 +2077,15 @@ class FullPageCollector {
         
         <div class="content-meta">
           <span class="content-domain">${this.getDomain(item.url)}</span>
-          <div class="content-meta-right">
-            <time class="content-date">${this.formatDate(item.date)}</time>
-            <button class="delete-btn" data-item-id="${item.id}" title="Delete">
-              <svg width="14px" height="14px" stroke-width="2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="#666666">
-                <path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426" stroke="#666666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-              </svg>
+          <div class="content-actions">
+            <button class="action-btn done-btn ${item.done ? 'checked' : ''}" data-item-id="${item.id}" title="Mark ${item.done ? 'incomplete' : 'completed'}">
+              ${ICONS.done}
+            </button>
+            <button class="action-btn edit-btn" data-item-id="${item.id}" title="Edit quote">
+              ${ICONS.edit}
+            </button>
+            <button class="action-btn delete-btn" data-item-id="${item.id}" title="Delete quote">
+              ${ICONS.trash}
             </button>
           </div>
         </div>
@@ -2070,6 +2171,23 @@ class FullPageCollector {
     const elements = document.querySelectorAll('[data-tooltip]');
     let tooltip = null;
     let hideTimeout = null;
+    let currentElement = null;
+
+    const hideTooltip = () => {
+      if (tooltip) {
+        tooltip.classList.remove('show');
+        hideTimeout = setTimeout(() => {
+          if (tooltip) {
+            tooltip.remove();
+            tooltip = null;
+          }
+          hideTimeout = null;
+        }, 200);
+      }
+    };
+
+    // Hide tooltips on scroll
+    window.addEventListener('scroll', hideTooltip, true);
 
     elements.forEach(element => {
       element.addEventListener('mouseenter', (e) => {
@@ -2085,6 +2203,8 @@ class FullPageCollector {
             return; // Don't show tooltip when a tag filter is active
           }
         }
+
+        currentElement = e.currentTarget;
 
         // Clear any pending hide timeout
         if (hideTimeout) {
@@ -2132,16 +2252,8 @@ class FullPageCollector {
       });
 
       element.addEventListener('mouseleave', () => {
-        if (tooltip) {
-          tooltip.classList.remove('show');
-          hideTimeout = setTimeout(() => {
-            if (tooltip) {
-              tooltip.remove();
-              tooltip = null;
-            }
-            hideTimeout = null;
-          }, 200);
-        }
+        currentElement = null;
+        hideTooltip();
       });
     });
   }
